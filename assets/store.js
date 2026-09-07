@@ -103,7 +103,7 @@
     /* --- Events & Verfügbarkeit --- */
     async getEvents(includeInactive) {
       let q = sb.from('events')
-        .select('id,name,date,location,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating)')
+        .select('id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating)')
         .eq('storefront', STOREFRONT)
         .order('date', { ascending: true });
       const { data, error } = await q;
@@ -124,6 +124,7 @@
           const sharedRemaining = sharedQuota === null ? null : Math.max(0, sharedQuota - sharedSold);
           return {
             id: e.id, name: e.name, date: e.date, location: e.location,
+            club: e.club || null,
             description: e.description, active: e.active, layout: e.layout || null,
             ownerEmail: e.owner_email || null,
             // Zusätzliche Veranstalter (Mit-Verwalter, ohne Auszahlung)
@@ -471,6 +472,8 @@
         // In diesem Projekt angelegte Events gehören immer zum Focus-Storefront.
         storefront: STOREFRONT
       };
+      // Club-Zuordnung (LEVEL/YPSILON) nur setzen, wenn übergeben.
+      if (ev.club !== undefined) row.club = ev.club || null;
       // Gesamtkontingent nur setzen, wenn explizit übergeben (sonst bestehenden Wert nicht überschreiben).
       // null = deaktiviert, Zahl = gemeinsamer Topf.
       if (ev.sharedQuota !== undefined) {

@@ -5,47 +5,195 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tickets – Focus Events</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="stylesheet" href="assets/shop.css">
 <script src="assets/supabase.js"></script>
 <script src="assets/qrcode.js"></script>
 <script src="assets/ticket-pdf.js"></script>
+<style>
+  /* ===== Focus Events – Club-Shop (eigenes Design) ===== */
+  :root{
+    --fx-teal:#079f96; --fx-teal-lt:#3fc3ba; --fx-teal-dk:#05756e;
+    --fx-bg:#070d0c; --fx-bg2:#0c1615; --fx-card:#0f1a19; --fx-card2:#132322;
+    --fx-line:rgba(63,195,186,.16); --fx-txt:#eaf3f2; --fx-mut:#8fa5a2;
+  }
+  html,body{background:var(--fx-bg);}
+  body{
+    font-family:'Space Grotesk',system-ui,sans-serif; color:var(--fx-txt);
+    font-weight:400; -webkit-font-smoothing:antialiased; margin:0;
+    background:
+      radial-gradient(900px 520px at 78% -8%, rgba(7,159,150,.22), transparent 60%),
+      radial-gradient(700px 500px at 8% 4%, rgba(7,159,150,.10), transparent 55%),
+      var(--fx-bg);
+    background-attachment:fixed;
+  }
+  a{color:inherit;}
+  ::selection{background:var(--fx-teal);color:#04110f;}
+
+  /* Nav */
+  .fx-nav{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;
+    padding:16px clamp(18px,5vw,54px);
+    background:rgba(7,13,12,.72);backdrop-filter:blur(14px);border-bottom:1px solid var(--fx-line);}
+  .fx-brand{display:flex;align-items:center;gap:11px;text-decoration:none;}
+  .fx-brand img{height:26px;width:auto;display:block;}
+  .fx-brand b{font-family:'Space Grotesk';font-weight:700;font-size:1.02rem;letter-spacing:.32em;text-transform:uppercase;}
+  .fx-brand b span{color:var(--fx-teal);}
+  .fx-navlinks{display:flex;align-items:center;gap:8px;}
+  .fx-navlinks a{font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;color:var(--fx-mut);
+    padding:9px 14px;border-radius:999px;transition:.2s;}
+  .fx-navlinks a:hover{color:var(--fx-txt);}
+  .fx-navlinks a.fx-cta{border:1px solid var(--fx-teal);color:var(--fx-teal-lt);}
+  .fx-navlinks a.fx-cta:hover{background:var(--fx-teal);color:#04110f;}
+
+  /* Hero */
+  .fx-hero{max-width:1180px;margin:0 auto;padding:clamp(40px,7vw,84px) clamp(18px,5vw,54px) 8px;}
+  .fx-eyebrow{font-size:.72rem;letter-spacing:.5em;text-transform:uppercase;color:var(--fx-teal-lt);
+    display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+  .fx-eyebrow::before{content:"";width:38px;height:1px;background:var(--fx-teal);}
+  .fx-hero h1{font-family:'Anton',sans-serif;font-weight:400;line-height:.92;letter-spacing:.01em;
+    font-size:clamp(2.9rem,9vw,6.2rem);text-transform:uppercase;margin:0 0 14px;}
+  .fx-hero h1 span{color:var(--fx-teal);
+    text-shadow:0 0 34px rgba(7,159,150,.55);}
+  .fx-hero p{max-width:52ch;color:var(--fx-mut);font-size:1rem;line-height:1.65;margin:0;}
+
+  /* Club-Reiter */
+  .fx-tabs{max-width:1180px;margin:clamp(26px,4vw,44px) auto 0;padding:0 clamp(18px,5vw,54px);
+    display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .fx-tab{position:relative;cursor:pointer;border:1px solid var(--fx-line);border-radius:16px;overflow:hidden;
+    background:linear-gradient(160deg,var(--fx-card2),var(--fx-card));
+    padding:30px 26px;min-height:132px;display:flex;flex-direction:column;justify-content:space-between;
+    transition:.25s;opacity:.52;filter:grayscale(.3);}
+  .fx-tab:hover{opacity:.8;transform:translateY(-2px);}
+  .fx-tab .fx-tab-glow{position:absolute;inset:0;opacity:0;transition:.3s;
+    background:radial-gradient(420px 150px at 50% 120%, rgba(7,159,150,.4), transparent 70%);pointer-events:none;}
+  .fx-tab.active{opacity:1;filter:none;border-color:var(--fx-teal);
+    box-shadow:0 0 0 1px var(--fx-teal), 0 24px 60px -30px rgba(7,159,150,.8);}
+  .fx-tab.active .fx-tab-glow{opacity:1;}
+  .fx-tab img{height:clamp(34px,5vw,46px);width:auto;object-fit:contain;object-position:left center;
+    filter:drop-shadow(0 2px 10px rgba(0,0,0,.5));}
+  .fx-tab .fx-tab-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--fx-mut);position:relative;z-index:1;}
+  .fx-tab.active .fx-tab-foot{color:var(--fx-teal-lt);}
+  .fx-tab .fx-count{font-family:'Space Grotesk';font-weight:600;color:var(--fx-txt);}
+  .fx-tab.active .fx-count{color:var(--fx-teal-lt);}
+
+  /* Shop-Bereich */
+  .fx-wrap{max-width:1180px;margin:0 auto;padding:clamp(30px,4vw,46px) clamp(18px,5vw,54px) 40px;}
+  .fx-secline{display:flex;align-items:baseline;gap:14px;margin:8px 0 22px;}
+  .fx-secline h2{font-family:'Anton',sans-serif;font-weight:400;text-transform:uppercase;letter-spacing:.02em;
+    font-size:clamp(1.5rem,3.4vw,2.2rem);margin:0;}
+  .fx-secline h2 em{font-style:normal;color:var(--fx-teal);}
+  .fx-secline .fx-sub{color:var(--fx-mut);font-size:.85rem;}
+
+  #eventList{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px;}
+  .ev-card{position:relative;border:1px solid var(--fx-line);border-radius:16px;overflow:hidden;
+    background:linear-gradient(165deg,var(--fx-card2),var(--fx-card));transition:.22s;}
+  .ev-card:hover{border-color:rgba(63,195,186,.4);transform:translateY(-3px);
+    box-shadow:0 26px 60px -34px rgba(7,159,150,.6);}
+  .ev-top{display:flex;gap:16px;padding:20px 20px 14px;}
+  .ev-date{flex:0 0 auto;width:66px;text-align:center;border:1px solid var(--fx-line);border-radius:12px;
+    padding:10px 0;background:rgba(7,159,150,.07);}
+  .ev-date .d{font-family:'Anton',sans-serif;font-size:1.9rem;line-height:1;color:var(--fx-teal-lt);}
+  .ev-date .m{font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--fx-mut);margin-top:5px;}
+  .ev-date .wd{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--fx-teal);margin-top:3px;}
+  .ev-head{min-width:0;}
+  .ev-head h3{font-family:'Space Grotesk';font-weight:700;font-size:1.28rem;line-height:1.1;margin:2px 0 6px;
+    letter-spacing:.01em;text-transform:uppercase;}
+  .ev-loc{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--fx-teal-lt);
+    display:inline-flex;align-items:center;gap:6px;}
+  .ev-desc{color:var(--fx-mut);font-size:.9rem;line-height:1.55;padding:0 20px 6px;}
+  .ev-cats{padding:6px 14px 16px;display:flex;flex-direction:column;gap:2px;}
+  .cat-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;
+    padding:12px 6px;border-top:1px solid rgba(63,195,186,.1);}
+  .cat-row:first-child{border-top:none;}
+  .cat-info .name{font-weight:600;font-size:.96rem;}
+  .cat-info .desc{color:var(--fx-mut);font-size:.78rem;margin-top:2px;}
+  .cat-price{font-family:'Space Grotesk';font-weight:700;font-size:1.02rem;color:var(--fx-teal-lt);white-space:nowrap;}
+  .cat-left{grid-column:1 / -1;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--fx-mut);}
+  .cat-left.low{color:#e6b25a;}
+  .cat-left.out{color:#d9615f;}
+  .qty{display:inline-flex;align-items:center;border:1px solid var(--fx-line);border-radius:999px;overflow:hidden;}
+  .qty button{width:34px;height:34px;border:none;background:transparent;color:var(--fx-teal-lt);
+    font-size:1.2rem;cursor:pointer;transition:.15s;line-height:1;}
+  .qty button:hover{background:var(--fx-teal);color:#04110f;}
+  .qty input{width:34px;height:34px;border:none;background:transparent;color:var(--fx-txt);
+    text-align:center;font-family:'Space Grotesk';font-weight:600;font-size:.95rem;}
+
+  .fx-empty{border:1px dashed var(--fx-line);border-radius:16px;padding:46px 26px;text-align:center;
+    background:rgba(7,159,150,.04);}
+  .fx-empty h3{font-family:'Anton',sans-serif;font-weight:400;text-transform:uppercase;font-size:1.5rem;margin:0 0 8px;}
+  .fx-empty p{color:var(--fx-mut);margin:0;}
+
+  /* „Meine Tickets" schlicht angepasst */
+  #meine-tickets{max-width:1180px;margin:56px auto 0;padding:0 clamp(18px,5vw,54px);}
+
+  /* Footer */
+  .fx-footer{border-top:1px solid var(--fx-line);margin-top:70px;padding:34px clamp(18px,5vw,54px);
+    display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;color:var(--fx-mut);font-size:.8rem;}
+  .fx-footer a{color:var(--fx-mut);text-decoration:none;margin-left:18px;transition:.2s;}
+  .fx-footer a:hover{color:var(--fx-teal-lt);}
+  .fx-footer .fx-foot-links{display:flex;flex-wrap:wrap;}
+
+  @media(max-width:620px){
+    .fx-navlinks a:not(.fx-cta){display:none;}
+    .fx-tabs{grid-template-columns:1fr 1fr;gap:10px;}
+    .fx-tab{padding:20px 16px;min-height:104px;}
+    #eventList{grid-template-columns:1fr;}
+  }
+</style>
 </head>
 <body>
 
-<nav class="shop-nav">
-  <a href="index.html" class="logo"><span>FOCUS</span> EVENTS</a>
-  <div class="links">
-    <a href="index.html" class="active">Ticketshop</a>
+<nav class="fx-nav">
+  <a href="index.html" class="fx-brand"><img src="favicon.png" alt=""><b>Focus<span>.</span> Events</b></a>
+  <div class="fx-navlinks">
     <a href="#meine-tickets" id="navMyTickets">Meine Tickets</a>
     <a href="dashboard.html" id="navDash" style="display:none">Dashboard</a>
-    <a href="#" id="navAuth" class="nav-user">Anmelden</a>
+    <a href="#" id="navAuth" class="fx-cta nav-user">Anmelden</a>
   </div>
 </nav>
 
-<div class="wrap">
-  <div class="page-head">
-    <div class="eyebrow">Ticketshop</div>
-    <h1>Sichere dir deine <em>Tickets.</em></h1>
-    <p>Wähle deine Ticketkategorie, melde dich mit deiner E-Mail-Adresse an und erhalte deine Tickets mit QR-Code direkt online.</p>
-  </div>
+<header class="fx-hero">
+  <div class="fx-eyebrow">Tickets</div>
+  <h1>Wähle deinen <span>Club.</span></h1>
+  <p>Zwei Clubs, eine Nacht. Wähle LEVEL oder YPSILON, sichere dir deine Tickets und erhalte den QR-Code direkt aufs Handy.</p>
+</header>
 
+<!-- Club-Reiter -->
+<div class="fx-tabs" id="clubTabs">
+  <div class="fx-tab active" data-club="LEVEL" role="button" tabindex="0" aria-pressed="true">
+    <span class="fx-tab-glow"></span>
+    <img src="assets/img/level-logo-white.png" alt="LEVEL">
+    <div class="fx-tab-foot"><span>Club</span><span class="fx-count" data-count="LEVEL">–</span></div>
+  </div>
+  <div class="fx-tab" data-club="YPSILON" role="button" tabindex="0" aria-pressed="false">
+    <span class="fx-tab-glow"></span>
+    <img src="assets/img/ypsilon-logo-white.png" alt="YPSILON">
+    <div class="fx-tab-foot"><span>Club · Heidenreichstein</span><span class="fx-count" data-count="YPSILON">–</span></div>
+  </div>
+</div>
+
+<main class="fx-wrap">
+  <div class="fx-secline">
+    <h2>Events <em id="clubName">LEVEL</em></h2>
+    <span class="fx-sub" id="clubSub"></span>
+  </div>
   <div id="shopMsg" class="msg"></div>
   <div id="eventList"></div>
 
   <!-- Meine Tickets -->
-  <section id="meine-tickets" style="margin-top:70px">
-    <div class="page-head" style="margin-bottom:20px">
-      <div class="eyebrow">Mein Konto</div>
-      <h1 style="font-size:clamp(28px,4vw,40px)">Meine <em>Tickets</em></h1>
+  <section id="meine-tickets">
+    <div class="fx-secline">
+      <h2>Meine <em>Tickets</em></h2>
     </div>
     <div id="myTicketsArea" class="card">
       <p class="sub">Bitte melde dich mit deiner E-Mail-Adresse an, um deine Tickets zu sehen.</p>
       <p style="margin-top:14px"><button class="btn btn-ghost" onclick="openLogin()">Jetzt anmelden</button></p>
     </div>
   </section>
-</div>
+</main>
 
 <!-- Warenkorb-Leiste -->
 <div class="cart-bar" id="cartBar">
@@ -88,7 +236,7 @@
   <div class="modal modal-wide">
     <h2 id="seatTitle">Sitzplätze wählen</h2>
     <p class="sub" id="seatSub"></p>
-    <div class="seat-howto">So wählst du: Tippe unten im Saalplan direkt auf die <b>goldenen freien Plätze</b> ✦. Deine Auswahl leuchtet auf. Wenn genug Plätze gewählt sind, wird „Weiter" aktiv.</div>
+    <div class="seat-howto">So wählst du: Tippe unten im Saalplan direkt auf die <b>freien Plätze</b> ✦. Deine Auswahl leuchtet auf. Wenn genug Plätze gewählt sind, wird „Weiter" aktiv.</div>
     <div class="seat-legend">
       <span><i class="seat free"></i> frei</span>
       <span><i class="seat sel"></i> gewählt</span>
@@ -110,7 +258,7 @@
     <h2>Bestellung abschließen</h2>
     <p class="sub" id="checkoutEmail"></p>
     <div id="checkoutItems"></div>
-    <p style="margin-top:14px;text-align:right;font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold)" id="checkoutTotal"></p>
+    <p style="margin-top:14px;text-align:right;font-family:'Anton',sans-serif;font-size:28px;color:var(--fx-teal-lt)" id="checkoutTotal"></p>
     <p class="hint" id="checkoutNote"></p>
     <div class="msg" id="checkoutMsg"></div>
     <div style="display:flex;gap:10px;margin-top:20px">
@@ -132,13 +280,12 @@
   </div>
 </div>
 
-<footer class="shop-footer">
-  <div>© Focus Events · Events &amp; Entertainment Austria</div>
-  <div style="display:flex;gap:18px;flex-wrap:wrap">
+<footer class="fx-footer">
+  <div>© 2026 Focus Events GmbH · LEVEL &amp; YPSILON</div>
+  <div class="fx-foot-links">
     <a href="impressum.html">Impressum</a>
     <a href="datenschutz.html">Datenschutz</a>
     <a href="cookie-policy.html">Cookie-Richtlinie</a>
-    <a href="index.html">Zur Hauptseite</a>
   </div>
 </footer>
 

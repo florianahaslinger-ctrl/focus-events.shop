@@ -8,8 +8,12 @@
   let cart = {};          // { categoryId: qty }
   let selectedSeats = {}; // { categoryId: [seatId, …] }
   let eventsCache = [];
+  let activeClub = 'LEVEL'; // aktiver Reiter: 'LEVEL' | 'YPSILON'
   let pendingEmail = '';
   let afterLogin = null;
+
+  const CLUBS = ['LEVEL', 'YPSILON'];
+  const clubOf = ev => String(ev.club || '').trim().toUpperCase();
 
   function msg(el, text, type) {
     el.textContent = text || '';
@@ -28,6 +32,18 @@
     const d = new Date(iso);
     return d.toLocaleDateString('de-AT', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' }) +
       ' · ' + d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+  }
+
+  // Datums-Bausteine für die Event-Kachel (Tag / Monat / Wochentag / Uhrzeit)
+  function dateParts(iso) {
+    if (!iso) return { day: '–', month: '', wd: '', time: '' };
+    const d = new Date(iso);
+    return {
+      day: d.toLocaleDateString('de-AT', { day: '2-digit' }),
+      month: d.toLocaleDateString('de-AT', { month: 'short' }).replace('.', ''),
+      wd: d.toLocaleDateString('de-AT', { weekday: 'short' }).replace('.', ''),
+      time: d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })
+    };
   }
 
   /* ---------- Navigation / Auth-Status ---------- */
@@ -52,23 +68,62 @@
   }
 
   /* ---------- Eventliste ---------- */
+  // Reiter (LEVEL/YPSILON) verdrahten
+  function setupClubTabs() {
+    const tabs = document.querySelectorAll('#clubTabs .fx-tab');
+    tabs.forEach(t => {
+      const select = () => {
+        if (!t.dataset.club) return;
+        activeClub = t.dataset.club;
+        tabs.forEach(x => {
+          const on = x === t;
+          x.classList.toggle('active', on);
+          x.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        renderEvents();
+      };
+      t.addEventListener('click', select);
+      t.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); }
+      });
+    });
+  }
+
   async function renderEvents() {
     const box = $('eventList');
+    let evParam = null;
     try {
       eventsCache = await S.getEvents();
-      // Pro-Ball-Shop: mit ?event=ID nur diesen Ball zeigen
-      const evParam = new URLSearchParams(location.search).get('event');
-      if (evParam) eventsCache = eventsCache.filter(e => e.id === evParam);
+      // Direktlink auf ein einzelnes Event: ?event=ID (übersteuert die Reiter)
+      evParam = new URLSearchParams(location.search).get('event');
     } catch (e) {
-      box.innerHTML = '<div class="card"><h2>Shop derzeit nicht erreichbar</h2><p class="sub">' + esc(e.message) + '</p></div>';
+      box.innerHTML = '<div class="fx-empty"><h3>Shop nicht erreichbar</h3><p>' + esc(e.message) + '</p></div>';
       return;
     }
-    if (!eventsCache.length) {
-      box.innerHTML = '<div class="card"><h2>Derzeit keine Tickets im Verkauf</h2>' +
-        '<p class="sub">Schau bald wieder vorbei – neue Events werden hier angekündigt.</p></div>';
+
+    // Zähler je Club aktualisieren
+    CLUBS.forEach(c => {
+      const el = document.querySelector('[data-count="' + c + '"]');
+      if (el) el.textContent = eventsCache.filter(ev => clubOf(ev) === c).length;
+    });
+
+    // Welche Events zeigen? Direktlink > aktiver Reiter
+    const list = evParam
+      ? eventsCache.filter(e => e.id === evParam)
+      : eventsCache.filter(ev => clubOf(ev) === activeClub);
+
+    const nameEl = $('clubName'); if (nameEl) nameEl.textContent = activeClub;
+    const subEl = $('clubSub');
+    if (subEl) subEl.textContent = list.length ? (list.length === 1 ? '1 Event' : list.length + ' Events') : '';
+
+    if (!list.length) {
+      box.innerHTML = '<div class="fx-empty"><h3>Keine Events</h3>' +
+        '<p>Für ' + esc(activeClub) + ' sind aktuell keine Tickets im Verkauf – schau bald wieder vorbei.</p></div>';
       return;
     }
-    box.innerHTML = eventsCache.map(ev => {
+
+    box.innerHTML = list.map(ev => {
+      const dp = dateParts(ev.date);
       const rows = ev.categories.filter(c => c.active).map(cat => {
         const rest = cat.remaining;
         const qty = cart[cat.id] || 0;
@@ -79,21 +134,26 @@
           '<div class="cat-info"><div class="name">' + esc(cat.name) + '</div>' +
           (cat.description ? '<div class="desc">' + esc(cat.description) + '</div>' : '') + '</div>' +
           '<div class="cat-price">' + S.fmtEUR.format(cat.price) + '</div>' +
-          '<div class="cat-left ' + leftCls + '">' + leftTxt + '</div>' +
           (rest > 0
             ? '<div class="qty">' +
               '<button type="button" data-key="' + cat.id + '" data-d="-1" aria-label="weniger">−</button>' +
               '<input type="text" readonly value="' + qty + '" data-qty="' + cat.id + '">' +
               '<button type="button" data-key="' + cat.id + '" data-d="1" data-max="' + maxQty + '" aria-label="mehr">+</button></div>'
-            : '') +
+            : '<div></div>') +
+          '<div class="cat-left ' + leftCls + '">' + leftTxt + '</div>' +
           '</div>';
       }).join('');
-      return '<div class="card">' +
-        '<div class="event-head"><h2>' + esc(ev.name) + '</h2>' +
-        '<span class="event-meta"><b>' + fmtDate(ev.date) + '</b>' +
-        (ev.location ? ' · ' + esc(ev.location) : '') + '</span></div>' +
-        (ev.description ? '<p class="sub">' + esc(ev.description) + '</p>' : '') +
-        rows + '</div>';
+      return '<article class="ev-card">' +
+        '<div class="ev-top">' +
+          '<div class="ev-date"><div class="d">' + dp.day + '</div><div class="m">' + esc(dp.month) + '</div>' +
+          '<div class="wd">' + esc(dp.wd) + (dp.time ? ' · ' + dp.time : '') + '</div></div>' +
+          '<div class="ev-head"><h3>' + esc(ev.name) + '</h3>' +
+          (ev.club || ev.location ? '<span class="ev-loc">' + esc(ev.club || ev.location) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        (ev.description ? '<p class="ev-desc">' + esc(ev.description) + '</p>' : '') +
+        '<div class="ev-cats">' + rows + '</div>' +
+      '</article>';
     }).join('');
 
     box.querySelectorAll('.qty button').forEach(btn => {
@@ -543,6 +603,7 @@
 
     await S.init();          // stellt auch Sessions aus Magic-Link-URLs her
     renderNav();
+    setupClubTabs();
     await renderEvents();
     renderCartBar();
     renderMyTickets();
