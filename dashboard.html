@@ -265,7 +265,14 @@
       <div><label>Datum &amp; Uhrzeit</label><input type="datetime-local" id="evDate"></div>
     </div>
     <div class="field-row">
-      <div><label>Ort</label><input type="text" id="evLocation" placeholder="Eventsaal, Wien"></div>
+      <div><label>Club (Shop-Reiter)</label>
+        <select id="evClub">
+          <option value="">— kein Club —</option>
+          <option value="LEVEL">LEVEL</option>
+          <option value="YPSILON">YPSILON</option>
+        </select>
+      </div>
+      <div><label>Ort</label><input type="text" id="evLocation" placeholder="z. B. LEVEL, Linz"></div>
       <div style="flex:0 0 auto;display:flex;align-items:flex-end;padding-bottom:2px">
         <label class="switch" style="margin:0"><input type="checkbox" id="evActive"> Event aktiv (im Shop sichtbar)</label>
       </div>

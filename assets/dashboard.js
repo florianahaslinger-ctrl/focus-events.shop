@@ -288,6 +288,7 @@
     $('evName').value = ev ? ev.name : '';
     $('evDate').value = ev ? toLocalInput(ev.date) : '';
     $('evLocation').value = ev ? (ev.location || '') : '';
+    if ($('evClub')) $('evClub').value = ev ? (ev.club || '') : '';
     $('evDesc').value = ev ? (ev.description || '') : '';
     $('evActive').checked = ev ? !!ev.active : true;
     // Gesamtkontingent (modular): NULL = aus, Zahl = an
@@ -1002,6 +1003,7 @@
       name: $('evName').value.trim(),
       date: $('evDate').value ? new Date($('evDate').value).toISOString() : null,
       location: $('evLocation').value.trim(),
+      club: ($('evClub') && $('evClub').value) || null,
       description: $('evDesc').value.trim(),
       active: $('evActive').checked,
       sharedQuota: $('evSharedOn').checked ? (parseInt($('evSharedQuota').value, 10) || 0) : null,
