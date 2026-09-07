@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Einlass-Scanner – Focus Events</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="assets/shop.css">
+</head>
+<body>
+
+<nav class="shop-nav">
+  <a href="#" class="logo"><span>FOCUS</span> EVENTS</a>
+  <div class="links">
+    <span class="nav-user" id="ciEventName" style="display:none"></span>
+    <a href="#" id="ciLogout" class="nav-user" style="display:none">Abmelden</a>
+  </div>
+</nav>
+
+<!-- Passwort-Login -->
+<div class="wrap" id="ciGate">
+  <div class="page-head">
+    <div class="eyebrow">Einlass</div>
+    <h1>Einlass-<em>Scanner</em></h1>
+    <p>Gib das Einlass-Passwort ein, das du von der Ball-Leitung bekommen hast. Auf dieser Seite kannst du ausschließlich Tickets einchecken.</p>
+  </div>
+  <div class="card" style="max-width:460px">
+    <div id="ciGateForm">
+      <label for="ciPw">Einlass-Passwort</label>
+      <input type="password" id="ciPw" placeholder="Passwort" autocomplete="off">
+      <div class="msg" id="ciGateMsg"></div>
+      <button class="btn btn-gold" id="btnCiLogin" style="margin-top:16px">Anmelden</button>
+    </div>
+    <div class="msg" id="ciGateErr"></div>
+  </div>
+</div>
+
+<!-- Scanner -->
+<div class="wrap" id="ciScan" style="display:none">
+  <div class="page-head" style="margin-bottom:20px">
+    <div class="eyebrow" id="ciScanEvent">Einlass</div>
+    <h1>QR-Code <em>scannen</em></h1>
+  </div>
+  <div class="card">
+    <p class="sub">Kamera starten und den QR-Code des Tickets vor die Linse halten – der Check-in passiert automatisch.</p>
+    <div id="scannerBox" style="position:relative;margin-top:14px;display:none">
+      <video id="scanVideo" playsinline muted autoplay style="width:100%;border-radius:4px;border:1px solid var(--line);background:#000;display:block"></video>
+      <div id="scanFrame" style="position:absolute;inset:12%;border:2px solid var(--gold);border-radius:8px;pointer-events:none;opacity:.7;transition:border-color .15s"></div>
+    </div>
+    <div class="msg" id="scanMsg"></div>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-gold" id="btnScanStart">Kamera-Scan starten</button>
+      <button class="btn btn-ghost" id="btnScanStop" style="display:none">Stoppen</button>
+      <button class="btn btn-ghost" id="btnScanPhoto">Foto scannen</button>
+      <input type="file" id="scanPhoto" accept="image/*" capture="environment" style="display:none">
+    </div>
+    <p class="hint" style="margin-top:10px">Erkennt der Live-Scanner nichts (z.&nbsp;B. unscharfe Laptop-Webcam), nutze <b>„Foto scannen“</b>. Am Handy funktioniert auch die normale Kamera-App: Der QR-Code öffnet die Ticketprüfung.</p>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <label for="ciCode" style="margin-top:0">Ticketcode manuell eingeben</label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <input type="text" id="ciCode" placeholder="CM-XXXX-XXXX" autocomplete="off" style="text-transform:uppercase;flex:1 1 200px">
+      <button class="btn btn-gold" id="btnCiCheck">Einchecken</button>
+    </div>
+    <div class="msg" id="ciCodeMsg"></div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h2>Letzte Check-ins</h2>
+    <div id="ciLog"><p class="sub">Noch keine Check-ins in dieser Sitzung.</p></div>
+  </div>
+</div>
+
+<script src="assets/supabase.js"></script>
+<script src="assets/jsqr.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/einlass.js"></script>
+</body>
+</html>

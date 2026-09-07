@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticketprüfung – Focus Events</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="assets/shop.css">
+<style>
+.status-card{max-width:520px;margin:0 auto;text-align:center}
+.status-icon{font-size:64px;line-height:1;margin:10px 0}
+.status-title{font-family:'Cormorant Garamond',serif;font-size:34px;margin-bottom:4px}
+.status-title.ok{color:var(--ok)}
+.status-title.used{color:var(--chart-2)}
+.status-title.bad{color:var(--bad)}
+.status-code{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.16em;color:var(--gold);margin:14px 0 4px}
+.status-meta{color:var(--gray);font-size:15px}
+</style>
+</head>
+<body>
+
+<nav class="shop-nav">
+  <a href="index.html" class="logo"><span>FOCUS</span> EVENTS</a>
+  <div class="links">
+    <a href="index.html">Ticketshop</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="page-head" style="text-align:center">
+    <div class="eyebrow">Ticketprüfung</div>
+  </div>
+  <div class="card status-card" id="statusCard">
+    <p class="sub">Ticket wird geprüft …</p>
+  </div>
+</div>
+
+<footer class="shop-footer">
+  <div>© Focus Events · Events &amp; Entertainment Austria</div>
+  <div><a href="index.html">Zum Ticketshop</a></div>
+</footer>
+
+<script src="assets/supabase.js"></script>
+<script src="assets/store.js"></script>
+<script>
+(async function () {
+  const S = window.CMStore;
+  const card = document.getElementById('statusCard');
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmtDate = iso => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('de-AT', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' }) +
+      ' · ' + d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+  };
+
+  await S.init();
+  const code = S.extractCode(new URLSearchParams(location.search).get('c') || '');
+
+  async function render() {
+    if (!code || !/^CM-/.test(code)) {
+      card.innerHTML = '<div class="status-icon">🔍</div><div class="status-title bad">Kein Ticketcode</div>' +
+        '<p class="sub">Diese Seite wird über den QR-Code eines Tickets geöffnet.</p>';
+      return;
+    }
+    let st;
+    try { st = await S.ticketStatus(code); }
+    catch (e) {
+      card.innerHTML = '<div class="status-icon">⚠️</div><div class="status-title bad">Prüfung fehlgeschlagen</div>' +
+        '<p class="sub">' + esc(e.message) + '</p>';
+      return;
+    }
+    if (!st.found) {
+      card.innerHTML = '<div class="status-icon">✕</div><div class="status-title bad">Ungültiger Code</div>' +
+        '<div class="status-code">' + esc(code) + '</div>' +
+        '<p class="sub">Dieses Ticket existiert nicht.</p>';
+      return;
+    }
+    let icon, cls, title, note = '';
+    if (st.order_status === 'storniert') {
+      icon = '✕'; cls = 'bad'; title = 'Storniert';
+      note = 'Die zugehörige Bestellung wurde storniert – das Ticket ist ungültig.';
+    } else if (st.order_status !== 'bezahlt') {
+      icon = '✕'; cls = 'bad'; title = 'Nicht bezahlt';
+      note = 'Für dieses Ticket liegt keine bestätigte Zahlung vor.';
+    } else if (st.checked_in) {
+      icon = '✓'; cls = 'used'; title = 'Bereits eingecheckt';
+      note = 'Entwertet am ' + new Date(st.checked_in_at).toLocaleString('de-AT') + ' Uhr.';
+    } else {
+      icon = '✓'; cls = 'ok'; title = 'Gültig';
+      note = 'Ticket ist bezahlt und noch nicht entwertet.';
+    }
+    card.innerHTML =
+      '<div class="status-icon">' + icon + '</div>' +
+      '<div class="status-title ' + cls + '">' + title + '</div>' +
+      '<div class="status-code">' + esc(st.code) + '</div>' +
+      '<div class="status-meta">' + esc(st.category) + ' – ' + esc(st.event) + '<br>' +
+      (st.seat ? '<b style="color:var(--gold-light)">' + esc(st.seat) + '</b><br>' : '') +
+      fmtDate(st.event_date) + (st.event_location ? ' · ' + esc(st.event_location) : '') + '</div>' +
+      '<p class="sub" style="margin-top:10px">' + note + '</p>' +
+      '<div id="adminAction" style="margin-top:16px"></div>';
+
+    // Angemeldete Admins können direkt von hier einchecken (z. B. nach Kamera-Scan am Handy)
+    if (cls === 'ok' && await S.isAdmin()) {
+      const box = document.getElementById('adminAction');
+      box.innerHTML = '<button class="btn btn-gold" id="btnDoCheckin">Jetzt einchecken</button><div class="msg" id="ciMsg"></div>';
+      document.getElementById('btnDoCheckin').addEventListener('click', async () => {
+        const m = document.getElementById('ciMsg');
+        try {
+          await S.checkIn(code);
+          render();
+        } catch (e) {
+          m.textContent = e.message; m.className = 'msg show error';
+        }
+      });
+    }
+  }
+  render();
+})();
+</script>
+</body>
+</html>

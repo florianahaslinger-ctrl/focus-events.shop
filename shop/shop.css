@@ -1,0 +1,213 @@
+/* =========================================================
+   CORE Ticketshop – Weiße Version (shop/)
+   Eigenständiges Stylesheet, inspiriert von tickets.nolimit.events:
+   helles, reduziertes Layout mit klaren Listen und Steppern.
+   Ersetzt NICHT den klassischen Shop (tickets.html + assets/shop.css).
+   ========================================================= */
+:root{
+  --bg:#f6f6f3; --panel:#ffffff; --line:#e7e6e0; --line-strong:#d8d7cf;
+  --ink:#141414; --ink-soft:#3d3d3a; --gray:#6f6e68; --muted:#98968e;
+  --gold:#055f59; --gold-light:#055f59; --gold-dim:rgba(154,123,45,.10);
+  --ok:#2e7d3e; --ok-bg:#e8f4ea; --warn:#055f59; --warn-bg:#e6f5f4;
+  --bad:#b03230; --bad-bg:#faeaea; --info:#2b5f9e; --info-bg:#e8f0fa;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(20,20,20,.04), 0 10px 30px -18px rgba(20,20,20,.18);
+  --shadow-lift:0 2px 4px rgba(20,20,20,.05), 0 18px 44px -20px rgba(20,20,20,.22);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;
+  font-weight:400;line-height:1.6;min-height:100vh}
+a{color:inherit;text-decoration:none}
+h1,h2,h3{font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+::selection{background:rgba(154,123,45,.22)}
+
+/* ---------- Navigation ---------- */
+.shop-nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:28px;
+  padding:14px 5vw;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line)}
+.shop-nav .logo{font-weight:700;font-size:17px;letter-spacing:.12em;color:var(--ink)}
+.shop-nav .logo span{color:var(--gold)}
+.shop-nav .links{display:flex;gap:22px;margin-left:auto;align-items:center;font-size:14px}
+.shop-nav .links a{color:var(--gray);position:relative;padding:2px 0;transition:color .2s}
+.shop-nav .links a:not(.nav-user)::after{content:"";position:absolute;left:0;right:100%;bottom:-3px;height:2px;
+  background:var(--ink);border-radius:2px;transition:right .25s ease}
+.shop-nav .links a:not(.nav-user):hover::after,.shop-nav .links a.active::after{right:0}
+.shop-nav .links a:hover,.shop-nav .links a.active{color:var(--ink)}
+.nav-user{font-size:13px;font-weight:500;color:#fff !important;background:var(--ink);
+  padding:8px 16px;border-radius:99px;transition:background .2s}
+.nav-user:hover{background:#2e2e2c}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-block;border:none;cursor:pointer;font-family:inherit;font-size:14px;
+  font-weight:600;padding:13px 28px;border-radius:10px;
+  transition:transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s, color .2s}
+.btn-gold{background:var(--ink);color:#fff;box-shadow:0 10px 22px -12px rgba(20,20,20,.55)}
+.btn-gold:hover{background:#2b2b29;transform:translateY(-1px);box-shadow:0 14px 26px -12px rgba(20,20,20,.55)}
+.btn-gold:active{transform:none}
+.btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line-strong)}
+.btn-ghost:hover{border-color:var(--ink);transform:translateY(-1px)}
+.btn-sm{padding:8px 15px;font-size:13px}
+.btn-danger{background:#fff;color:var(--bad);border:1px solid rgba(176,50,48,.5)}
+.btn-danger:hover{background:var(--bad-bg);border-color:var(--bad)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* ---------- Layout ---------- */
+.wrap{max-width:1080px;margin:0 auto;padding:52px 5vw 80px}
+.page-head{margin-bottom:38px}
+.page-head .eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--gold);font-size:12px;
+  font-weight:600;letter-spacing:.28em;text-transform:uppercase;margin-bottom:12px}
+.page-head .eyebrow::before{content:"";width:28px;height:2px;background:var(--gold);border-radius:2px}
+.page-head h1{font-size:clamp(34px,5vw,52px);line-height:1.06;letter-spacing:-.02em}
+.page-head h1 em{font-style:normal;color:var(--gold)}
+.page-head p{color:var(--gray);max-width:620px;margin-top:14px;font-size:16px}
+
+@keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* ---------- Karten ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:28px;box-shadow:var(--shadow);animation:cardIn .45s ease both}
+.card + .card{margin-top:22px}
+.card h2{font-size:24px;margin-bottom:4px}
+.card .sub{color:var(--gray);font-size:14px}
+#eventList .card{transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease}
+#eventList .card:hover{transform:translateY(-2px);border-color:var(--line-strong);box-shadow:var(--shadow-lift)}
+
+.event-head{display:flex;flex-wrap:wrap;gap:6px 20px;align-items:baseline;margin-bottom:4px}
+.event-head h2{font-size:26px}
+.event-meta{color:var(--gray);font-size:14px}
+.event-meta b{color:var(--ink-soft);font-weight:600}
+
+/* ---------- Ticketkategorien ---------- */
+.cat-row{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:16px 14px;margin:0 -14px;
+  border-top:1px solid var(--line);border-radius:10px;transition:background .15s ease}
+.cat-row:first-of-type{border-top:none}
+.cat-row:hover{background:#fafaf7}
+.cat-info{flex:1 1 250px;min-width:0}
+.cat-info .name{font-size:15.5px;font-weight:600}
+.cat-info .desc{color:var(--gray);font-size:13px;margin-top:2px}
+.cat-price{font-size:19px;font-weight:700;min-width:92px;text-align:right;font-variant-numeric:tabular-nums}
+.cat-left{font-size:12px;color:var(--muted);min-width:120px;text-align:right}
+.cat-left.low{color:var(--warn);font-weight:600}
+.cat-left.out{color:var(--bad);font-weight:600}
+.qty{display:flex;align-items:center;border:1px solid var(--line-strong);border-radius:10px;
+  overflow:hidden;background:#fff}
+.qty button{width:38px;height:38px;background:transparent;border:none;color:var(--ink);font-size:19px;
+  cursor:pointer;transition:background .15s,color .15s}
+.qty button:hover{background:var(--ink);color:#fff}
+.qty input[type=text]{width:44px;height:38px;background:transparent;border:none;border-radius:0;
+  border-left:1px solid var(--line);border-right:1px solid var(--line);color:var(--ink);
+  text-align:center;font-size:15px;font-weight:600;padding:0}
+.qty input[type=text]:focus{outline:none;box-shadow:none;border-color:var(--line)}
+
+/* ---------- Warenkorb-Leiste ---------- */
+@keyframes cartUp{from{transform:translateY(100%)}to{transform:none}}
+.cart-bar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.96);
+  backdrop-filter:blur(12px);border-top:1px solid var(--line-strong);
+  box-shadow:0 -14px 40px -20px rgba(20,20,20,.3);
+  padding:14px 5vw;display:none;align-items:center;gap:18px;flex-wrap:wrap}
+.cart-bar.visible{display:flex;animation:cartUp .3s cubic-bezier(.2,.8,.2,1)}
+.cart-bar .desc{color:var(--gray);font-size:13px;flex:1;min-width:180px}
+.cart-bar .sum{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ---------- Formulare ---------- */
+label{display:block;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--gray);margin:16px 0 6px}
+input[type=text],input[type=email],input[type=number],input[type=password],textarea,select{
+  width:100%;background:#fff;border:1px solid var(--line-strong);border-radius:10px;color:var(--ink);
+  padding:12px 14px;font-family:inherit;font-size:15px;transition:border-color .2s,box-shadow .2s}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--ink);
+  box-shadow:0 0 0 3px rgba(20,20,20,.08)}
+.hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.55}
+
+/* ---------- Modal ---------- */
+@keyframes modalIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.modal-backdrop{position:fixed;inset:0;background:rgba(24,24,22,.45);backdrop-filter:blur(5px);
+  display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-backdrop.open{display:flex}
+.modal{background:#fff;border:1px solid var(--line);border-radius:18px;max-width:460px;width:100%;
+  padding:34px;max-height:92vh;overflow-y:auto;box-shadow:0 40px 90px -30px rgba(20,20,20,.45);
+  animation:modalIn .28s ease both}
+.modal h2{font-size:25px;margin-bottom:6px}
+.modal .sub{color:var(--gray);font-size:14px;margin-bottom:10px}
+.modal-wide{max-width:640px}
+.code-input{letter-spacing:.5em;font-size:24px !important;text-align:center;font-weight:700;
+  padding-left:.5em !important}
+.checkout-total{margin-top:14px;text-align:right;font-size:24px;font-weight:700;
+  font-variant-numeric:tabular-nums}
+
+/* ---------- Meldungen ---------- */
+.msg{padding:12px 16px;border-radius:10px;font-size:14px;margin:14px 0;display:none}
+.msg.show{display:block}
+.msg.error{background:var(--bad-bg);border:1px solid rgba(176,50,48,.4);color:var(--bad)}
+.msg.ok{background:var(--ok-bg);border:1px solid rgba(46,125,62,.4);color:var(--ok)}
+.msg.info{background:var(--info-bg);border:1px solid rgba(43,95,158,.35);color:var(--info)}
+
+/* ---------- Tickets (Kundenansicht) ---------- */
+.ticket{position:relative;display:flex;gap:22px;align-items:center;background:#fff;
+  border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-top:14px;
+  flex-wrap:wrap;overflow:hidden;box-shadow:var(--shadow)}
+.ticket::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:linear-gradient(180deg,#079f96,#055f59)}
+.ticket::after{content:"";position:absolute;left:130px;top:14px;bottom:14px;width:2px;
+  background:repeating-linear-gradient(to bottom,var(--line-strong) 0 5px,transparent 5px 11px)}
+.ticket .qr{width:100px;height:100px;background:#fff;padding:6px;border:1px solid var(--line);
+  border-radius:8px;flex:0 0 auto}
+.ticket .qr canvas,.ticket .qr img{width:100%;height:100%;display:block}
+.ticket .qr-pending{background:var(--warn-bg);border:1px dashed var(--warn);display:flex;
+  align-items:center;justify-content:center;text-align:center;font-size:10px;color:var(--warn);line-height:1.4}
+.ticket .tinfo{flex:1;min-width:200px;padding-left:8px}
+.ticket .tcode{font-size:19px;font-weight:700;letter-spacing:.12em}
+.ticket .tmeta{color:var(--gray);font-size:13px;margin-top:2px}
+.badge{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 11px;border-radius:20px;border:1px solid}
+.badge.offen{color:var(--warn);border-color:rgba(160,92,20,.4);background:var(--warn-bg)}
+.badge.bezahlt{color:var(--ok);border-color:rgba(46,125,62,.4);background:var(--ok-bg)}
+.badge.storniert{color:var(--bad);border-color:rgba(176,50,48,.4);background:var(--bad-bg)}
+.badge.checked{color:var(--info);border-color:rgba(43,95,158,.4);background:var(--info-bg)}
+
+/* ---------- Sitzplatz-Auswahl ---------- */
+.tseat{color:var(--gold-light);font-size:13px;font-weight:600;margin-top:3px}
+.linklike{background:none;border:none;color:var(--gold);cursor:pointer;font-size:12px;
+  text-decoration:underline;padding:0;font-family:inherit}
+.seat-howto{background:rgba(7,159,150,.12);border:1px solid var(--gold);border-radius:8px;padding:11px 14px;margin:2px 0 14px;font-size:13px;line-height:1.55;color:#044b46}
+.seat-howto b{color:#000}
+.seat-legend{display:flex;gap:18px;margin:6px 0 14px;font-size:12px;color:var(--gray);flex-wrap:wrap}
+.seat-legend span{display:inline-flex;align-items:center;gap:6px}
+.seat-legend i.seat{width:16px;height:16px;pointer-events:none}
+.seat-map{max-height:52vh;overflow:auto;padding:4px;border:1px solid var(--line);
+  border-radius:10px;background:#fafaf7}
+#seatModal .modal{max-width:min(97vw,1400px);width:100%;max-height:94vh;display:flex;flex-direction:column}
+#seatModal .seat-map{max-height:none;flex:1 1 auto;min-height:260px}
+.seat-row{padding:10px 4px;border-bottom:1px dashed var(--line)}
+.seat-row:last-child{border-bottom:none}
+.seat-row-label{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--gray);margin-bottom:8px}
+.seat-tables{display:flex;gap:14px;flex-wrap:wrap}
+.seat-table{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
+.seat-table-label{font-size:10px;color:var(--muted);text-align:center;margin-bottom:6px}
+.seat-dots{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.seat{width:30px;height:30px;border-radius:50%;border:1px solid var(--line-strong);background:#fff;
+  color:var(--gray);font-size:11px;cursor:pointer;transition:all .15s;display:inline-flex;
+  align-items:center;justify-content:center;padding:0}
+.seat.free:hover{border-color:var(--ink);color:var(--ink)}
+.seat.sel{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:700}
+.seat.taken{background:#eeede8;color:#b5b3aa;border-color:var(--line);cursor:not-allowed}
+.seat-count{font-size:14px;font-weight:600}
+
+footer.shop-footer{border-top:1px solid var(--line);margin-top:70px;padding:28px 5vw;color:var(--muted);
+  font-size:13px;display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
+footer.shop-footer a{color:var(--gray);transition:color .2s}
+footer.shop-footer a:hover{color:var(--ink)}
+
+@media(max-width:640px){
+  .wrap{padding:36px 5vw 90px}
+  .shop-nav{flex-wrap:wrap;gap:10px 18px}
+  .shop-nav .links{margin-left:0;width:100%;justify-content:flex-start;flex-wrap:wrap;gap:16px}
+  .cat-price,.cat-left{text-align:left;min-width:0}
+  .modal{padding:24px}
+  .ticket::after{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+}

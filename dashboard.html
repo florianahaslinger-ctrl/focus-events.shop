@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard – Focus Events Ticketshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="assets/shop.css">
+</head>
+<body>
+
+<nav class="shop-nav">
+  <a href="index.html" class="logo"><span>FOCUS</span> EVENTS</a>
+  <div class="links">
+    <a href="index.html">Ticketshop</a>
+    <a href="dashboard.html" class="active">Dashboard</a>
+    <a href="#" id="adminLogout" class="nav-user" style="display:none">Abmelden</a>
+  </div>
+</nav>
+
+<!-- Admin-Login -->
+<div class="wrap" id="loginGate">
+  <div class="page-head">
+    <div class="eyebrow">Adminbereich</div>
+    <h1>Dashboard-<em>Zugang</em></h1>
+    <p>Melde dich mit deiner Admin-E-Mail-Adresse an. Du erhältst einen Anmelde-Link bzw. Verifizierungscode per E-Mail.</p>
+  </div>
+  <div class="card" style="max-width:460px">
+    <div id="gateStep1">
+      <label for="adminEmail">Admin-E-Mail</label>
+      <input type="email" id="adminEmail" placeholder="admin@focus-events.shop" autocomplete="email">
+      <div class="msg" id="gateMsg1"></div>
+      <button class="btn btn-gold" id="btnGateSend" style="margin-top:16px">Anmelde-E-Mail senden</button>
+    </div>
+    <div id="gateStep2" style="display:none">
+      <div class="msg info show" id="gateSentInfo"></div>
+      <label for="adminCode">Verifizierungscode (aus der E-Mail)</label>
+      <input type="text" id="adminCode" class="code-input" maxlength="8" inputmode="numeric" autocomplete="one-time-code" placeholder="••••••">
+      <div class="msg" id="gateMsg2"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn-gold" id="btnGateVerify">Bestätigen</button>
+        <button class="btn btn-ghost btn-sm" id="btnGateBack">E-Mail ändern</button>
+      </div>
+      <p class="hint" style="margin-top:10px">Alternativ: einfach den Anmelde-Link in der E-Mail anklicken – du landest dann automatisch angemeldet hier im Dashboard.</p>
+    </div>
+    <div class="msg" id="gateDenied"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="wrap" id="dash" style="display:none">
+  <div class="page-head" style="margin-bottom:24px">
+    <div class="eyebrow">Adminbereich</div>
+    <h1>Ticketshop-<em>Dashboard</em></h1>
+  </div>
+
+  <div class="dash-tabs" id="tabs">
+    <button data-tab="tabOverview" class="active">Übersicht</button>
+    <button data-tab="tabEvents">Events &amp; Tickets</button>
+    <button data-tab="tabSeats">Sitzplan</button>
+    <button data-tab="tabIssue">Tickets ausstellen</button>
+    <button data-tab="tabOrders">Bestellungen</button>
+    <button data-tab="tabCheckin">Check-in</button>
+    <button data-tab="tabSettings">Einstellungen</button>
+  </div>
+
+  <!-- Übersicht -->
+  <div class="tabpane active" id="tabOverview">
+    <div class="super-only" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px">
+      <label for="statEvent" style="margin:0;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gray)">Umsätze anzeigen für</label>
+      <select id="statEvent" style="min-width:240px"><option value="">Alle Bälle (gesamt)</option></select>
+    </div>
+    <div class="dash-grid" id="statTiles"></div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Verkaufte Tickets – letzte 14 Tage</h3>
+        <div class="chart-svg-wrap" id="chartSales"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Umsatz nach Ticketkategorie</h3>
+        <div class="chart-svg-wrap" id="chartRevenue"></div>
+      </div>
+    </div>
+    <div class="chart-card" style="margin-top:22px">
+      <h3>Auslastung je Kategorie</h3>
+      <div class="table-scroll">
+        <table class="data" id="quotaTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Events & Tickets -->
+  <div class="tabpane" id="tabEvents">
+    <div class="toolbar">
+      <p class="sub">Events und Ticketkategorien sind vollständig modular: anlegen, umbenennen, Preise &amp; Kontingente ändern, aktivieren/deaktivieren.</p>
+      <span class="spacer"></span>
+      <button class="btn btn-gold btn-sm" id="btnNewEvent">+ Neues Event</button>
+    </div>
+    <div id="adminEvents"></div>
+  </div>
+
+  <!-- Sitzplan (Gäste umsetzen) -->
+  <div class="tabpane" id="tabSeats">
+    <div class="card">
+      <h2>Sitzplan &amp; Gäste umsetzen</h2>
+      <p class="sub">Belegten Platz anklicken (Gast auswählen), dann Zielplatz anklicken: <b>freier Platz</b> = Gast wird umgesetzt, <b>belegter Platz</b> = die beiden Gäste tauschen. So schließt du Lücken und setzt Familien zusammen.</p>
+      <div class="field-row" style="align-items:flex-end;margin-top:8px">
+        <div style="flex:2 1 260px">
+          <label for="smEvent">Event</label>
+          <select id="smEvent"></select>
+        </div>
+        <div style="flex:0 0 auto">
+          <button class="btn btn-ghost btn-sm" id="btnSmReload">Aktualisieren</button>
+        </div>
+      </div>
+      <div class="seat-legend" style="margin-top:14px">
+        <span><i class="seat free"></i> frei</span>
+        <span><i class="seat occupied"></i> belegt</span>
+        <span><i class="seat occupied in"></i> eingecheckt</span>
+        <span><i class="seat hold"></i> im Kauf reserviert</span>
+        <span><i class="seat src"></i> ausgewählt</span>
+      </div>
+      <div class="msg" id="smMsg"></div>
+      <div id="smInfo" class="hint" style="min-height:18px;margin:6px 0 10px"></div>
+      <div id="smMap" class="seat-map" style="max-height:60vh"></div>
+    </div>
+  </div>
+
+  <!-- Tickets ausstellen -->
+  <div class="tabpane" id="tabIssue">
+    <div class="card" style="max-width:640px">
+      <h2>Tickets ausstellen &amp; versenden</h2>
+      <p class="sub">Erzeuge Tickets ohne Online-Zahlung und schicke sie direkt per E-Mail – z.&nbsp;B. Gast-/Freikarten oder eine an der Kassa bar bezahlte Bestellung.</p>
+      <div class="field-row">
+        <div style="flex:2 1 240px">
+          <label for="issueCat">Event &amp; Ticketkategorie</label>
+          <select id="issueCat"></select>
+        </div>
+        <div>
+          <label for="issueQty">Anzahl</label>
+          <input type="number" id="issueQty" min="1" max="50" value="1">
+        </div>
+      </div>
+      <div class="field-row">
+        <div style="flex:2 1 240px">
+          <label for="issueEmail">Empfänger-E-Mail</label>
+          <input type="email" id="issueEmail" placeholder="gast@example.at" autocomplete="off">
+        </div>
+        <div>
+          <label for="issueMode">Art</label>
+          <select id="issueMode">
+            <option value="gast">Gastticket (gratis, kein Umsatz)</option>
+            <option value="bar">Barzahlung (zählt als Umsatz)</option>
+          </select>
+        </div>
+      </div>
+      <label for="issueNote">Nachricht an Empfänger:in (optional)</label>
+      <textarea id="issueNote" rows="2" placeholder="z. B. Viel Spaß beim Ball! – dein FOCUS-Team"></textarea>
+      <div class="msg" id="issueMsg"></div>
+      <button class="btn btn-gold" id="btnIssue" style="margin-top:16px">Tickets erstellen &amp; senden</button>
+      <p class="hint" style="margin-top:12px">Die Empfänger:innen erhalten eine E-Mail mit Ticketcode und QR-Link. Sie können sich unter <b>tickets.html</b> mit ihrer E-Mail anmelden und die Tickets als PDF laden. Ausgestellte Tickets erscheinen unter „Bestellungen“ (Zahlart <i>gast</i> bzw. <i>bar</i>) und sind sofort einlassfähig.</p>
+    </div>
+    <div class="card" id="issueResult" style="display:none;max-width:640px">
+      <h2>Ausgestellte Tickets</h2>
+      <div id="issueCodes"></div>
+    </div>
+  </div>
+
+  <!-- Bestellungen -->
+  <div class="tabpane" id="tabOrders">
+    <div class="toolbar">
+      <input type="text" id="orderSearch" placeholder="Suche: Bestellnr., E-Mail oder Ticketcode …" style="max-width:340px">
+      <select id="orderFilter" style="max-width:180px">
+        <option value="">Alle Status</option>
+        <option value="offen">offen</option>
+        <option value="bezahlt">bezahlt</option>
+        <option value="storniert">storniert</option>
+      </select>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="btnCSV">CSV exportieren</button>
+    </div>
+    <div class="table-scroll card" style="padding:10px">
+      <table class="data" id="orderTable"></table>
+    </div>
+    <p class="hint" style="margin-top:10px">Bezahlt-Status wird automatisch von Stripe gesetzt (Webhook). Rückerstattungen bitte direkt im Stripe-Dashboard durchführen und die Bestellung hier stornieren.</p>
+  </div>
+
+  <!-- Check-in -->
+  <div class="tabpane" id="tabCheckin">
+    <div class="charts-row">
+      <div class="card" style="margin:0">
+        <h2>QR-Scanner</h2>
+        <p class="sub">Kamera starten und den QR-Code des Tickets vor die Linse halten – der Check-in passiert automatisch.</p>
+        <div id="scannerBox" style="position:relative;margin-top:14px;display:none">
+          <video id="scanVideo" playsinline muted autoplay style="width:100%;border-radius:4px;border:1px solid var(--line);background:#000;display:block"></video>
+          <div id="scanFrame" style="position:absolute;inset:12%;border:2px solid var(--gold);border-radius:8px;pointer-events:none;opacity:.7;transition:border-color .15s"></div>
+        </div>
+        <div class="msg" id="scanMsg"></div>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-gold" id="btnScanStart">Kamera-Scan starten</button>
+          <button class="btn btn-ghost" id="btnScanStop" style="display:none">Scanner stoppen</button>
+          <button class="btn btn-ghost" id="btnScanPhoto">Foto scannen</button>
+          <input type="file" id="scanPhoto" accept="image/*" capture="environment" style="display:none">
+        </div>
+        <p class="hint" style="margin-top:10px">Erkennt der Live-Scanner nichts (z.&nbsp;B. unscharfe Laptop-Webcam), nutze <b>„Foto scannen“</b> – ein aufgenommenes/gewähltes Foto wird zuverlässig ausgewertet. Am Handy funktioniert auch die normale Kamera: Der QR-Code öffnet die Ticketprüfung mit „Jetzt einchecken“, solange du hier angemeldet bist.</p>
+      </div>
+      <div class="card" style="margin:0">
+        <h2>Manuelle Eingabe</h2>
+        <p class="sub">Ticketcode eintippen (z.&nbsp;B. CM-XXXX-XXXX) und bestätigen.</p>
+        <label for="checkinCode">Ticketcode</label>
+        <input type="text" id="checkinCode" placeholder="CM-XXXX-XXXX" autocomplete="off" style="text-transform:uppercase">
+        <div class="msg" id="checkinMsg"></div>
+        <button class="btn btn-gold" id="btnCheckin" style="margin-top:14px">Einchecken</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:22px">
+      <h2>Letzte Check-ins</h2>
+      <div class="table-scroll"><table class="data" id="checkinTable"></table></div>
+    </div>
+  </div>
+
+  <!-- Einstellungen -->
+  <div class="tabpane" id="tabSettings">
+    <div class="card" id="connectCard">
+      <h2>Zahlungsabwicklung (Stripe)</h2>
+      <div id="connectBody"><p class="sub">Wird geladen …</p></div>
+    </div>
+
+    <div class="card super-only">
+      <h2>Veranstalter &amp; Zugänge</h2>
+      <p class="sub">Lege Veranstalter an (per E-Mail). Ein Veranstalter sieht nach dem Login nur die ihm zugewiesenen Bälle. Die Zuweisung erfolgt beim Event unter „Bearbeiten → Veranstalter". Anmeldung per E-Mail-Verifizierung.</p>
+      <div id="adminList" style="margin:12px 0"></div>
+      <div class="field-row" style="align-items:flex-end">
+        <div><label>Neue Veranstalter-E-Mail</label><input type="email" id="newAdminEmail" placeholder="veranstalter@example.at"></div>
+        <div style="flex:0 0 auto"><button class="btn btn-gold btn-sm" id="btnAddAdmin">Veranstalter hinzufügen</button></div>
+      </div>
+      <div class="msg" id="adminMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>System</h2>
+      <p class="sub">
+        <b>Zahlungen:</b> Stripe Checkout – Bestellungen werden erst nach serverseitig bestätigter Zahlung (Webhook) freigeschaltet.
+        Verwaltung, Auszahlungen und Rückerstattungen im <b>Stripe-Dashboard</b> (dashboard.stripe.com).<br><br>
+        <b>Daten &amp; Login:</b> Supabase (Projekt „Ticketsystem“) – zentrale Datenbank für Events, Bestellungen und Tickets.
+        Anmelde-E-Mails werden von Supabase versendet.<br><br>
+        <b>Wichtig – E-Mail-Limit:</b> Ohne eigenen SMTP-Server versendet Supabase nur wenige Anmelde-E-Mails pro Stunde.
+        Für den echten Verkaufsstart im Supabase-Dashboard unter <i>Authentication → Emails → SMTP Settings</i> einen eigenen
+        Absender hinterlegen (z. B. Resend oder Brevo, kostenlos) – dann entfällt das Limit und die E-Mail kann einen
+        6-stelligen Code enthalten (Vorlage mit <code>{{ .Token }}</code>).
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Event-Editor -->
+<div class="modal-backdrop" id="eventModal">
+  <div class="modal modal-wide">
+    <h2 id="evModalTitle">Event bearbeiten</h2>
+    <input type="hidden" id="evId">
+    <div class="field-row">
+      <div style="flex:2 1 260px"><label>Eventname</label><input type="text" id="evName" placeholder="Schulball 2026"></div>
+      <div><label>Datum &amp; Uhrzeit</label><input type="datetime-local" id="evDate"></div>
+    </div>
+    <div class="field-row">
+      <div><label>Ort</label><input type="text" id="evLocation" placeholder="Eventsaal, Wien"></div>
+      <div style="flex:0 0 auto;display:flex;align-items:flex-end;padding-bottom:2px">
+        <label class="switch" style="margin:0"><input type="checkbox" id="evActive"> Event aktiv (im Shop sichtbar)</label>
+      </div>
+    </div>
+    <label>Beschreibung</label>
+    <textarea id="evDesc" rows="2"></textarea>
+
+    <div style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px">
+      <label class="switch" style="margin:0"><input type="checkbox" id="evSharedOn"> Gesamtkontingent verwenden</label>
+      <p class="hint" style="margin:6px 0 0">Ein gemeinsamer Ticket-Topf für alle Kategorien: egal welche Kategorie gekauft wird, es zählt gegen dieselbe Gesamtzahl. Die einzelnen Kategorie-Kontingente werden dann ignoriert.</p>
+      <div id="evSharedBox" style="display:none;margin-top:10px">
+        <label>Gesamt-Ticketanzahl</label>
+        <input type="number" id="evSharedQuota" min="0" step="1" style="max-width:200px" placeholder="z. B. 500">
+      </div>
+    </div>
+
+    <div style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px">
+      <label class="switch" style="margin:0"><input type="checkbox" id="evFeesOnOrganizer"> Veranstalter übernimmt die Gebühren</label>
+      <p class="hint" style="margin:6px 0 0">Standard (aus): Der Kunde zahlt Ticketpreis + Service- &amp; Zahlungsgebühr. Ein Ticket für 28&nbsp;€ kostet ihn ca. 29,90&nbsp;€.<br>An: Der Kunde zahlt exakt den Ticketpreis (28&nbsp;€ bleiben 28&nbsp;€). Die Gebühren werden vom Auszahlungsbetrag des Veranstalters abgezogen.</p>
+    </div>
+
+    <div class="super-only" style="margin-top:14px">
+      <label>Haupt-Veranstalter (Besitzer &amp; Auszahlung)</label>
+      <select id="evOwner"><option value="">— Head-Admin (FOCUS) —</option></select>
+      <p class="hint" style="margin-top:6px">Der Haupt-Veranstalter sieht und verwaltet diesen Ball – und nur auf sein Stripe-Konto läuft die Auszahlung.</p>
+    </div>
+
+    <!-- Weitere Veranstalter (Mit-Verwalter, keine Auszahlung) – nur bestehende Events -->
+    <div id="evCoOwnersBox" style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:none">
+      <label style="margin:0">Weitere Veranstalter (Zugriff auf diesen Ball)</label>
+      <p class="hint" style="margin:6px 0 10px">Diese E-Mails erhalten <strong>vollen Zugriff</strong> auf diesen Ball (Umsatz, Bestellungen, Einlass, Einstellungen) – aber <strong>keine Auszahlung</strong>. Das Geld läuft weiterhin nur auf das Konto des Haupt-Veranstalters. Jede E-Mail muss zuvor unter „Veranstalter &amp; Zugänge" als Veranstalter angelegt sein, damit sich die Person einloggen kann.</p>
+      <div id="evCoOwnerList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+      <div class="row" style="gap:8px">
+        <div style="flex:1 1 220px"><input type="email" id="evCoOwnerEmail" placeholder="mit-veranstalter@example.at"></div>
+        <div style="flex:0 0 auto"><button type="button" class="btn btn-ghost btn-sm" id="btnAddCoOwner">Hinzufügen</button></div>
+      </div>
+      <p class="hint" id="evCoOwnerMsg" style="margin:8px 0 0"></p>
+    </div>
+
+    <div id="evShopLink" style="margin-top:14px;display:none">
+      <label>Shop-Link für diesen Ball</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="evShopUrl" readonly style="flex:1 1 260px">
+        <button type="button" class="btn btn-ghost btn-sm" id="btnCopyShop">Kopieren</button>
+        <a class="btn btn-ghost btn-sm" id="evShopOpen" target="_blank" rel="noopener">Öffnen</a>
+      </div>
+    </div>
+
+    <!-- Sponsoren-Logos (modular pro Ball) -->
+    <div style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px">
+      <label style="margin:0">Sponsoren-Logos auf dem Ticket</label>
+      <p class="hint" style="margin:6px 0 10px">Lade bis zu 25 Sponsor-Logos hoch – sie erscheinen automatisch unten auf jeder Ticket-PDF, bei vielen Logos in mehreren Reihen, überlappungsfrei und passend skaliert. PNG (auch transparent) oder JPG. Leer lassen = keine Sponsoren.</p>
+      <div id="evSponsorList" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px"></div>
+      <input type="file" id="evSponsorFile" accept="image/png,image/jpeg,image/webp" multiple style="display:none">
+      <button type="button" class="btn btn-ghost btn-sm" id="btnAddSponsor">+ Logo hinzufügen</button>
+    </div>
+
+    <!-- Einlass-Scanner: Passwort + Link (nur bestehende Events) -->
+    <div id="evCheckinBox" style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:none">
+      <label style="margin:0">Einlass-Scanner (Passwort für dein Personal)</label>
+      <p class="hint" style="margin:6px 0 10px">Vergib ein Einlass-Passwort und gib es an dein Einlasspersonal weiter. Sie öffnen den Einlass-Link, geben nur dieses Passwort ein und können ausschließlich diesen Ball einchecken – kein Zugriff auf Umsätze, Bestellungen oder Einstellungen.</p>
+      <div id="evCheckinStatus" class="hint" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="evCheckinPw" placeholder="Einlass-Passwort (mind. 4 Zeichen)" autocomplete="off" style="flex:1 1 220px">
+        <button type="button" class="btn btn-gold btn-sm" id="btnSaveCheckinPw">Passwort speichern</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnClearCheckinPw">Deaktivieren</button>
+      </div>
+      <div id="evCheckinMsg" class="msg" style="margin-top:8px"></div>
+      <div id="evCheckinLinkBox" style="margin-top:10px;display:none">
+        <label style="margin:0">Einlass-Link für dein Personal</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">
+          <input type="text" id="evCheckinUrl" readonly style="flex:1 1 260px">
+          <button type="button" class="btn btn-ghost btn-sm" id="btnCopyCheckin">Kopieren</button>
+          <a class="btn btn-ghost btn-sm" id="btnOpenCheckin" target="_blank" rel="noopener">Öffnen</a>
+        </div>
+      </div>
+    </div>
+
+    <label style="margin-top:22px">Ticketkategorien</label>
+    <div id="catEditor"></div>
+    <button class="btn btn-ghost btn-sm" id="btnAddCat" style="margin-top:10px">+ Kategorie hinzufügen</button>
+
+    <div id="seatPlanBox" style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;display:none">
+      <label style="margin-top:0">Sitzplan (nur nötig, wenn es eine Sitzkarte gibt)</label>
+      <p class="hint" id="seatPlanInfo" style="margin-bottom:10px"></p>
+
+      <div style="background:var(--dark2,#181818);border:1px solid var(--gold);border-radius:8px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-weight:600;color:var(--gold-light);margin-bottom:4px">🎨 Grafischer Saalplan-Editor</div>
+        <p class="hint" style="margin:0 0 10px">Tische frei platzieren &amp; verschieben, Form (rund/eckig) wählen, Bühne, Tanzfläche, Bar und Eingang setzen. Erzeugt die buchbaren Sitzplätze automatisch.</p>
+        <a href="saalplan-editor.html" target="_blank" rel="noopener" class="btn btn-gold btn-sm" style="text-decoration:none;display:inline-block">Saalplan-Editor öffnen →</a>
+      </div>
+
+      <p class="hint" style="margin-bottom:8px">Oder einfacher Raster-Plan (Reihen × Tische):</p>
+      <div class="field-row">
+        <div><label>Reihen</label><input type="number" id="spRows" min="1" max="50" value="5"></div>
+        <div><label>Tische pro Reihe</label><input type="number" id="spTables" min="1" max="50" value="10"></div>
+        <div><label>Sitze pro Tisch</label><input type="number" id="spSeats" min="1" max="30" value="6"></div>
+      </div>
+      <div class="msg" id="seatPlanMsg"></div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+        <button type="button" class="btn btn-gold btn-sm" id="btnGenSeats">Sitzplan erstellen</button>
+        <button type="button" class="btn btn-danger btn-sm" id="btnClearSeats">Sitzplan leeren</button>
+      </div>
+      <p class="hint" style="margin-top:8px">Erstellen ersetzt einen bestehenden Plan nur, wenn noch keine Sitzplätze verkauft wurden. Event zuerst speichern, dann Sitzplan anlegen.</p>
+    </div>
+
+    <div class="msg" id="evMsg"></div>
+    <div style="display:flex;gap:10px;margin-top:22px">
+      <button class="btn btn-gold" id="btnSaveEvent">Speichern</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('eventModal').classList.remove('open')">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<footer class="shop-footer">
+  <div>© Focus Events · Ticketshop-Dashboard</div>
+  <div><a href="index.html">Zum Shop</a> · <a href="index.html">Hauptseite</a></div>
+</footer>
+
+<script src="assets/supabase.js"></script>
+<script src="assets/jsqr.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/ticket-pdf.js"></script>
+<script src="assets/store.js"></script>
+<script src="assets/dashboard.js"></script>
+</body>
+</html>

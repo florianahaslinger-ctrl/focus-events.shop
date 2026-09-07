@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saalplan-Editor – Focus Events</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@0,300;0,400;0,500;0,600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="favicon.png">
+<script src="assets/supabase.js"></script>
+<script src="assets/store.js"></script>
+<style>
+  :root{
+    --black:#080808;--dark:#101010;--panel:#161616;--line:rgba(7,159,150,.18);
+    --gold:#079f96;--gold-light:#3fc3ba;--white:#F5F0EB;--gray:#999;--muted:#6f6f6f;
+    --gold-grad:linear-gradient(135deg,#3fc3ba 0%,#079f96 55%,#05756e 100%);
+    --blue:#5B8FD9;--green:#4F9E5A;--warn:#C77E2E;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--black);color:var(--white);font-family:'DM Sans',sans-serif;font-weight:300;min-height:100vh}
+  .top{display:flex;justify-content:space-between;align-items:center;padding:16px 26px;border-bottom:1px solid var(--line);background:rgba(8,8,8,.9)}
+  .top .logo{font-family:'Bebas Neue';font-size:1.4rem;letter-spacing:.1em}
+  .top .logo span{color:var(--gold)}
+  .top .hint{font-size:.72rem;color:var(--muted);letter-spacing:.05em}
+
+  .subbar{display:flex;align-items:center;gap:10px;padding:11px 26px;border-bottom:1px solid var(--line);background:var(--dark);flex-wrap:wrap}
+  .sb-label{font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gray)}
+  #evSel{background:#0e0e0d;border:1px solid var(--line);color:var(--white);padding:8px 11px;border-radius:6px;font-family:inherit;font-size:.85rem;min-width:220px}
+  .sb-btn{background:var(--panel);border:1px solid var(--line);color:var(--white);padding:8px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;transition:.15s}
+  .sb-btn:hover{border-color:var(--gold);color:var(--gold-light)}
+  .sb-btn.gold{background:var(--gold-grad);color:#181206;border-color:var(--gold);font-weight:600}
+  .sb-btn.ghost{background:transparent}
+  .sb-status{font-size:.8rem;color:var(--gold-light)}
+
+  .overlay{position:fixed;inset:0;z-index:100;background:rgba(6,6,6,.86);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center}
+  .login-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:30px 28px;width:340px;max-width:92vw}
+  .login-card h3{font-family:'Bebas Neue';font-size:1.3rem;letter-spacing:.05em;color:var(--white)}
+  .login-card .lo-sub{font-size:.82rem;color:var(--muted);margin:4px 0 18px}
+  .login-card input{width:100%;background:#0e0e0d;border:1px solid var(--line);color:var(--white);padding:11px 12px;border-radius:7px;font-family:inherit;font-size:.95rem;margin-bottom:10px}
+  .lo-msg{font-size:.82rem;margin-top:10px;min-height:18px}
+  .lo-msg.err{color:#e58b88}.lo-msg.ok{color:var(--gold-light)}
+
+  .app{display:grid;grid-template-columns:1fr 300px;gap:0;height:calc(100vh - 108px)}
+  @media(max-width:860px){.app{grid-template-columns:1fr}}
+
+  .stage-area{display:flex;flex-direction:column;padding:18px;overflow:hidden}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .tool{display:inline-flex;align-items:center;gap:7px;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;
+    background:var(--panel);border:1px solid var(--line);color:var(--white);padding:9px 13px;border-radius:7px;cursor:pointer;transition:.15s}
+  .tool:hover{border-color:var(--gold);color:var(--gold-light);transform:translateY(-1px)}
+  .tool .ic{width:13px;height:13px;border:1.5px solid currentColor}
+  .tool .ic.round{border-radius:50%}
+  .tool .ic.bar{border-radius:2px}
+
+  .canvas-wrap{flex:1;overflow:auto;border:1px solid var(--line);border-radius:10px;background:#0b0b0a;position:relative}
+  #canvas{position:relative;width:1600px;height:1040px;margin:0 auto;
+    background-image:radial-gradient(rgba(7,159,150,.08) 1px,transparent 1px);background-size:26px 26px;background-position:13px 13px}
+
+  /* Objekte (Bühne, Tanzfläche, Bar, Eingang) */
+  .obj{position:absolute;border-radius:8px;cursor:grab;user-select:none;display:flex;align-items:center;justify-content:center;
+    text-align:center;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;font-weight:500;touch-action:none}
+  .obj.selected{outline:2px solid var(--gold-light);outline-offset:3px}
+  .obj.dragging{cursor:grabbing;z-index:50;opacity:.94}
+  .obj.stage{color:var(--gold-light);background:linear-gradient(180deg,rgba(7,159,150,.28),rgba(7,159,150,.06));
+    border:1px solid var(--gold);box-shadow:inset 0 -18px 34px -18px rgba(7,159,150,.7)}
+  .obj.dancefloor{color:rgba(245,240,235,.55);background:
+    repeating-linear-gradient(45deg,rgba(255,255,255,.04) 0 12px,transparent 12px 24px);border:1px dashed rgba(245,240,235,.25)}
+  .obj.bar{color:#9ad8d2;background:linear-gradient(180deg,rgba(91,143,217,.12),rgba(91,143,217,.03));border:1px solid rgba(91,143,217,.45)}
+  .obj.entrance{color:#a9d4b0;background:linear-gradient(180deg,rgba(79,158,90,.14),rgba(79,158,90,.03));border:1px solid rgba(79,158,90,.5)}
+
+  /* Tische */
+  .table-obj{position:absolute;cursor:grab;user-select:none;touch-action:none}
+  .table-obj.dragging{cursor:grabbing;z-index:50}
+  .table-surface{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    background:radial-gradient(circle at 50% 32%,#221e15,#0e0d0b);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);
+    font-size:10px;letter-spacing:.05em;text-transform:uppercase;line-height:1.2;
+    box-shadow:0 12px 28px -14px rgba(0,0,0,.95),inset 0 1px 0 rgba(7,159,150,.14)}
+  .table-obj.round .table-surface{border-radius:50%}
+  .table-obj.rect .table-surface{border-radius:8px}
+  .table-obj.selected .table-surface{border-color:var(--gold-light);box-shadow:0 0 0 2px rgba(63,195,186,.5),0 12px 28px -14px rgba(0,0,0,.95)}
+  .pseat{position:absolute;width:26px;height:26px;border-radius:50%;border:1px solid rgba(7,159,150,.4);
+    background:#1b1914;color:var(--gold-light);font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:500}
+
+  /* Eigenschaften-Panel */
+  .panel{background:var(--panel);border-left:1px solid var(--line);padding:22px 20px;overflow-y:auto}
+  .panel h3{font-family:'Bebas Neue';font-size:1.15rem;letter-spacing:.06em;color:var(--gold);margin-bottom:4px}
+  .panel .psub{font-size:.78rem;color:var(--muted);margin-bottom:20px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gray);margin-bottom:7px}
+  .field input[type=text],.field input[type=number]{width:100%;background:#0e0e0d;border:1px solid var(--line);color:var(--white);
+    padding:9px 11px;border-radius:6px;font-family:inherit;font-size:.9rem}
+  .seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .seg button{flex:1;background:#0e0e0d;border:none;color:var(--gray);padding:9px;font-family:inherit;font-size:.8rem;cursor:pointer;transition:.15s}
+  .seg button.on{background:var(--gold-grad);color:#181206;font-weight:600}
+  .stepper{display:flex;align-items:center;gap:10px}
+  .stepper button{width:34px;height:34px;border:1px solid var(--line);background:#0e0e0d;color:var(--gold-light);border-radius:6px;font-size:1.1rem;cursor:pointer}
+  .stepper button:hover{border-color:var(--gold)}
+  .stepper .val{flex:1;text-align:center;font-size:1.1rem;color:var(--white)}
+  .btn{width:100%;padding:11px;border-radius:7px;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--white);font-family:inherit;transition:.15s;margin-top:6px}
+  .btn.gold{background:var(--gold-grad);color:#181206;border-color:var(--gold);font-weight:600}
+  .btn.danger{color:#e58b88;border-color:rgba(192,80,79,.5)}
+  .btn.danger:hover{background:rgba(192,80,79,.15)}
+  .btn:hover{border-color:var(--gold)}
+  .empty{color:var(--muted);font-size:.85rem;line-height:1.7}
+  .bar-actions{margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
+  .count-note{font-size:.78rem;color:var(--gray);margin-top:14px;line-height:1.6}
+  .count-note b{color:var(--gold-light)}
+  pre#out{display:none;margin-top:14px;background:#0e0e0d;border:1px solid var(--line);border-radius:6px;padding:12px;font-size:.72rem;color:var(--gray);max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="logo">FOCUS <span>EVENTS</span> · Saalplan-Editor</div>
+  <div class="hint">Objekt anklicken zum Bearbeiten · ziehen zum Verschieben</div>
+</div>
+
+<div class="subbar">
+  <label class="sb-label">Event</label>
+  <select id="evSel"><option value="">– lädt …</option></select>
+  <button class="sb-btn" id="btnLoad">Laden</button>
+  <button class="sb-btn gold" id="btnSaveDb">Speichern &amp; Sitzplätze erzeugen</button>
+  <span id="dbStatus" class="sb-status"></span>
+  <span style="flex:1"></span>
+  <button class="sb-btn ghost" id="btnLogout" style="display:none">Abmelden</button>
+</div>
+
+<!-- Login-Overlay -->
+<div id="loginOverlay" class="overlay" style="display:none">
+  <div class="login-card">
+    <div class="logo" style="font-family:'Bebas Neue';font-size:1.4rem;margin-bottom:6px">FOCUS <span style="color:var(--gold)">EVENTS</span></div>
+    <h3>Admin-Anmeldung</h3>
+    <p class="lo-sub">Nur Veranstalter:innen. Wir senden dir einen Code per E-Mail.</p>
+    <div id="loStep1">
+      <input type="email" id="loEmail" placeholder="office@focus-events.shop" autocomplete="email">
+      <button class="sb-btn gold" id="loSend" style="width:100%">Code anfordern</button>
+    </div>
+    <div id="loStep2" style="display:none">
+      <input type="text" id="loCode" placeholder="6-stelliger Code" inputmode="numeric">
+      <button class="sb-btn gold" id="loVerify" style="width:100%">Anmelden</button>
+      <button class="sb-btn ghost" id="loBack" style="width:100%;margin-top:6px">Zurück</button>
+    </div>
+    <div id="loMsg" class="lo-msg"></div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="stage-area">
+    <div class="toolbar">
+      <button class="tool" data-add="round"><span class="ic round"></span> Runder Tisch</button>
+      <button class="tool" data-add="rect"><span class="ic bar"></span> Eckiger Tisch</button>
+      <button class="tool" data-add="stage"><span class="ic bar"></span> Bühne</button>
+      <button class="tool" data-add="dancefloor"><span class="ic bar"></span> Tanzfläche</button>
+      <button class="tool" data-add="bar"><span class="ic bar"></span> Bar</button>
+      <button class="tool" data-add="entrance"><span class="ic bar"></span> Eingang</button>
+    </div>
+    <div class="canvas-wrap">
+      <div id="canvas"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <!-- wird per JS gefüllt -->
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const canvas = document.getElementById('canvas');
+  const panel = document.getElementById('panel');
+  const CW = 1600, CH = 1040;
+  const SEAT = 26, OFF = 8; // Sitzgröße + Abstand vom Tischrand
+
+  let items = [];      // { id, kind, ... }
+  let selected = null;
+  let uid = 1;
+  const nid = () => 'o' + (uid++);
+
+  const ZONE_DEFAULTS = {
+    stage:      { w: 320, h: 74,  label: 'Bühne' },
+    dancefloor: { w: 260, h: 180, label: 'Tanzfläche' },
+    bar:        { w: 150, h: 60,  label: 'Bar' },
+    entrance:   { w: 120, h: 48,  label: 'Eingang' },
+  };
+
+  /* ---------- Sitzpositionen ---------- */
+  function roundSeats(n){
+    const R = n <= 1 ? 0 : Math.max(52,(SEAT+12)/(2*Math.sin(Math.PI/n)));
+    const dia = 2*R;                       // Ring-Durchmesser (Sitzmittelpunkte)
+    const box = Math.round(dia + SEAT + 2*OFF);
+    const surface = Math.round(2*(R - SEAT/2 - OFF));
+    const c = box/2, pos = [];
+    for(let i=0;i<n;i++){
+      const a = (-90 + i*(360/n))*Math.PI/180;
+      pos.push({ x: c + R*Math.cos(a) - SEAT/2, y: c + R*Math.sin(a) - SEAT/2 });
+    }
+    return { box, surface, surfaceW: surface, surfaceH: surface, pos };
+  }
+  function rectSeats(n){
+    // Tischfläche proportional zur Sitzzahl (länglich), Sitze rund um den Rand
+    const perSide = Math.ceil(n/2);
+    const W = Math.max(90, perSide*38);
+    const H = 76;
+    const pad = SEAT + OFF;
+    const box = Math.max(W, H) + 2*pad;
+    const ox = (box - W)/2, oy = (box - H)/2;   // Fläche zentriert in quadratischer Box
+    const P = 2*(W+H), pos = [];
+    for(let i=0;i<n;i++){
+      const p = seatOnRect((i+0.5)/n * P, W, H, pad);
+      pos.push({ x: ox + p.x - SEAT/2, y: oy + p.y - SEAT/2 });
+    }
+    return { box, surface:0, surfaceW:W, surfaceH:H, pos };
+  }
+  function seatOnRect(d, W, H, pad){
+    // Punkt auf dem Rechteck-Umfang, um pad nach außen versetzt (Sitzmittelpunkt)
+    if(d < W)      return { x:d,        y:-pad };
+    d -= W;
+    if(d < H)      return { x:W+pad,    y:d };
+    d -= H;
+    if(d < W)      return { x:W-d,      y:H+pad };
+    d -= W;
+    return           { x:-pad,     y:H-d };
+  }
+
+  /* ---------- Rendering ---------- */
+  function render(){
+    canvas.innerHTML = '';
+    items.forEach(it=>{
+      if(it.kind==='table') canvas.appendChild(tableEl(it));
+      else canvas.appendChild(zoneEl(it));
+    });
+    renderPanel();
+  }
+
+  function tableEl(it){
+    const g = (it.shape==='round') ? roundSeats(it.seats) : rectSeats(it.seats);
+    it._box = g.box;
+    const el = document.createElement('div');
+    el.className = 'table-obj '+it.shape+(selected===it.id?' selected':'');
+    el.style.left = it.x+'px'; el.style.top = it.y+'px';
+    el.style.width = g.box+'px'; el.style.height = g.box+'px';
+    const surf = document.createElement('div');
+    surf.className='table-surface';
+    if(it.shape==='round'){ surf.style.width=g.surface+'px'; surf.style.height=g.surface+'px'; }
+    else { surf.style.width=g.surfaceW+'px'; surf.style.height=g.surfaceH+'px'; }
+    surf.innerHTML = (it.label||'Tisch');
+    el.appendChild(surf);
+    g.pos.forEach((p,i)=>{
+      const s=document.createElement('div'); s.className='pseat';
+      s.style.left=p.x+'px'; s.style.top=p.y+'px'; s.textContent=i+1;
+      el.appendChild(s);
+    });
+    attachDrag(el, it);
+    return el;
+  }
+
+  function zoneEl(it){
+    const el=document.createElement('div');
+    el.className='obj '+it.type+(selected===it.id?' selected':'');
+    el.style.left=it.x+'px'; el.style.top=it.y+'px';
+    el.style.width=it.w+'px'; el.style.height=it.h+'px';
+    el.textContent=it.label;
+    attachDrag(el, it);
+    return el;
+  }
+
+  /* ---------- Drag & Drop ---------- */
+  function attachDrag(el, it){
+    el.addEventListener('pointerdown', e=>{
+      e.preventDefault();
+      // Auswahl setzen, ohne das gerade gegriffene Element neu zu rendern
+      selected = it.id;
+      canvas.querySelectorAll('.selected').forEach(n=>n.classList.remove('selected'));
+      el.classList.add('selected');
+      renderPanel();
+      const startX = e.clientX, startY = e.clientY, ox = it.x, oy = it.y;
+      el.setPointerCapture(e.pointerId);
+      el.classList.add('dragging');
+      const w = (it.kind==='table')? it._box : it.w;
+      const h = (it.kind==='table')? it._box : it.h;
+      function move(ev){
+        let nx = ox + (ev.clientX-startX), ny = oy + (ev.clientY-startY);
+        nx = Math.max(0, Math.min(CW - w, nx));
+        ny = Math.max(0, Math.min(CH - h, ny));
+        it.x = Math.round(nx); it.y = Math.round(ny);
+        el.style.left=it.x+'px'; el.style.top=it.y+'px';
+      }
+      function up(ev){
+        el.classList.remove('dragging');
+        el.releasePointerCapture(e.pointerId);
+        el.removeEventListener('pointermove',move);
+        el.removeEventListener('pointerup',up);
+      }
+      el.addEventListener('pointermove',move);
+      el.addEventListener('pointerup',up);
+    });
+  }
+
+  /* ---------- Eigenschaften-Panel ---------- */
+  function renderPanel(){
+    const it = items.find(x=>x.id===selected);
+    if(!it){
+      panel.innerHTML = '<div class="empty"><b style="color:var(--gold-light)">Kein Objekt gewählt.</b><br><br>'+
+        'Füge oben Tische oder Bereiche hinzu, ziehe sie an die gewünschte Stelle und klicke ein Objekt an, um es zu bearbeiten.</div>'+
+        countNote() + actions();
+      bindActions();
+      return;
+    }
+    let html='';
+    if(it.kind==='table'){
+      html = '<h3>Tisch</h3><div class="psub">Form, Sitzanzahl und Bezeichnung</div>'+
+        '<div class="field"><label>Form</label><div class="seg">'+
+          '<button data-shape="round" class="'+(it.shape==='round'?'on':'')+'">Rund</button>'+
+          '<button data-shape="rect" class="'+(it.shape==='rect'?'on':'')+'">Eckig</button></div></div>'+
+        '<div class="field"><label>Sitzplätze</label><div class="stepper">'+
+          '<button data-seat="-1">−</button><div class="val" id="seatVal">'+it.seats+'</div><button data-seat="1">+</button></div></div>'+
+        '<div class="field"><label>Bezeichnung</label><input type="text" id="lbl" value="'+(it.label||'')+'" placeholder="z. B. Tisch 1"></div>'+
+        '<button class="btn danger" id="del">Tisch löschen</button>';
+    } else {
+      const names={stage:'Bühne',dancefloor:'Tanzfläche',bar:'Bar',entrance:'Eingang'};
+      html = '<h3>'+(names[it.type]||'Bereich')+'</h3><div class="psub">Größe und Bezeichnung</div>'+
+        '<div class="field"><label>Bezeichnung</label><input type="text" id="lbl" value="'+(it.label||'')+'"></div>'+
+        '<div class="field"><label>Breite (px)</label><input type="number" id="w" value="'+it.w+'" min="40" max="'+CW+'"></div>'+
+        '<div class="field"><label>Höhe (px)</label><input type="number" id="h" value="'+it.h+'" min="30" max="'+CH+'"></div>'+
+        '<button class="btn danger" id="del">Bereich löschen</button>';
+    }
+    panel.innerHTML = html + countNote() + actions();
+    bindPanel(it); bindActions();
+  }
+
+  function countNote(){
+    const tables = items.filter(i=>i.kind==='table');
+    const seats = tables.reduce((s,t)=>s+t.seats,0);
+    return '<div class="count-note">Tische: <b>'+tables.length+'</b> · Sitzplätze gesamt: <b>'+seats+'</b></div>';
+  }
+  function actions(){
+    return '<div class="bar-actions"><button class="btn" id="show">Layout-Daten (JSON) anzeigen</button>'+
+      '<pre id="out"></pre></div>';
+  }
+
+  function bindPanel(it){
+    panel.querySelectorAll('[data-shape]').forEach(b=>b.onclick=()=>{ it.shape=b.dataset.shape; clampInside(it); render(); });
+    panel.querySelectorAll('[data-seat]').forEach(b=>b.onclick=()=>{
+      it.seats = Math.max(1, Math.min(20, it.seats + parseInt(b.dataset.seat,10))); clampInside(it); render();
+    });
+    const lbl=panel.querySelector('#lbl'); if(lbl) lbl.oninput=()=>{ it.label=lbl.value; if(it.kind==='table'){ const s=canvas.querySelector('.table-obj.selected .table-surface'); if(s)s.innerHTML=it.label||'Tisch'; } else { const z=canvas.querySelector('.obj.selected'); if(z)z.textContent=it.label; } };
+    const w=panel.querySelector('#w'); if(w) w.oninput=()=>{ it.w=Math.max(40,Math.min(CW,+w.value||40)); clampInside(it); render(); };
+    const h=panel.querySelector('#h'); if(h) h.oninput=()=>{ it.h=Math.max(30,Math.min(CH,+h.value||30)); clampInside(it); render(); };
+    const del=panel.querySelector('#del'); if(del) del.onclick=()=>{ items=items.filter(x=>x.id!==it.id); selected=null; render(); };
+  }
+  function bindActions(){
+    const show=panel.querySelector('#show'); if(show) show.onclick=()=>{ const o=panel.querySelector('#out'); o.style.display='block'; o.textContent=JSON.stringify(exportLayout(),null,2); };
+  }
+
+  function clampInside(it){
+    const box = (it.kind==='table') ? (it.shape==='round'?roundSeats(it.seats).box:rectSeats(it.seats).box) : it.w;
+    const h = (it.kind==='table') ? box : it.h;
+    it.x = Math.max(0, Math.min(CW - box, it.x));
+    it.y = Math.max(0, Math.min(CH - h, it.y));
+  }
+
+  function exportLayout(){
+    return {
+      canvas:{ w:CW, h:CH },
+      tables: items.filter(i=>i.kind==='table').map((t,idx)=>({ id:t.id, no:idx+1, shape:t.shape, seats:t.seats, x:t.x, y:t.y, label:t.label||'' })),
+      zones:  items.filter(i=>i.kind==='zone').map(z=>({ id:z.id, type:z.type, x:z.x, y:z.y, w:z.w, h:z.h, label:z.label||'' })),
+    };
+  }
+  function importLayout(layout){
+    items = [];
+    if(layout && Array.isArray(layout.tables)) layout.tables.forEach(t=>{
+      items.push({ id:t.id||nid(), kind:'table', shape:t.shape==='rect'?'rect':'round',
+        seats:Math.max(1,Math.min(20,parseInt(t.seats,10)||8)), x:t.x||40, y:t.y||40, label:t.label||'' });
+    });
+    if(layout && Array.isArray(layout.zones)) layout.zones.forEach(z=>{
+      items.push({ id:z.id||nid(), kind:'zone', type:z.type||'stage', x:z.x||40, y:z.y||40,
+        w:z.w||120, h:z.h||60, label:z.label||'' });
+    });
+    uid = Math.max(uid, 1000);
+    selected = null; render();
+  }
+
+  /* ---------- Hinzufügen ---------- */
+  function addTable(shape){
+    const it={ id:nid(), kind:'table', shape, seats: shape==='round'?8:6, x:120, y:160, label:'Tisch '+ (items.filter(i=>i.kind==='table').length+1) };
+    items.push(it); selected=it.id; render();
+  }
+  function addZone(type){
+    const d=ZONE_DEFAULTS[type];
+    const it={ id:nid(), kind:'zone', type, x:140, y:60, w:d.w, h:d.h, label:d.label };
+    items.push(it); selected=it.id; render();
+  }
+  document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.add;
+    if(k==='round'||k==='rect') addTable(k); else addZone(k);
+  });
+
+  // Klick auf leere Fläche → Auswahl aufheben
+  canvas.addEventListener('pointerdown', e=>{ if(e.target===canvas){ selected=null; render(); } });
+
+  /* ---------- Supabase-Anbindung ---------- */
+  const S = window.CMStore;
+  const $ = id => document.getElementById(id);
+  let currentEvent = null, events = [];
+
+  function status(msg, kind){ const el=$('dbStatus'); if(!el) return; el.textContent=msg||''; el.style.color = kind==='err'?'#e58b88':'var(--gold-light)'; }
+  function loMsg(msg, kind){ const el=$('loMsg'); if(!el) return; el.textContent=msg||''; el.className='lo-msg '+(kind||''); }
+  function escHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  async function boot(){
+    render();
+    if(!S){ status('Datenschicht nicht geladen.','err'); return; }
+    try { await S.init(); } catch(e){ status('Verbindung fehlgeschlagen: '+e.message,'err'); }
+    if (S.currentUser() && await S.isAdmin()) onAuthed();
+    else $('loginOverlay').style.display='flex';
+  }
+  async function onAuthed(){
+    $('loginOverlay').style.display='none';
+    $('btnLogout').style.display='';
+    await loadEvents();
+  }
+  async function loadEvents(){
+    try { events = await S.getEvents(true); }
+    catch(e){ status('Events laden fehlgeschlagen: '+e.message,'err'); return; }
+    const sel=$('evSel');
+    sel.innerHTML = events.length
+      ? events.map(e=>'<option value="'+e.id+'">'+escHtml(e.name)+(e.active?'':' (inaktiv)')+'</option>').join('')
+      : '<option value="">Kein Event vorhanden</option>';
+    if(events.length){ sel.value=events[0].id; await doLoad(); }
+  }
+  async function doLoad(){
+    currentEvent = $('evSel').value;
+    const ev = events.find(e=>e.id===currentEvent);
+    if(!ev) return;
+    const layout = ev.layout;
+    if(layout && (Array.isArray(layout.tables) || Array.isArray(layout.zones))){
+      importLayout(layout);
+      const tc = (layout.tables||[]).length;
+      status('Layout geladen · '+tc+' Tische.');
+    } else {
+      items=[]; selected=null; render();
+      status('Neues, leeres Layout – füge oben Tische & Bereiche hinzu.');
+    }
+  }
+  async function doSave(){
+    if(!currentEvent){ status('Bitte zuerst ein Event wählen.','err'); return; }
+    const layout = exportLayout();
+    const btn=$('btnSaveDb'); btn.disabled=true; status('Speichern …');
+    try {
+      await S.saveLayout(currentEvent, layout);
+      const n = await S.generateSeatsFromLayout(currentEvent, layout.tables);
+      status('✓ Gespeichert · '+layout.tables.length+' Tische · '+n+' Sitzplätze erzeugt.');
+      const ev=events.find(e=>e.id===currentEvent); if(ev) ev.layout=layout;
+    } catch(e){ status('Fehler: '+e.message,'err'); }
+    finally { btn.disabled=false; }
+  }
+
+  // Login
+  $('loSend').onclick = async ()=>{
+    const email=$('loEmail').value.trim();
+    if(!S.validEmail(email)){ loMsg('Bitte eine gültige E-Mail eingeben.','err'); return; }
+    loMsg('Sende Code …');
+    try { await S.requestCode(email); window._loEmail=email; $('loStep1').style.display='none'; $('loStep2').style.display=''; loMsg('Code gesendet – bitte E-Mail prüfen.','ok'); }
+    catch(e){ loMsg(e.message,'err'); }
+  };
+  $('loVerify').onclick = async ()=>{
+    loMsg('Prüfe …');
+    try {
+      await S.verifyCode(window._loEmail, $('loCode').value.trim());
+      if(!(await S.isAdmin())){ loMsg('Diese E-Mail hat keine Admin-Berechtigung.','err'); await S.logout(); return; }
+      loMsg(''); onAuthed();
+    } catch(e){ loMsg(e.message,'err'); }
+  };
+  $('loBack').onclick = ()=>{ $('loStep2').style.display='none'; $('loStep1').style.display=''; loMsg(''); };
+  $('btnLogout').onclick = async ()=>{ await S.logout(); location.reload(); };
+  $('btnLoad').onclick = doLoad;
+  $('btnSaveDb').onclick = doSave;
+  $('evSel').onchange = doLoad;
+
+  boot();
+})();
+</script>
+</body>
+</html>
