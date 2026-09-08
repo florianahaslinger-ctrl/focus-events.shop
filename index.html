@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-club="LEVEL">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,133 +13,229 @@
 <script src="assets/qrcode.js"></script>
 <script src="assets/ticket-pdf.js"></script>
 <style>
-  /* ===== Focus Events – Club-Shop (eigenes Design) ===== */
+  /* ============================================================
+     FOCUS EVENTS – Club-Shop · helles Poster-Design
+     Akzentfarbe pro Club (LEVEL = Blau, YPSILON = Magenta).
+     Die geteilten CORE-Variablen (--gold*, --card-grad, --white …)
+     werden hier auf das helle Theme umgebogen -> CORE bleibt intakt,
+     kein Türkis mehr auf dieser Seite.
+     ============================================================ */
   :root{
-    --fx-teal:#079f96; --fx-teal-lt:#3fc3ba; --fx-teal-dk:#05756e;
-    --fx-bg:#070d0c; --fx-bg2:#0c1615; --fx-card:#0f1a19; --fx-card2:#132322;
-    --fx-line:rgba(63,195,186,.16); --fx-txt:#eaf3f2; --fx-mut:#8fa5a2;
+    /* Helle Basis */
+    --bg:#f4f2ec;          /* warmes Papier */
+    --bg-2:#eceae2;
+    --surface:#ffffff;
+    --ink:#0f0f12;         /* fast-schwarze Schrift */
+    --ink-2:#3a3a41;
+    --mut:#7c7c84;
+    --line:rgba(15,15,18,.12);
+    --line-soft:rgba(15,15,18,.06);
+
+    /* Club-Akzent (per data-club überschrieben) */
+    --accent:#2b38f5; --accent-lt:#5a66ff; --accent-dk:#1b22c8;
+    --accent-tint:rgba(43,56,245,.10); --accent-glow:rgba(43,56,245,.30);
+    --on-accent:#ffffff;
+
+    /* ---- CORE-Variablen auf das helle Theme mappen ---- */
+    --black:var(--bg); --dark:var(--bg-2); --panel:var(--surface);
+    --white:var(--ink); --gray:var(--ink-2); --muted:var(--mut);
+    --gold:var(--accent); --gold-light:var(--accent); --gold-dim:var(--accent-tint);
+    --gold-grad:linear-gradient(135deg,var(--accent-lt),var(--accent) 55%,var(--accent-dk));
+    --card-grad:var(--surface);
+    --shadow:0 18px 46px -22px rgba(15,15,25,.28);
+    --glow:0 0 0 1px var(--accent-tint), 0 24px 60px -30px var(--accent-glow);
   }
-  html,body{background:var(--fx-bg);}
+  /* Club-Farbwelten */
+  [data-club="LEVEL"]{
+    --accent:#2b38f5; --accent-lt:#5a66ff; --accent-dk:#1b22c8;
+    --accent-tint:rgba(43,56,245,.10); --accent-glow:rgba(43,56,245,.34);
+  }
+  [data-club="YPSILON"]{
+    --accent:#ff1466; --accent-lt:#ff578f; --accent-dk:#d1004e;
+    --accent-tint:rgba(255,20,102,.10); --accent-glow:rgba(255,20,102,.36);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{background:var(--bg);}
   body{
-    font-family:'Space Grotesk',system-ui,sans-serif; color:var(--fx-txt);
-    font-weight:400; -webkit-font-smoothing:antialiased; margin:0;
+    margin:0; color:var(--ink); font-family:'Space Grotesk',system-ui,sans-serif;
+    font-weight:400; line-height:1.6; -webkit-font-smoothing:antialiased; min-height:100vh;
     background:
-      radial-gradient(900px 520px at 78% -8%, rgba(7,159,150,.22), transparent 60%),
-      radial-gradient(700px 500px at 8% 4%, rgba(7,159,150,.10), transparent 55%),
-      var(--fx-bg);
-    background-attachment:fixed;
+      radial-gradient(1200px 620px at 82% -10%, var(--accent-tint), transparent 60%),
+      radial-gradient(900px 560px at -6% 2%, var(--accent-tint), transparent 55%),
+      var(--bg);
+    background-attachment:fixed; transition:background .45s ease;
   }
-  a{color:inherit;}
-  ::selection{background:var(--fx-teal);color:#04110f;}
+  a{color:inherit;text-decoration:none;}
+  ::selection{background:var(--accent);color:var(--on-accent);}
+  ::-webkit-scrollbar{width:11px;height:11px;}
+  ::-webkit-scrollbar-track{background:var(--bg-2);}
+  ::-webkit-scrollbar-thumb{background:#c9c6bc;border:3px solid var(--bg-2);border-radius:8px;}
+  ::-webkit-scrollbar-thumb:hover{background:#b3b0a5;}
 
-  /* Nav */
+  /* ---------- Nav ---------- */
   .fx-nav{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;
-    padding:16px clamp(18px,5vw,54px);
-    background:rgba(7,13,12,.72);backdrop-filter:blur(14px);border-bottom:1px solid var(--fx-line);}
-  .fx-brand{display:flex;align-items:center;gap:11px;text-decoration:none;}
-  .fx-brand img{height:26px;width:auto;display:block;}
-  .fx-brand b{font-family:'Space Grotesk';font-weight:700;font-size:1.02rem;letter-spacing:.32em;text-transform:uppercase;}
-  .fx-brand b span{color:var(--fx-teal);}
-  .fx-navlinks{display:flex;align-items:center;gap:8px;}
-  .fx-navlinks a{font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;color:var(--fx-mut);
+    padding:15px clamp(18px,5vw,54px);
+    background:rgba(244,242,236,.82);backdrop-filter:blur(14px) saturate(1.1);
+    border-top:4px solid var(--accent);border-bottom:1px solid var(--line);transition:border-color .45s ease;}
+  .fx-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);}
+  .fx-brand b{font-family:'Space Grotesk';font-weight:700;font-size:1.02rem;letter-spacing:.30em;
+    text-transform:uppercase;}
+  .fx-brand b span{color:var(--accent);}
+  .fx-navlinks{display:flex;align-items:center;gap:6px;}
+  .fx-navlinks a{font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);
     padding:9px 14px;border-radius:999px;transition:.2s;}
-  .fx-navlinks a:hover{color:var(--fx-txt);}
-  .fx-navlinks a.fx-cta{border:1px solid var(--fx-teal);color:var(--fx-teal-lt);}
-  .fx-navlinks a.fx-cta:hover{background:var(--fx-teal);color:#04110f;}
+  .fx-navlinks a:hover{color:var(--ink);background:rgba(15,15,18,.05);}
+  .fx-navlinks a.fx-cta{background:var(--accent);color:var(--on-accent);border:1px solid var(--accent);}
+  .fx-navlinks a.fx-cta:hover{background:var(--accent-dk);border-color:var(--accent-dk);color:#fff;}
 
-  /* Hero */
-  .fx-hero{max-width:1180px;margin:0 auto;padding:clamp(40px,7vw,84px) clamp(18px,5vw,54px) 8px;}
-  .fx-eyebrow{font-size:.72rem;letter-spacing:.5em;text-transform:uppercase;color:var(--fx-teal-lt);
-    display:flex;align-items:center;gap:14px;margin-bottom:18px;}
-  .fx-eyebrow::before{content:"";width:38px;height:1px;background:var(--fx-teal);}
-  .fx-hero h1{font-family:'Anton',sans-serif;font-weight:400;line-height:.92;letter-spacing:.01em;
-    font-size:clamp(2.9rem,9vw,6.2rem);text-transform:uppercase;margin:0 0 14px;}
-  .fx-hero h1 span{color:var(--fx-teal);
-    text-shadow:0 0 34px rgba(7,159,150,.55);}
-  .fx-hero p{max-width:52ch;color:var(--fx-mut);font-size:1rem;line-height:1.65;margin:0;}
+  /* ---------- Hero ---------- */
+  .fx-hero{max-width:1200px;margin:0 auto;padding:clamp(46px,7vw,92px) clamp(18px,5vw,54px) 6px;}
+  .fx-eyebrow{font-size:.72rem;letter-spacing:.5em;text-transform:uppercase;color:var(--accent);
+    display:flex;align-items:center;gap:14px;margin-bottom:20px;font-weight:600;}
+  .fx-eyebrow::before{content:"";width:40px;height:2px;background:var(--accent);}
+  .fx-hero h1{font-family:'Anton',sans-serif;font-weight:400;line-height:.9;letter-spacing:.005em;
+    font-size:clamp(3rem,10vw,7rem);text-transform:uppercase;margin:0 0 18px;color:var(--ink);}
+  .fx-hero h1 span{color:var(--accent);}
+  .fx-hero p{max-width:54ch;color:var(--ink-2);font-size:1.04rem;line-height:1.65;margin:0;}
 
-  /* Club-Reiter */
-  .fx-tabs{max-width:1180px;margin:clamp(26px,4vw,44px) auto 0;padding:0 clamp(18px,5vw,54px);
-    display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-  .fx-tab{position:relative;cursor:pointer;border:1px solid var(--fx-line);border-radius:16px;overflow:hidden;
-    background:linear-gradient(160deg,var(--fx-card2),var(--fx-card));
-    padding:30px 26px;min-height:132px;display:flex;flex-direction:column;justify-content:space-between;
-    transition:.25s;opacity:.52;filter:grayscale(.3);}
-  .fx-tab:hover{opacity:.8;transform:translateY(-2px);}
-  .fx-tab .fx-tab-glow{position:absolute;inset:0;opacity:0;transition:.3s;
-    background:radial-gradient(420px 150px at 50% 120%, rgba(7,159,150,.4), transparent 70%);pointer-events:none;}
-  .fx-tab.active{opacity:1;filter:none;border-color:var(--fx-teal);
-    box-shadow:0 0 0 1px var(--fx-teal), 0 24px 60px -30px rgba(7,159,150,.8);}
-  .fx-tab.active .fx-tab-glow{opacity:1;}
-  .fx-tab img{height:clamp(34px,5vw,46px);width:auto;object-fit:contain;object-position:left center;
-    filter:drop-shadow(0 2px 10px rgba(0,0,0,.5));}
+  /* ---------- Club-Reiter (bleibt – nur neu gestylt) ---------- */
+  .fx-tabs{max-width:1200px;margin:clamp(30px,4vw,48px) auto 0;padding:0 clamp(18px,5vw,54px);
+    display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .fx-tab{position:relative;cursor:pointer;border-radius:20px;overflow:hidden;
+    background:var(--surface);border:1px solid var(--line);
+    padding:30px 28px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between;
+    transition:transform .25s ease, box-shadow .25s ease, background .25s ease;
+    box-shadow:0 10px 30px -22px rgba(15,15,25,.3);}
+  .fx-tab[data-club="LEVEL"]{--tile:#2b38f5;--tile-glow:rgba(43,56,245,.4);}
+  .fx-tab[data-club="YPSILON"]{--tile:#ff1466;--tile-glow:rgba(255,20,102,.42);}
+  .fx-tab::after{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--tile);opacity:.85;}
+  .fx-tab:hover{transform:translateY(-3px);box-shadow:0 22px 46px -26px var(--tile-glow);}
+  .fx-tab .fx-logo{height:clamp(30px,4.6vw,42px);width:auto;object-fit:contain;object-position:left center;}
+  .fx-tab .fx-logo.on-light{display:block;}
+  .fx-tab .fx-logo.on-dark{display:none;}
   .fx-tab .fx-tab-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;
-    font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--fx-mut);position:relative;z-index:1;}
-  .fx-tab.active .fx-tab-foot{color:var(--fx-teal-lt);}
-  .fx-tab .fx-count{font-family:'Space Grotesk';font-weight:600;color:var(--fx-txt);}
-  .fx-tab.active .fx-count{color:var(--fx-teal-lt);}
+    font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);position:relative;z-index:1;}
+  .fx-tab .fx-count{font-weight:700;color:var(--ink);}
+  /* aktiver Reiter: mit Club-Farbe gefüllt */
+  .fx-tab.active{background:var(--tile);border-color:var(--tile);
+    box-shadow:0 26px 60px -28px var(--tile-glow);}
+  .fx-tab.active::after{opacity:0;}
+  .fx-tab.active .fx-logo.on-light{display:none;}
+  .fx-tab.active .fx-logo.on-dark{display:block;}
+  .fx-tab.active .fx-tab-foot{color:rgba(255,255,255,.82);}
+  .fx-tab.active .fx-count{color:#fff;}
 
-  /* Shop-Bereich */
-  .fx-wrap{max-width:1180px;margin:0 auto;padding:clamp(30px,4vw,46px) clamp(18px,5vw,54px) 40px;}
-  .fx-secline{display:flex;align-items:baseline;gap:14px;margin:8px 0 22px;}
-  .fx-secline h2{font-family:'Anton',sans-serif;font-weight:400;text-transform:uppercase;letter-spacing:.02em;
-    font-size:clamp(1.5rem,3.4vw,2.2rem);margin:0;}
-  .fx-secline h2 em{font-style:normal;color:var(--fx-teal);}
-  .fx-secline .fx-sub{color:var(--fx-mut);font-size:.85rem;}
+  /* ---------- Shop-Bereich ---------- */
+  .fx-wrap{max-width:1200px;margin:0 auto;padding:clamp(34px,4vw,50px) clamp(18px,5vw,54px) 40px;}
+  .fx-secline{display:flex;align-items:baseline;gap:14px;margin:8px 0 24px;}
+  .fx-secline h2{font-family:'Anton',sans-serif;font-weight:400;text-transform:uppercase;letter-spacing:.01em;
+    font-size:clamp(1.6rem,3.6vw,2.4rem);margin:0;color:var(--ink);}
+  .fx-secline h2 em{font-style:normal;color:var(--accent);}
+  .fx-secline .fx-sub{color:var(--mut);font-size:.85rem;}
 
-  #eventList{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px;}
-  .ev-card{position:relative;border:1px solid var(--fx-line);border-radius:16px;overflow:hidden;
-    background:linear-gradient(165deg,var(--fx-card2),var(--fx-card));transition:.22s;}
-  .ev-card:hover{border-color:rgba(63,195,186,.4);transform:translateY(-3px);
-    box-shadow:0 26px 60px -34px rgba(7,159,150,.6);}
-  .ev-top{display:flex;gap:16px;padding:20px 20px 14px;}
-  .ev-date{flex:0 0 auto;width:66px;text-align:center;border:1px solid var(--fx-line);border-radius:12px;
-    padding:10px 0;background:rgba(7,159,150,.07);}
-  .ev-date .d{font-family:'Anton',sans-serif;font-size:1.9rem;line-height:1;color:var(--fx-teal-lt);}
-  .ev-date .m{font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--fx-mut);margin-top:5px;}
-  .ev-date .wd{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--fx-teal);margin-top:3px;}
+  #eventList{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;}
+  .ev-card{position:relative;border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    background:var(--surface);transition:.22s;box-shadow:0 12px 34px -26px rgba(15,15,25,.35);}
+  .ev-card:hover{border-color:var(--accent);transform:translateY(-3px);
+    box-shadow:0 26px 56px -32px var(--accent-glow);}
+  .ev-top{display:flex;gap:16px;padding:22px 22px 14px;}
+  .ev-date{flex:0 0 auto;width:68px;text-align:center;border-radius:14px;
+    padding:11px 0;background:var(--accent);color:var(--on-accent);}
+  .ev-date .d{font-family:'Anton',sans-serif;font-size:2rem;line-height:1;}
+  .ev-date .m{font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;opacity:.9;margin-top:5px;}
+  .ev-date .wd{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;opacity:.75;margin-top:3px;}
   .ev-head{min-width:0;}
-  .ev-head h3{font-family:'Space Grotesk';font-weight:700;font-size:1.28rem;line-height:1.1;margin:2px 0 6px;
-    letter-spacing:.01em;text-transform:uppercase;}
-  .ev-loc{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--fx-teal-lt);
-    display:inline-flex;align-items:center;gap:6px;}
-  .ev-desc{color:var(--fx-mut);font-size:.9rem;line-height:1.55;padding:0 20px 6px;}
-  .ev-cats{padding:6px 14px 16px;display:flex;flex-direction:column;gap:2px;}
+  .ev-head h3{font-family:'Space Grotesk';font-weight:700;font-size:1.3rem;line-height:1.1;margin:2px 0 6px;
+    letter-spacing:.01em;text-transform:uppercase;color:var(--ink);}
+  .ev-loc{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+    display:inline-flex;align-items:center;gap:6px;font-weight:600;}
+  .ev-desc{color:var(--ink-2);font-size:.9rem;line-height:1.55;padding:0 22px 6px;}
+  .ev-cats{padding:6px 16px 18px;display:flex;flex-direction:column;gap:2px;}
   .cat-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;
-    padding:12px 6px;border-top:1px solid rgba(63,195,186,.1);}
+    padding:13px 6px;border-top:1px solid var(--line-soft);}
   .cat-row:first-child{border-top:none;}
-  .cat-info .name{font-weight:600;font-size:.96rem;}
-  .cat-info .desc{color:var(--fx-mut);font-size:.78rem;margin-top:2px;}
-  .cat-price{font-family:'Space Grotesk';font-weight:700;font-size:1.02rem;color:var(--fx-teal-lt);white-space:nowrap;}
-  .cat-left{grid-column:1 / -1;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--fx-mut);}
-  .cat-left.low{color:#e6b25a;}
-  .cat-left.out{color:#d9615f;}
-  .qty{display:inline-flex;align-items:center;border:1px solid var(--fx-line);border-radius:999px;overflow:hidden;}
-  .qty button{width:34px;height:34px;border:none;background:transparent;color:var(--fx-teal-lt);
+  .cat-info .name{font-weight:600;font-size:.96rem;color:var(--ink);}
+  .cat-info .desc{color:var(--mut);font-size:.78rem;margin-top:2px;}
+  .cat-price{font-family:'Space Grotesk';font-weight:700;font-size:1.04rem;color:var(--accent);white-space:nowrap;}
+  .cat-left{grid-column:1 / -1;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);}
+  .cat-left.low{color:#c77e2e;}
+  .cat-left.out{color:#c0504f;}
+  .qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--bg);}
+  .qty button{width:34px;height:34px;border:none;background:transparent;color:var(--accent);
     font-size:1.2rem;cursor:pointer;transition:.15s;line-height:1;}
-  .qty button:hover{background:var(--fx-teal);color:#04110f;}
-  .qty input{width:34px;height:34px;border:none;background:transparent;color:var(--fx-txt);
+  .qty button:hover{background:var(--accent);color:var(--on-accent);}
+  .qty input{width:34px;height:34px;border:none;background:transparent;color:var(--ink);
     text-align:center;font-family:'Space Grotesk';font-weight:600;font-size:.95rem;}
 
-  .fx-empty{border:1px dashed var(--fx-line);border-radius:16px;padding:46px 26px;text-align:center;
-    background:rgba(7,159,150,.04);}
-  .fx-empty h3{font-family:'Anton',sans-serif;font-weight:400;text-transform:uppercase;font-size:1.5rem;margin:0 0 8px;}
-  .fx-empty p{color:var(--fx-mut);margin:0;}
+  .fx-empty{border:1px dashed var(--accent);border-radius:18px;padding:46px 26px;text-align:center;
+    background:var(--accent-tint);}
+  .fx-empty::before{content:"\25C6";display:block;font-size:1.4rem;color:var(--accent);margin-bottom:10px;}
+  .fx-empty h3{font-family:'Anton',sans-serif;font-weight:400;text-transform:uppercase;font-size:1.6rem;margin:0 0 8px;color:var(--ink);}
+  .fx-empty p{color:var(--ink-2);margin:0;}
 
-  /* „Meine Tickets" schlicht angepasst */
-  #meine-tickets{max-width:1180px;margin:56px auto 0;padding:0 clamp(18px,5vw,54px);}
+  #meine-tickets{max-width:1200px;margin:60px auto 0;padding:0 clamp(18px,5vw,54px);}
+  /* „Meine Tickets" – eigener Ticket-Look, klar weg vom CORE-Karten-Stil */
+  #meine-tickets #myTicketsArea{position:relative;padding:34px 34px 34px 40px;border-radius:20px;
+    background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;animation:none;}
+  #meine-tickets #myTicketsArea::before{content:"";position:absolute;left:0;top:0;bottom:0;right:auto;width:8px;height:auto;
+    background:var(--gold-grad);}
+  #meine-tickets #myTicketsArea .mt-h{font-family:'Anton',sans-serif;font-weight:400;text-transform:uppercase;
+    letter-spacing:.01em;font-size:1.55rem;line-height:1.05;color:var(--ink);margin:0 0 10px;}
+  #meine-tickets #myTicketsArea .sub{font-size:1.02rem;color:var(--ink-2);max-width:54ch;line-height:1.6;}
+  #meine-tickets #myTicketsArea .badge{color:var(--accent);}
 
-  /* Footer */
-  .fx-footer{border-top:1px solid var(--fx-line);margin-top:70px;padding:34px clamp(18px,5vw,54px);
-    display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;color:var(--fx-mut);font-size:.8rem;}
-  .fx-footer a{color:var(--fx-mut);text-decoration:none;margin-left:18px;transition:.2s;}
-  .fx-footer a:hover{color:var(--fx-teal-lt);}
+  /* ---------- Geteilte Komponenten -> helles Theme ---------- */
+  .btn{font-family:'Space Grotesk',sans-serif;font-weight:600;letter-spacing:.04em;border-radius:999px;}
+  .btn-gold{background:var(--gold-grad);color:var(--on-accent);
+    box-shadow:0 12px 26px -12px var(--accent-glow);}
+  .btn-gold:hover{transform:translateY(-2px);box-shadow:0 18px 34px -12px var(--accent-glow);}
+  .btn-ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);}
+  .btn-ghost:hover{background:var(--accent-tint);}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);}
+  .card h2{color:var(--ink);}
+  .card .sub{color:var(--mut);}
+  label{color:var(--ink-2);}
+  input[type=text],input[type=email],input[type=number],input[type=password],
+  input[type=datetime-local],input[type=date],textarea,select{
+    background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:10px;}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint);}
+  .code-input{color:var(--accent);}
+  .hint{color:var(--mut);}
+  .msg.info{background:var(--accent-tint);border:1px solid var(--accent);color:var(--accent-dk);}
+
+  .modal-backdrop{background:rgba(18,17,24,.42);backdrop-filter:blur(6px);}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:20px;color:var(--ink);
+    box-shadow:0 50px 110px -40px rgba(15,15,25,.5);}
+  .modal h2{color:var(--ink);}
+  .modal .sub{color:var(--mut);}
+
+  .cart-bar{background:var(--surface);border-top:1px solid var(--line);
+    box-shadow:0 -20px 50px -26px rgba(15,15,25,.35);}
+  .cart-bar .desc{color:var(--ink-2);}
+  .cart-bar .sum{font-family:'Space Grotesk';font-weight:700;font-size:1.6rem;color:var(--accent);text-shadow:none;}
+
+  /* Tickets (Kundenansicht) hell */
+  .ticket{background:var(--surface);border:1px solid var(--line);border-radius:16px;}
+  .ticket::before{background:var(--gold-grad);}
+  .ticket .tcode{color:var(--accent);}
+  .ticket .tmeta{color:var(--mut);}
+
+  /* Sitzplan-Hinweis hell */
+  .seat-howto{background:var(--accent-tint);border:1px solid var(--accent);color:var(--accent-dk);}
+  .seat-howto b{color:var(--ink);}
+
+  /* ---------- Footer ---------- */
+  .fx-footer{border-top:1px solid var(--line);margin-top:74px;padding:34px clamp(18px,5vw,54px);
+    display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;color:var(--mut);font-size:.8rem;}
+  .fx-footer a{color:var(--mut);text-decoration:none;margin-left:18px;transition:.2s;}
+  .fx-footer a:hover{color:var(--accent);}
   .fx-footer .fx-foot-links{display:flex;flex-wrap:wrap;}
 
   @media(max-width:620px){
     .fx-navlinks a:not(.fx-cta){display:none;}
     .fx-tabs{grid-template-columns:1fr 1fr;gap:10px;}
-    .fx-tab{padding:20px 16px;min-height:104px;}
+    .fx-tab{padding:20px 16px;min-height:118px;}
     #eventList{grid-template-columns:1fr;}
   }
 </style>
@@ -147,7 +243,7 @@
 <body>
 
 <nav class="fx-nav">
-  <a href="index.html" class="fx-brand"><img src="favicon.png" alt=""><b>Focus<span>.</span> Events</b></a>
+  <a href="index.html" class="fx-brand"><b>Focus<span>.</span> Events</b></a>
   <div class="fx-navlinks">
     <a href="#meine-tickets" id="navMyTickets">Meine Tickets</a>
     <a href="dashboard.html" id="navDash" style="display:none">Dashboard</a>
@@ -164,13 +260,13 @@
 <!-- Club-Reiter -->
 <div class="fx-tabs" id="clubTabs">
   <div class="fx-tab active" data-club="LEVEL" role="button" tabindex="0" aria-pressed="true">
-    <span class="fx-tab-glow"></span>
-    <img src="assets/img/level-logo-white.png" alt="LEVEL">
+    <img class="fx-logo on-light" src="assets/img/level-logo.png" alt="LEVEL">
+    <img class="fx-logo on-dark" src="assets/img/level-logo-white.png" alt="LEVEL">
     <div class="fx-tab-foot"><span>Club</span><span class="fx-count" data-count="LEVEL">–</span></div>
   </div>
   <div class="fx-tab" data-club="YPSILON" role="button" tabindex="0" aria-pressed="false">
-    <span class="fx-tab-glow"></span>
-    <img src="assets/img/ypsilon-logo-white.png" alt="YPSILON">
+    <img class="fx-logo on-light" src="assets/img/ypsilon-logo.png" alt="YPSILON">
+    <img class="fx-logo on-dark" src="assets/img/ypsilon-logo-white.png" alt="YPSILON">
     <div class="fx-tab-foot"><span>Club · Heidenreichstein</span><span class="fx-count" data-count="YPSILON">–</span></div>
   </div>
 </div>
@@ -189,8 +285,9 @@
       <h2>Meine <em>Tickets</em></h2>
     </div>
     <div id="myTicketsArea" class="card">
-      <p class="sub">Bitte melde dich mit deiner E-Mail-Adresse an, um deine Tickets zu sehen.</p>
-      <p style="margin-top:14px"><button class="btn btn-ghost" onclick="openLogin()">Jetzt anmelden</button></p>
+      <h3 class="mt-h">Deine Tickets, immer dabei</h3>
+      <p class="sub">Melde dich mit deiner E-Mail-Adresse an – deine Tickets erscheinen hier mit QR-Code fürs Handy.</p>
+      <p style="margin-top:18px"><button class="btn btn-gold" onclick="openLogin()">Jetzt anmelden</button></p>
     </div>
   </section>
 </main>
@@ -258,7 +355,7 @@
     <h2>Bestellung abschließen</h2>
     <p class="sub" id="checkoutEmail"></p>
     <div id="checkoutItems"></div>
-    <p style="margin-top:14px;text-align:right;font-family:'Anton',sans-serif;font-size:28px;color:var(--fx-teal-lt)" id="checkoutTotal"></p>
+    <p style="margin-top:14px;text-align:right;font-family:'Anton',sans-serif;font-size:28px;color:var(--accent)" id="checkoutTotal"></p>
     <p class="hint" id="checkoutNote"></p>
     <div class="msg" id="checkoutMsg"></div>
     <div style="display:flex;gap:10px;margin-top:20px">
@@ -288,6 +385,34 @@
     <a href="cookie-policy.html">Cookie-Richtlinie</a>
   </div>
 </footer>
+
+<!-- Theme pro Club: setzt data-club auf <html>; subdomain-ready (level./ypsilon.) -->
+<script>
+(function(){
+  function clubFromHost(){
+    var h = location.hostname.toLowerCase();
+    if (h.indexOf('level') === 0 || h.indexOf('level.') > -1) return 'LEVEL';
+    if (h.indexOf('ypsilon') === 0 || h.indexOf('ypsilon.') > -1) return 'YPSILON';
+    return null;
+  }
+  function setTheme(club){
+    if (club !== 'LEVEL' && club !== 'YPSILON') return;
+    document.documentElement.setAttribute('data-club', club);
+  }
+  // Initial: Subdomain gewinnt, sonst LEVEL (Default)
+  setTheme(clubFromHost() || 'LEVEL');
+  // Klick/Tastatur auf Reiter -> Farbwelt umschalten (parallel zur shop.js-Logik)
+  document.addEventListener('DOMContentLoaded', function(){
+    var tabs = document.querySelectorAll('#clubTabs .fx-tab');
+    tabs.forEach(function(t){
+      t.addEventListener('click', function(){ setTheme(t.dataset.club); });
+      t.addEventListener('keydown', function(e){
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); }
+      });
+    });
+  });
+})();
+</script>
 
 <script src="assets/store.js"></script>
 <script src="assets/shop.js"></script>

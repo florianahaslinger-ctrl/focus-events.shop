@@ -13,6 +13,25 @@
   let afterLogin = null;
 
   const CLUBS = ['LEVEL', 'YPSILON'];
+
+  /* ---- Subdomain-Routing (Cloudflare Pages) ---- */
+  // Nach dem Cloudflare-Setup + DNS auf true setzen, dann klickt ein Club auf seine Subdomain.
+  const SUBDOMAINS_LIVE = false;
+  const CLUB_HOSTS = { LEVEL: 'level.focus-events.shop', YPSILON: 'ypsilon.focus-events.shop' };
+  function clubFromHost() {
+    const h = location.hostname.toLowerCase();
+    if (h === CLUB_HOSTS.LEVEL || h.startsWith('level.')) return 'LEVEL';
+    if (h === CLUB_HOSTS.YPSILON || h.startsWith('ypsilon.')) return 'YPSILON';
+    return null;
+  }
+  function syncClubTabs() {
+    document.querySelectorAll('#clubTabs .fx-tab').forEach(x => {
+      const on = x.dataset.club === activeClub;
+      x.classList.toggle('active', on);
+      x.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    document.documentElement.setAttribute('data-club', activeClub);
+  }
   const clubOf = ev => String(ev.club || '').trim().toUpperCase();
 
   function msg(el, text, type) {
@@ -74,7 +93,12 @@
     tabs.forEach(t => {
       const select = () => {
         if (!t.dataset.club) return;
-        activeClub = t.dataset.club;
+        const club = t.dataset.club;
+        if (SUBDOMAINS_LIVE && CLUB_HOSTS[club] && location.hostname.toLowerCase() !== CLUB_HOSTS[club]) {
+          location.href = location.protocol + '//' + CLUB_HOSTS[club] + '/';
+          return;
+        }
+        activeClub = club;
         tabs.forEach(x => {
           const on = x === t;
           x.classList.toggle('active', on);
@@ -557,8 +581,9 @@
     const box = $('myTicketsArea');
     const user = S.currentUser();
     if (!user) {
-      box.innerHTML = '<p class="sub">Bitte melde dich mit deiner E-Mail-Adresse an, um deine Tickets zu sehen.</p>' +
-        '<p style="margin-top:14px"><button class="btn btn-ghost" onclick="openLogin()">Jetzt anmelden</button></p>';
+      box.innerHTML = '<h3 class="mt-h">Deine Tickets, immer dabei</h3>' +
+        '<p class="sub">Melde dich mit deiner E-Mail-Adresse an – deine Tickets erscheinen hier mit QR-Code fürs Handy.</p>' +
+        '<p style="margin-top:18px"><button class="btn btn-gold" onclick="openLogin()">Jetzt anmelden</button></p>';
       return;
     }
     let orders;
@@ -603,6 +628,8 @@
 
     await S.init();          // stellt auch Sessions aus Magic-Link-URLs her
     renderNav();
+    const hostClub = clubFromHost();
+    if (hostClub) { activeClub = hostClub; syncClubTabs(); }
     setupClubTabs();
     await renderEvents();
     renderCartBar();
