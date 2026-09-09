@@ -34,6 +34,21 @@
   }
   const clubOf = ev => String(ev.club || '').trim().toUpperCase();
 
+  // Dynamic Pricing: kurzer Hinweis auf die nächste Preis-Phase
+  function fmtPhaseDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  }
+  function nextPhaseHint(cat) {
+    const n = cat && cat.nextPhase;
+    if (!n) return '';
+    const parts = [];
+    if (n.endsAt) parts.push('ab ' + fmtPhaseDate(n.endsAt));
+    if (n.endsQty != null) parts.push('ab ' + n.endsQty + ' verkauft');
+    const when = parts.length ? parts.join(' bzw. ') : 'bald';
+    return 'Danach ' + when + ': ' + S.fmtEUR.format(n.price);
+  }
+
   function msg(el, text, type) {
     el.textContent = text || '';
     el.className = 'msg' + (text ? ' show ' + (type || 'info') : '');
@@ -155,7 +170,8 @@
         const leftTxt = rest === 0 ? 'Ausverkauft' : (rest <= 15 ? 'Nur noch ' + rest + ' verfügbar' : rest + ' verfügbar');
         const maxQty = Math.min(rest, cat.maxPerOrder || 10);
         return '<div class="cat-row">' +
-          '<div class="cat-info"><div class="name">' + esc(cat.name) + '</div>' +
+          '<div class="cat-info"><div class="name">' + esc(cat.name) +
+          (cat.currentPhaseName ? ' <span class="phase-tag">' + esc(cat.currentPhaseName) + '</span>' : '') + '</div>' +
           (cat.description ? '<div class="desc">' + esc(cat.description) + '</div>' : '') + '</div>' +
           '<div class="cat-price">' + S.fmtEUR.format(cat.price) + '</div>' +
           (rest > 0
@@ -165,6 +181,7 @@
               '<button type="button" data-key="' + cat.id + '" data-d="1" data-max="' + maxQty + '" aria-label="mehr">+</button></div>'
             : '<div></div>') +
           '<div class="cat-left ' + leftCls + '">' + leftTxt + '</div>' +
+          (nextPhaseHint(cat) ? '<div class="cat-next">' + nextPhaseHint(cat) + '</div>' : '') +
           '</div>';
       }).join('');
       return '<article class="ev-card">' +

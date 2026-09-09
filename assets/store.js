@@ -17,6 +17,23 @@
   // CORE selbst nutzt storefront = NULL und bleibt dadurch unberührt.
   const STOREFRONT = 'focus';
 
+  // Dynamic Pricing: Index der aktuell gültigen Preis-Phase bestimmen.
+  // Reihenfolge: manuelle Übersteuerung > automatisch (Datum/Menge).
+  // Eine Phase endet per Datum (endsAt) ODER Menge (endsQty, kumuliert verkauft);
+  // die letzte Phase läuft bis Event/Ausverkauf. Identische Logik gilt serverseitig.
+  function resolvePhaseIndex(phases, soldQty, manualIndex, nowMs) {
+    if (!Array.isArray(phases) || !phases.length) return -1;
+    if (manualIndex != null && manualIndex >= 0 && manualIndex < phases.length) return manualIndex;
+    const now = nowMs || Date.now();
+    for (let i = 0; i < phases.length; i++) {
+      const p = phases[i];
+      const endedByDate = p.endsAt && now >= new Date(p.endsAt).getTime();
+      const endedByQty = (p.endsQty != null) && Number(soldQty) >= Number(p.endsQty);
+      if (!(endedByDate || endedByQty)) return i;
+    }
+    return phases.length - 1;
+  }
+
   let sb = null;          // Supabase-Client
   let session = null;     // aktuelle Auth-Session
 
@@ -102,7 +119,7 @@
 
     /* --- Events & Verfügbarkeit --- */
     async getEvents(includeInactive) {
-      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating)';
+      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
       let res = await sb.from('events').select(evCols + ',image_url').eq('storefront', STOREFRONT).order('date', { ascending: true });
       if (res.error && /image_url/i.test(res.error.message || '')) {
         res = await sb.from('events').select(evCols).eq('storefront', STOREFRONT).order('date', { ascending: true });
@@ -136,16 +153,48 @@
             sponsorLogos: Array.isArray(e.sponsor_logos) ? e.sponsor_logos : [],
             categories: (e.categories || [])
               .sort((a, b) => (a.sort || 0) - (b.sort || 0))
-              .map(c => ({
-                id: c.id, name: c.name, price: Number(c.price), quota: c.quota,
-                maxPerOrder: c.max_per_order, description: c.description, active: c.active,
-                seating: !!c.seating,
-                sold: soldMap[c.id] || 0,
-                // Bei aktivem Gesamtkontingent gilt der gemeinsame Rest für jede Kategorie.
-                remaining: sharedQuota === null
-                  ? Math.max(0, c.quota - (soldMap[c.id] || 0))
-                  : sharedRemaining
-              }))
+              .map(c => {
+                const soldQ = soldMap[c.id] || 0;
+                const basePrice = Number(c.price);
+                // Preis-Phasen (Dynamic Pricing)
+                const rawPhases = Array.isArray(c.category_phases) ? c.category_phases.slice() : [];
+                rawPhases.sort((a, b) => (a.sort || 0) - (b.sort || 0));
+                const phases = rawPhases.map(p => ({
+                  id: p.id, name: p.name, price: Number(p.price),
+                  endsAt: p.ends_at || null,
+                  endsQty: (p.ends_qty == null ? null : Number(p.ends_qty)),
+                  sort: p.sort || 0
+                }));
+                const phased = c.pricing_mode === 'phased' && phases.length > 0;
+                const manualIdx = (c.active_phase == null ? null : Number(c.active_phase));
+                const curIdx = phased ? resolvePhaseIndex(phases, soldQ, manualIdx, Date.now()) : -1;
+                const effPrice = (phased && curIdx >= 0) ? phases[curIdx].price : basePrice;
+                // Hinweis auf die nächste Phase nur im Automatik-Modus (bei manueller Wahl kein Auto-Wechsel).
+                const auto = phased && manualIdx == null;
+                const cur = (phased && curIdx >= 0) ? phases[curIdx] : null;
+                const nxt = (auto && curIdx >= 0 && curIdx < phases.length - 1) ? phases[curIdx + 1] : null;
+                return {
+                  id: c.id, name: c.name, price: effPrice, basePrice: basePrice, quota: c.quota,
+                  maxPerOrder: c.max_per_order, description: c.description, active: c.active,
+                  seating: !!c.seating,
+                  sold: soldQ,
+                  // Dynamic Pricing
+                  pricingMode: phased ? 'phased' : 'fixed',
+                  activePhaseManual: manualIdx,
+                  phases: phases,
+                  currentPhaseIndex: curIdx,
+                  currentPhaseName: cur ? cur.name : null,
+                  nextPhase: nxt ? {
+                    name: nxt.name, price: nxt.price,
+                    endsAt: cur ? cur.endsAt : null,
+                    endsQty: cur ? cur.endsQty : null
+                  } : null,
+                  // Bei aktivem Gesamtkontingent gilt der gemeinsame Rest für jede Kategorie.
+                  remaining: sharedQuota === null
+                    ? Math.max(0, c.quota - soldQ)
+                    : sharedRemaining
+                };
+              })
           };
         });
     },
@@ -529,19 +578,39 @@
       const keep = new Set();
       for (let i = 0; i < ev.categories.length; i++) {
         const c = ev.categories[i];
+        const phased = c.pricingMode === 'phased' && Array.isArray(c.phases) && c.phases.length > 0;
         const crow = {
           event_id: eventId, name: c.name, price: c.price, quota: c.quota,
           max_per_order: c.maxPerOrder || 10, description: c.description || null,
-          active: !!c.active, sort: i, seating: !!c.seating
+          active: !!c.active, sort: i, seating: !!c.seating,
+          pricing_mode: phased ? 'phased' : 'fixed',
+          active_phase: (phased && c.activePhaseManual != null && c.activePhaseManual !== '')
+            ? parseInt(c.activePhaseManual, 10) : null
         };
+        let catId;
         if (c.id && (existing || []).some(x => x.id === c.id)) {
-          keep.add(c.id);
+          keep.add(c.id); catId = c.id;
           const { error } = await sb.from('categories').update(crow).eq('id', c.id);
           if (error) throw new Error(error.message);
         } else {
           const { data, error } = await sb.from('categories').insert(crow).select('id').single();
           if (error) throw new Error(error.message);
-          keep.add(data.id);
+          catId = data.id; keep.add(catId);
+        }
+        // Preis-Phasen der Kategorie ersetzen (delete + insert; ids werden nirgends referenziert)
+        await sb.from('category_phases').delete().eq('category_id', catId);
+        if (phased) {
+          const prows = c.phases.map((p, idx) => ({
+            category_id: catId, sort: idx,
+            name: (p.name && String(p.name).trim()) || ('Phase ' + (idx + 1)),
+            price: Number(p.price) || 0,
+            ends_at: p.endsAt || null,
+            ends_qty: (p.endsQty == null || p.endsQty === '') ? null : Math.max(0, parseInt(p.endsQty, 10) || 0)
+          }));
+          if (prows.length) {
+            const { error } = await sb.from('category_phases').insert(prows);
+            if (error) throw new Error(error.message);
+          }
         }
       }
       for (const x of existing || []) {

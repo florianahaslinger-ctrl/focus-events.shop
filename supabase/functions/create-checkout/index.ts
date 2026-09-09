@@ -20,6 +20,32 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Dynamic Pricing: verbindlicher Server-Preis je Kategorie aus den Phasen.
+// Additiv: pricing_mode !== 'phased' (bzw. keine Phasen) -> unveränderter cat.price.
+// Aktive Phase: manuelle Übersteuerung > automatisch (endet per Datum ODER kumulierter Menge).
+function effectiveUnitPrice(cat: any, soldQty: number): number {
+  const base = Number(cat.price);
+  if (cat?.pricing_mode !== "phased") return base;
+  const phases = Array.isArray(cat.category_phases) ? cat.category_phases.slice() : [];
+  if (!phases.length) return base;
+  phases.sort((a: any, b: any) => (a.sort || 0) - (b.sort || 0));
+  const manual = cat.active_phase;
+  let idx: number;
+  if (manual != null && manual >= 0 && manual < phases.length) {
+    idx = manual;
+  } else {
+    idx = phases.length - 1;
+    const now = Date.now();
+    for (let i = 0; i < phases.length; i++) {
+      const p = phases[i];
+      const endedByDate = p.ends_at && now >= new Date(p.ends_at).getTime();
+      const endedByQty = (p.ends_qty != null) && Number(soldQty) >= Number(p.ends_qty);
+      if (!(endedByDate || endedByQty)) { idx = i; break; }
+    }
+  }
+  return Number(phases[idx].price);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -70,7 +96,7 @@ Deno.serve(async (req) => {
     const ids = items.map((i) => i.category_id);
     const { data: cats, error: catErr } = await admin
       .from("categories")
-      .select("id,name,price,quota,max_per_order,active,seating,event_id,events(name,date,location,active,shared_quota)")
+      .select("id,name,price,quota,max_per_order,active,seating,event_id,pricing_mode,active_phase,category_phases(price,ends_at,ends_qty,sort),events(name,date,location,active,shared_quota)")
       .in("id", ids);
     if (catErr) throw catErr;
 
@@ -111,14 +137,16 @@ Deno.serve(async (req) => {
         allSeatIds.push(...seatIds);
       }
       eventIds.add(cat.event_id as string);
-      subtotal += Number(cat.price) * qty;
+      // Verbindlicher Preis serverseitig aus den Phasen (Dynamic Pricing).
+      const unit = effectiveUnitPrice(cat, soldMap.get(cat.id) ?? 0);
+      subtotal += unit * qty;
       totalTickets += qty;
       orderItems.push({
-        category_id: cat.id, event_name: ev.name, category_name: cat.name, price: cat.price, qty,
+        category_id: cat.id, event_name: ev.name, category_name: cat.name, price: unit, qty,
         _seating: !!cat.seating, _seatIds: cat.seating ? (it.seat_ids ?? []) : [],
         _eventDate: ev.date ?? null, _eventLocation: ev.location ?? null,
       });
-      const cents = Math.round(Number(cat.price) * 100);
+      const cents = Math.round(unit * 100);
       lineItems.push(
         `line_items[${li}][price_data][currency]=eur` +
         `&line_items[${li}][price_data][product_data][name]=${encodeURIComponent(cat.name + " – " + ev.name)}` +

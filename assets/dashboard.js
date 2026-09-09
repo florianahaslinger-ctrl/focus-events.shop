@@ -260,8 +260,26 @@
     }));
   }
 
+  function phaseRowHTML(p) {
+    p = p || { name: '', price: '', endsAt: null, endsQty: null };
+    const trig = p.endsAt ? 'date' : (p.endsQty != null ? 'qty' : 'none');
+    return '<div class="phase-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px">' +
+      '<div style="flex:2 1 130px"><label>Phasenname</label><input class="p-name" value="' + esc(p.name) + '" placeholder="z. B. Early Bird"></div>' +
+      '<div><label>Preis (€)</label><input type="number" class="p-price" min="0" step="0.5" value="' + esc(p.price) + '"></div>' +
+      '<div><label>Wechsel per</label><select class="p-trigger">' +
+        '<option value="none"' + (trig === 'none' ? ' selected' : '') + '>— (letzte)</option>' +
+        '<option value="date"' + (trig === 'date' ? ' selected' : '') + '>Datum</option>' +
+        '<option value="qty"' + (trig === 'qty' ? ' selected' : '') + '>Menge</option></select></div>' +
+      '<div class="p-date-wrap" style="' + (trig === 'date' ? '' : 'display:none') + '"><label>Endet am</label><input type="datetime-local" class="p-date" value="' + (p.endsAt ? toLocalInput(p.endsAt) : '') + '"></div>' +
+      '<div class="p-qty-wrap" style="' + (trig === 'qty' ? '' : 'display:none') + '"><label>Endet ab (verkauft)</label><input type="number" class="p-qty" min="0" step="1" value="' + (p.endsQty != null ? esc(p.endsQty) : '') + '"></div>' +
+      '<div style="flex:0 0 auto"><label>&nbsp;</label><button type="button" class="btn btn-danger btn-sm p-remove" title="Phase entfernen">×</button></div>' +
+      '</div>';
+  }
+
   function catRowHTML(c) {
-    c = c || { id: '', name: '', price: '', quota: '', description: '', active: true, maxPerOrder: 10, seating: false };
+    c = c || { id: '', name: '', price: '', quota: '', description: '', active: true, maxPerOrder: 10, seating: false, pricingMode: 'fixed', phases: [], activePhaseManual: null };
+    const phased = c.pricingMode === 'phased';
+    const phasesHtml = (Array.isArray(c.phases) ? c.phases : []).map(phaseRowHTML).join('');
     return '<div class="admin-cat" data-cat="' + esc(c.id) + '">' +
       '<div style="flex:2 1 160px"><label>Name</label><input type="text" class="c-name" value="' + esc(c.name) + '" placeholder="z. B. VIP"></div>' +
       '<div><label>Preis (€)</label><input type="number" class="c-price" min="0" step="0.5" value="' + esc(c.price) + '"></div>' +
@@ -271,6 +289,16 @@
       '<div style="flex:0 0 auto"><label class="switch" style="margin:0 0 6px"><input type="checkbox" class="c-active"' + (c.active ? ' checked' : '') + '> aktiv</label>' +
       '<label class="switch" style="margin:0 0 8px" title="Nur bei Sitzkarten wählen Kund:innen einen Sitzplatz"><input type="checkbox" class="c-seating"' + (c.seating ? ' checked' : '') + '> Sitzkarte</label>' +
       '<button type="button" class="btn btn-danger btn-sm c-remove">Entfernen</button></div>' +
+      // Dynamic Pricing: Preis-Phasen
+      '<div class="cat-phases" style="flex:1 1 100%;border-top:1px dashed var(--line);margin-top:8px;padding-top:10px">' +
+        '<label class="switch" style="margin:0"><input type="checkbox" class="c-phased"' + (phased ? ' checked' : '') + '> Dynamische Preise (Phasen)</label>' +
+        '<div class="phase-wrap" style="margin-top:8px' + (phased ? '' : ';display:none') + '">' +
+          '<div class="phase-list">' + phasesHtml + '</div>' +
+          '<button type="button" class="btn btn-ghost btn-sm c-addphase" style="margin-top:4px">+ Phase</button>' +
+          '<div style="max-width:340px"><label>Aktive Phase (manuell)</label><select class="c-activephase"><option value="">automatisch (Datum/Menge)</option></select></div>' +
+          '<p class="hint" style="margin-top:6px">„Preis (€)" oben gilt als Standard, wenn keine Phase greift. Eine Phase endet per <b>Datum</b> oder <b>ab X verkauften</b> Tickets; die letzte Phase (Wechsel per „—") läuft bis Ausverkauf. „Aktive Phase" erzwingt eine Phase manuell.</p>' +
+        '</div>' +
+      '</div>' +
       '</div>';
   }
 
@@ -349,8 +377,10 @@
     }
     // Weitere Veranstalter (Mit-Verwalter) – nur bestehende Events
     renderCoOwners(ev);
+    editorCats = (ev && ev.categories.length ? ev.categories : []);
     $('catEditor').innerHTML = (ev && ev.categories.length ? ev.categories : [null]).map(catRowHTML).join('');
     bindCatRemove();
+    initPhaseUI();
     updateSharedUI();
     msg($('evMsg'), '');
     // Sitzplan-Bereich nur bei bestehenden Events
@@ -378,8 +408,73 @@
     });
   }
 
+  /* ---- Dynamic Pricing: Phasen-Editor (delegiert) ---- */
+  function togglePhaseWrap(catRow) {
+    const on = catRow.querySelector('.c-phased') && catRow.querySelector('.c-phased').checked;
+    const w = catRow.querySelector('.phase-wrap');
+    if (w) w.style.display = on ? '' : 'none';
+  }
+  function togglePhaseTrigger(phaseRow) {
+    if (!phaseRow) return;
+    const t = phaseRow.querySelector('.p-trigger').value;
+    phaseRow.querySelector('.p-date-wrap').style.display = t === 'date' ? '' : 'none';
+    phaseRow.querySelector('.p-qty-wrap').style.display = t === 'qty' ? '' : 'none';
+  }
+  function refreshActivePhaseOptions(catRow) {
+    const sel = catRow.querySelector('.c-activephase');
+    if (!sel) return;
+    const cur = sel.value;
+    const names = Array.from(catRow.querySelectorAll('.phase-row .p-name')).map((inp, i) =>
+      (inp.value.trim() || ('Phase ' + (i + 1))));
+    sel.innerHTML = '<option value="">automatisch (Datum/Menge)</option>' +
+      names.map((n, i) => '<option value="' + i + '">' + esc(n) + '</option>').join('');
+    // Auswahl beibehalten, falls noch gültig
+    if (cur !== '' && Number(cur) < names.length) sel.value = cur;
+  }
+  function initPhaseUI() {
+    $('catEditor').querySelectorAll('.admin-cat').forEach(catRow => {
+      togglePhaseWrap(catRow);
+      catRow.querySelectorAll('.phase-row').forEach(togglePhaseTrigger);
+      refreshActivePhaseOptions(catRow);
+      // gespeicherte manuelle Phase wiederherstellen
+      const cat = (editorCats || []).find(x => x.id && x.id === catRow.dataset.cat);
+      if (cat && cat.activePhaseManual != null && catRow.querySelector('.c-activephase')) {
+        catRow.querySelector('.c-activephase').value = String(cat.activePhaseManual);
+      }
+    });
+  }
+  // Delegierte Listener – einmalig am Container (überlebt innerHTML-Neuaufbau)
+  (function bindPhaseDelegation() {
+    const ed = $('catEditor');
+    if (!ed || ed._phaseBound) return;
+    ed._phaseBound = true;
+    ed.addEventListener('change', e => {
+      if (e.target.classList.contains('c-phased')) {
+        const row = e.target.closest('.admin-cat'); togglePhaseWrap(row); refreshActivePhaseOptions(row);
+      } else if (e.target.classList.contains('p-trigger')) {
+        togglePhaseTrigger(e.target.closest('.phase-row'));
+      }
+    });
+    ed.addEventListener('input', e => {
+      if (e.target.classList.contains('p-name')) refreshActivePhaseOptions(e.target.closest('.admin-cat'));
+    });
+    ed.addEventListener('click', e => {
+      if (e.target.classList.contains('c-addphase')) {
+        const row = e.target.closest('.admin-cat');
+        row.querySelector('.phase-list').insertAdjacentHTML('beforeend', phaseRowHTML(null));
+        togglePhaseTrigger(row.querySelector('.phase-list .phase-row:last-child'));
+        refreshActivePhaseOptions(row);
+      } else if (e.target.classList.contains('p-remove')) {
+        const row = e.target.closest('.admin-cat');
+        e.target.closest('.phase-row').remove();
+        refreshActivePhaseOptions(row);
+      }
+    });
+  })();
+
   /* ---- Sponsoren-Logos im Event-Editor ---- */
   let editorSponsors = []; // Array von data-URLs
+  let editorCats = [];     // Kategorien des aktuell offenen Events (für Phasen-UI-Restore)
 
   // Bild aus Datei lesen und auf handliche Größe verkleinern (max. 240px hoch),
   // damit die Logos die Event-Daten nicht aufblähen – auch bei bis zu 25 Stück.
@@ -955,6 +1050,7 @@
   $('btnAddCat').addEventListener('click', () => {
     $('catEditor').insertAdjacentHTML('beforeend', catRowHTML(null));
     bindCatRemove();
+    initPhaseUI();
     updateSharedUI();
   });
   $('evSharedOn').addEventListener('change', updateSharedUI);
@@ -1050,16 +1146,34 @@
     $('evImageUrl').value = ''; if ($('evImageFile')) $('evImageFile').value = ''; renderEvImagePreview('');
   });
   $('btnSaveEvent').addEventListener('click', async () => {
-    const cats = Array.from($('catEditor').querySelectorAll('.admin-cat')).map(row => ({
-      id: row.dataset.cat || null,
-      name: row.querySelector('.c-name').value.trim(),
-      price: parseFloat(row.querySelector('.c-price').value) || 0,
-      quota: parseInt(row.querySelector('.c-quota').value, 10) || 0,
-      maxPerOrder: parseInt(row.querySelector('.c-max').value, 10) || 10,
-      description: row.querySelector('.c-desc').value.trim(),
-      active: row.querySelector('.c-active').checked,
-      seating: row.querySelector('.c-seating').checked
-    })).filter(c => c.name);
+    const cats = Array.from($('catEditor').querySelectorAll('.admin-cat')).map(row => {
+      const phasedOn = !!(row.querySelector('.c-phased') && row.querySelector('.c-phased').checked);
+      const phases = phasedOn ? Array.from(row.querySelectorAll('.phase-row')).map(pr => {
+        const trig = pr.querySelector('.p-trigger').value;
+        const dv = pr.querySelector('.p-date').value;
+        const qv = pr.querySelector('.p-qty').value;
+        return {
+          name: pr.querySelector('.p-name').value.trim(),
+          price: parseFloat(pr.querySelector('.p-price').value) || 0,
+          endsAt: (trig === 'date' && dv) ? new Date(dv).toISOString() : null,
+          endsQty: (trig === 'qty' && qv !== '') ? (parseInt(qv, 10) || 0) : null
+        };
+      }).filter(p => p.name || p.price) : [];
+      const apVal = row.querySelector('.c-activephase') ? row.querySelector('.c-activephase').value : '';
+      return {
+        id: row.dataset.cat || null,
+        name: row.querySelector('.c-name').value.trim(),
+        price: parseFloat(row.querySelector('.c-price').value) || 0,
+        quota: parseInt(row.querySelector('.c-quota').value, 10) || 0,
+        maxPerOrder: parseInt(row.querySelector('.c-max').value, 10) || 10,
+        description: row.querySelector('.c-desc').value.trim(),
+        active: row.querySelector('.c-active').checked,
+        seating: row.querySelector('.c-seating').checked,
+        pricingMode: (phasedOn && phases.length) ? 'phased' : 'fixed',
+        phases: phases,
+        activePhaseManual: (phasedOn && apVal !== '') ? parseInt(apVal, 10) : null
+      };
+    }).filter(c => c.name);
     if (cats.filter(c => c.seating).length > 1) {
       msg($('evMsg'), 'Es kann nur eine Kategorie als Sitzkarte markiert sein.', 'error'); return;
     }
