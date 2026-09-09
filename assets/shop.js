@@ -16,7 +16,7 @@
 
   /* ---- Subdomain-Routing (Cloudflare Pages) ---- */
   // Nach dem Cloudflare-Setup + DNS auf true setzen, dann klickt ein Club auf seine Subdomain.
-  const SUBDOMAINS_LIVE = false;
+  const SUBDOMAINS_LIVE = true;
   const CLUB_HOSTS = { LEVEL: 'level.focus-events.shop', YPSILON: 'ypsilon.focus-events.shop' };
   function clubFromHost() {
     const h = location.hostname.toLowerCase();
@@ -168,6 +168,7 @@
           '</div>';
       }).join('');
       return '<article class="ev-card">' +
+        (ev.imageUrl ? '<div class="ev-banner"><img src="' + esc(ev.imageUrl) + '" alt="" loading="lazy"></div>' : '') +
         '<div class="ev-top">' +
           '<div class="ev-date"><div class="d">' + dp.day + '</div><div class="m">' + esc(dp.month) + '</div>' +
           '<div class="wd">' + esc(dp.wd) + (dp.time ? ' · ' + dp.time : '') + '</div></div>' +

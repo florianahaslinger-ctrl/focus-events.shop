@@ -281,6 +281,11 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
 
+  function renderEvImagePreview(url) {
+    const p = $('evImagePreview'); if (!p) return;
+    p.innerHTML = url ? '<img src="' + url + '" alt="" style="max-height:120px;border-radius:8px;border:1px solid var(--line);display:block;margin:6px 0">' : '';
+    if ($('btnRemoveEvImage')) $('btnRemoveEvImage').style.display = url ? '' : 'none';
+  }
   function openEventEditor(id) {
     const ev = id ? events.find(x => x.id === id) : null;
     $('evModalTitle').textContent = ev ? 'Event bearbeiten' : 'Neues Event';
@@ -290,6 +295,12 @@
     $('evLocation').value = ev ? (ev.location || '') : '';
     if ($('evClub')) $('evClub').value = ev ? (ev.club || '') : '';
     $('evDesc').value = ev ? (ev.description || '') : '';
+    if ($('evImageUrl')) {
+      const _u = ev ? (ev.imageUrl || '') : '';
+      $('evImageUrl').value = _u;
+      if ($('evImageFile')) $('evImageFile').value = '';
+      renderEvImagePreview(_u);
+    }
     $('evActive').checked = ev ? !!ev.active : true;
     // Gesamtkontingent (modular): NULL = aus, Zahl = an
     const sharedOn = !!(ev && ev.sharedQuota !== null && ev.sharedQuota !== undefined);
@@ -772,6 +783,34 @@
     }
   }
 
+  /* ================= Club-Veranstalter ================= */
+  async function renderClubOwners() {
+    if (!mySuper) return;
+    for (const club of ['LEVEL', 'YPSILON']) {
+      const box = $('clubOwners' + club);
+      if (!box) continue;
+      try {
+        const list = await S.getClubOwners(club);
+        box.innerHTML = list.length
+          ? list.map(email =>
+              '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
+              '<span style="flex:1">' + esc(email) + '</span>' +
+              '<button class="btn btn-danger btn-sm" data-cluborm="' + club + '" data-rm="' + esc(email) + '">Entfernen</button>' +
+              '</div>').join('') +
+              '<p class="hint" style="margin-top:6px">' + list.length + '/5 zugewiesen</p>'
+          : '<p class="sub">Noch keine Veranstalter f\u00fcr ' + club + '.</p>';
+        box.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', async () => {
+          if (confirm(b.dataset.rm + ' als ' + b.dataset.cluborm + '-Veranstalter entfernen?')) {
+            try { await S.removeClubOwner(b.dataset.cluborm, b.dataset.rm); await renderClubOwners(); }
+            catch (e) { msg($('clubOwnerMsg'), e.message, 'error'); }
+          }
+        }));
+      } catch (e) {
+        box.innerHTML = '<p class="sub">' + esc(e.message) + '</p>';
+      }
+    }
+  }
+
   /* ---- Weitere Veranstalter (Mit-Verwalter) im Event-Editor ---- */
   // Sichtbar für Head-Admin und den Haupt-Veranstalter des Balls, nur bei
   // bestehenden Events (braucht eine Event-ID). Auszahlung bleibt beim Besitzer.
@@ -858,6 +897,7 @@
     renderOrders();
     renderCheckins();
     renderAdmins();
+    renderClubOwners();
     renderConnect();
   }
 
@@ -926,6 +966,17 @@
       renderAdmins();
     } catch (e) { msg($('adminMsg'), e.message, 'error'); }
   });
+  ['LEVEL', 'YPSILON'].forEach(club => {
+    const btn = $('btnAddClubOwner' + club);
+    if (btn) btn.addEventListener('click', async () => {
+      try {
+        await S.addClubOwner(club, $('newClubOwner' + club).value);
+        $('newClubOwner' + club).value = '';
+        msg($('clubOwnerMsg'), club + '-Veranstalter hinzugef\u00fcgt.', 'ok');
+        renderClubOwners();
+      } catch (e) { msg($('clubOwnerMsg'), e.message, 'error'); }
+    });
+  });
   $('btnAddCoOwner').addEventListener('click', async () => {
     const id = $('evId').value;
     if (!id) return;
@@ -984,6 +1035,20 @@
     if (navigator.clipboard) navigator.clipboard.writeText(inp.value).then(done).catch(() => { document.execCommand('copy'); done(); });
     else { document.execCommand('copy'); done(); }
   });
+  if ($('evImageFile')) $('evImageFile').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      msg($('evMsg'), 'Bild wird hochgeladen …', 'info');
+      const url = await S.uploadEventImage(file, $('evId').value || null);
+      $('evImageUrl').value = url;
+      renderEvImagePreview(url);
+      msg($('evMsg'), 'Bild hochgeladen.', 'ok');
+    } catch (err) { msg($('evMsg'), 'Upload fehlgeschlagen: ' + err.message, 'error'); }
+  });
+  if ($('btnRemoveEvImage')) $('btnRemoveEvImage').addEventListener('click', () => {
+    $('evImageUrl').value = ''; if ($('evImageFile')) $('evImageFile').value = ''; renderEvImagePreview('');
+  });
   $('btnSaveEvent').addEventListener('click', async () => {
     const cats = Array.from($('catEditor').querySelectorAll('.admin-cat')).map(row => ({
       id: row.dataset.cat || null,
@@ -1009,6 +1074,7 @@
       sharedQuota: $('evSharedOn').checked ? (parseInt($('evSharedQuota').value, 10) || 0) : null,
       feesOnOrganizer: $('evFeesOnOrganizer').checked,
       sponsorLogos: editorSponsors.slice(),
+      imageUrl: $('evImageUrl') ? ($('evImageUrl').value || null) : undefined,
       categories: cats
     };
     // Besitzer/Veranstalter zuweisen

@@ -8,6 +8,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="stylesheet" href="assets/shop.css">
+<style id="fxDashTheme">
+  /* Focus Events – Dashboard-Akzent (Türkis -> Focus-Blau), CORE unberührt */
+  :root{
+    --gold:#2b38f5; --gold-light:#5a66ff; --gold-dim:rgba(43,56,245,.16);
+    --gold-grad:linear-gradient(135deg,#5a66ff 0%,#2b38f5 55%,#1b22c8 100%);
+    --line:rgba(90,102,255,.20);
+    --glow:0 0 0 1px rgba(43,56,245,.12), 0 20px 60px -28px rgba(43,56,245,.40);
+    --chart-1:#2b38f5;
+  }
+  .btn-gold{color:#fff;}
+  .qty button:hover{color:#fff;}
+  ::selection{background:rgba(43,56,245,.30);color:#fff;}
+</style>
 </head>
 <body>
 
@@ -239,6 +252,30 @@
       <div class="msg" id="adminMsg"></div>
     </div>
 
+    <div class="card super-only">
+      <h2>Club-Veranstalter (LEVEL &amp; YPSILON)</h2>
+      <p class="sub">Weise bis zu 5 Veranstalter je Club dauerhaft zu. Sie sehen &amp; verwalten <b>alle</b> Events dieses Clubs (Umsatz, Bestellungen, Einlass, Einstellungen). Die Auszahlung läuft weiterhin über das Stripe-Konto des jeweiligen Events – diese Zuweisung gibt nur Verwaltungszugriff.</p>
+      <div class="field-row" style="gap:26px;align-items:flex-start">
+        <div style="flex:1 1 260px">
+          <label>LEVEL</label>
+          <div id="clubOwnersLEVEL" style="margin:8px 0"></div>
+          <div class="field-row" style="align-items:flex-end;gap:8px">
+            <div style="flex:1"><input type="email" id="newClubOwnerLEVEL" placeholder="veranstalter@example.at"></div>
+            <div style="flex:0 0 auto"><button class="btn btn-gold btn-sm" id="btnAddClubOwnerLEVEL">+ Hinzufügen</button></div>
+          </div>
+        </div>
+        <div style="flex:1 1 260px">
+          <label>YPSILON</label>
+          <div id="clubOwnersYPSILON" style="margin:8px 0"></div>
+          <div class="field-row" style="align-items:flex-end;gap:8px">
+            <div style="flex:1"><input type="email" id="newClubOwnerYPSILON" placeholder="veranstalter@example.at"></div>
+            <div style="flex:0 0 auto"><button class="btn btn-gold btn-sm" id="btnAddClubOwnerYPSILON">+ Hinzufügen</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="msg" id="clubOwnerMsg"></div>
+    </div>
+
     <div class="card">
       <h2>System</h2>
       <p class="sub">
@@ -279,6 +316,15 @@
     </div>
     <label>Beschreibung</label>
     <textarea id="evDesc" rows="2"></textarea>
+
+    <label style="margin-top:12px">Event-Bild (Banner für die Card)</label>
+    <div id="evImagePreview"></div>
+    <div class="field-row" style="align-items:center;gap:10px">
+      <input type="file" id="evImageFile" accept="image/*">
+      <button type="button" class="btn btn-ghost btn-sm" id="btnRemoveEvImage" style="display:none">Bild entfernen</button>
+    </div>
+    <input type="hidden" id="evImageUrl">
+    <p class="hint">Erscheint oben auf der Event-Card im Shop. Empfohlen: quer, ca. 1200×600.</p>
 
     <div style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px">
       <label class="switch" style="margin:0"><input type="checkbox" id="evSharedOn"> Gesamtkontingent verwenden</label>

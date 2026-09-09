@@ -102,11 +102,12 @@
 
     /* --- Events & Verfügbarkeit --- */
     async getEvents(includeInactive) {
-      let q = sb.from('events')
-        .select('id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating)')
-        .eq('storefront', STOREFRONT)
-        .order('date', { ascending: true });
-      const { data, error } = await q;
+      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating)';
+      let res = await sb.from('events').select(evCols + ',image_url').eq('storefront', STOREFRONT).order('date', { ascending: true });
+      if (res.error && /image_url/i.test(res.error.message || '')) {
+        res = await sb.from('events').select(evCols).eq('storefront', STOREFRONT).order('date', { ascending: true });
+      }
+      const { data, error } = res;
       if (error) throw new Error(error.message);
       const { data: sold } = await sb.from('category_sold').select('category_id,sold');
       const soldMap = {};
@@ -126,6 +127,7 @@
             id: e.id, name: e.name, date: e.date, location: e.location,
             club: e.club || null,
             description: e.description, active: e.active, layout: e.layout || null,
+            imageUrl: e.image_url || null,
             ownerEmail: e.owner_email || null,
             // Zusätzliche Veranstalter (Mit-Verwalter, ohne Auszahlung)
             coOwners: Array.isArray(e.event_owners) ? e.event_owners.map(o => o.email).filter(Boolean) : [],
@@ -419,6 +421,25 @@
       const { error } = await sb.from('event_owners').delete().eq('event_id', eventId).eq('email', normEmail(email));
       if (error) throw new Error(error.message);
     },
+    /* --- Club-Veranstalter (dauerhaft je Club; nur Head-Admin darf schreiben) --- */
+    async getClubOwners(club) {
+      const { data, error } = await sb.from('club_owners').select('email').eq('club', club).order('email');
+      if (error) throw new Error(error.message);
+      return (data || []).map(o => o.email);
+    },
+    async addClubOwner(club, email) {
+      email = normEmail(email);
+      if (!validEmail(email)) throw new Error('Bitte eine gültige E-Mail-Adresse eingeben.');
+      const { error } = await sb.from('club_owners').insert({ club, email });
+      if (error) {
+        if (error.code === '23505') throw new Error('Diese E-Mail ist bereits diesem Club zugewiesen.');
+        throw new Error(error.message);
+      }
+    },
+    async removeClubOwner(club, email) {
+      const { error } = await sb.from('club_owners').delete().eq('club', club).eq('email', normEmail(email));
+      if (error) throw new Error(error.message);
+    },
 
     async allOrders() {
       const { data, error } = await sb.from('orders').select(ORDER_SELECT)
@@ -465,6 +486,14 @@
     },
 
     /* --- Event-/Kategorie-Verwaltung (Admin, modular) --- */
+    async uploadEventImage(file, eventId) {
+      const ext = ((file.name.split('.').pop()) || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = 'events/' + (eventId || ('neu-' + Date.now())) + '-' + Date.now() + '.' + ext;
+      const { error } = await sb.storage.from('event-images').upload(path, file, { upsert: true, contentType: file.type || undefined });
+      if (error) throw new Error(error.message);
+      const { data } = sb.storage.from('event-images').getPublicUrl(path);
+      return data.publicUrl;
+    },
     async saveEvent(ev) {
       const row = {
         name: ev.name, date: ev.date || null, location: ev.location || null,
@@ -484,6 +513,7 @@
       // Sponsor-Logos nur setzen, wenn explizit übergeben.
       if (ev.sponsorLogos !== undefined) row.sponsor_logos = Array.isArray(ev.sponsorLogos) ? ev.sponsorLogos : [];
       // Besitzer nur setzen, wenn explizit übergeben (sonst bestehenden nicht überschreiben)
+      if (ev.imageUrl !== undefined) row.image_url = ev.imageUrl || null;
       if (ev.ownerEmail !== undefined) row.owner_email = ev.ownerEmail ? normEmail(ev.ownerEmail) : null;
       let eventId = ev.id;
       if (eventId) {

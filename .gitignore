@@ -1,2 +1,4 @@
 .claude/
 tools/
+dist/
+.wrangler/
