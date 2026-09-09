@@ -10,9 +10,9 @@
   let events = [];   // Cache aller Events (inkl. inaktive)
   let myRole = null; // 'super_admin' | 'organizer'
   let mySuper = false;
-  let statFilter = ''; // Übersicht: '' = alle Bälle, sonst event.id
+  let statFilter = ''; // Übersicht: '' = alle Events, sonst event.id
 
-  // Gefilterte Sicht für die Übersicht (nach gewähltem Ball)
+  // Gefilterte Sicht für die Übersicht (nach gewähltem Event)
   function fOrders() { return statFilter ? orders.filter(o => o.eventId === statFilter) : orders; }
   function fEvents() { return statFilter ? events.filter(e => e.id === statFilter) : events; }
   let gateEmail = '';
@@ -812,7 +812,7 @@
   }
 
   /* ---- Weitere Veranstalter (Mit-Verwalter) im Event-Editor ---- */
-  // Sichtbar für Head-Admin und den Haupt-Veranstalter des Balls, nur bei
+  // Sichtbar für Head-Admin und den Haupt-Veranstalter des Events, nur bei
   // bestehenden Events (braucht eine Event-ID). Auszahlung bleibt beim Besitzer.
   async function renderCoOwners(ev) {
     const box = $('evCoOwnersBox');
@@ -833,7 +833,7 @@
             '</div>').join('')
         : '<p class="hint">Noch keine weiteren Veranstalter zugewiesen.</p>';
       list.querySelectorAll('[data-cormrm]').forEach(b => b.addEventListener('click', async () => {
-        if (!confirm(b.dataset.cormrm + ' als Veranstalter von diesem Ball entfernen?')) return;
+        if (!confirm(b.dataset.cormrm + ' als Veranstalter von diesem Event entfernen?')) return;
         try { await S.removeEventCoOwner(ev.id, b.dataset.cormrm); await renderCoOwners(ev); }
         catch (e) { msg($('evCoOwnerMsg'), e.message, 'error'); }
       }));
@@ -845,7 +845,7 @@
   function renderOverview() { renderStats(); chartSales(); chartRevenue(); renderQuota(); }
   function populateStatEvents() {
     const sel = $('statEvent'); if (!sel) return;
-    sel.innerHTML = '<option value="">Alle Bälle (gesamt)</option>' +
+    sel.innerHTML = '<option value="">Alle Events (gesamt)</option>' +
       events.map(e => '<option value="' + e.id + '">' + esc(e.name) + '</option>').join('');
     if (!events.some(e => e.id === statFilter)) statFilter = '';
     sel.value = statFilter;
@@ -856,7 +856,7 @@
     const body = $('connectBody');
     if (!body) return;
     if (mySuper) {
-      body.innerHTML = '<p class="sub">Du bist Head-Admin. Zahlungen für FOCUS-eigene Bälle laufen direkt über das Plattform-Konto. ' +
+      body.innerHTML = '<p class="sub">Du bist Head-Admin. Zahlungen für Focus-eigene Events laufen direkt über das Plattform-Konto. ' +
         'Zugewiesene Veranstalter verbinden ihr eigenes Auszahlungskonto hier selbst – ihre Einnahmen fließen direkt an sie, deine Gebühr (3,5 % + 0,25 €/Ticket) bleibt automatisch bei FOCUS.</p>';
       return;
     }
@@ -864,11 +864,11 @@
     try {
       const st = await S.connectStatus();
       if (st.chargesEnabled) {
-        body.innerHTML = '<p class="sub" style="color:var(--gold-light)">✓ Dein Stripe-Konto ist verbunden. Die Ticket-Einnahmen deiner Bälle werden direkt an dich ausgezahlt (abzüglich Service- & Zahlungsgebühr).</p>';
+        body.innerHTML = '<p class="sub" style="color:var(--gold-light)">✓ Dein Stripe-Konto ist verbunden. Die Ticket-Einnahmen deiner Events werden direkt an dich ausgezahlt (abzüglich Service- & Zahlungsgebühr).</p>';
       } else {
         body.innerHTML = '<p class="sub">' + (st.hasAccount
-          ? 'Dein Stripe-Konto ist angelegt, aber die Einrichtung ist noch nicht abgeschlossen. Ohne abgeschlossene Einrichtung kann dein Ball keine Tickets verkaufen.'
-          : 'Verbinde dein Stripe-Konto, damit die Ticket-Einnahmen deiner Bälle direkt an dich ausgezahlt werden. Erst danach kann dein Ball Tickets verkaufen.') +
+          ? 'Dein Stripe-Konto ist angelegt, aber die Einrichtung ist noch nicht abgeschlossen. Ohne abgeschlossene Einrichtung kann dein Event keine Tickets verkaufen.'
+          : 'Verbinde dein Stripe-Konto, damit die Ticket-Einnahmen deiner Events direkt an dich ausgezahlt werden. Erst danach kann dein Event Tickets verkaufen.') +
           '</p><button class="btn btn-gold btn-sm" id="btnConnect">' + (st.hasAccount ? 'Einrichtung fortsetzen' : 'Mit Stripe verbinden') + '</button>' +
           '<div class="msg" id="connectMsg"></div>';
         $('btnConnect').addEventListener('click', async () => {
@@ -962,7 +962,7 @@
     try {
       await S.addOrganizer($('newAdminEmail').value);
       $('newAdminEmail').value = '';
-      msg($('adminMsg'), 'Veranstalter hinzugefügt. Weise ihm nun beim Event unter „Bearbeiten → Veranstalter" einen Ball zu.', 'ok');
+      msg($('adminMsg'), 'Veranstalter hinzugefügt. Weise ihm nun beim Event unter „Bearbeiten → Veranstalter" ein Event zu.', 'ok');
       renderAdmins();
     } catch (e) { msg($('adminMsg'), e.message, 'error'); }
   });
@@ -984,7 +984,7 @@
     try {
       await S.addEventCoOwner(id, $('evCoOwnerEmail').value);
       $('evCoOwnerEmail').value = '';
-      msg($('evCoOwnerMsg'), 'Veranstalter hinzugefügt. Er hat ab sofort vollen Zugriff auf diesen Ball.', 'ok');
+      msg($('evCoOwnerMsg'), 'Veranstalter hinzugefügt. Er hat ab sofort vollen Zugriff auf dieses Event.', 'ok');
       await renderCoOwners(ev);
     } catch (e) { msg($('evCoOwnerMsg'), e.message, 'error'); }
   });
@@ -1002,7 +1002,7 @@
     const files = Array.from(e.target.files || []);
     e.target.value = ''; // gleiche Datei erneut wählbar
     for (const f of files) {
-      if (editorSponsors.length >= 25) { msg($('evMsg'), 'Maximal 25 Sponsor-Logos pro Ball.', 'error'); break; }
+      if (editorSponsors.length >= 25) { msg($('evMsg'), 'Maximal 25 Sponsor-Logos pro Event.', 'error'); break; }
       try { editorSponsors.push(await fileToLogo(f)); }
       catch (err) { msg($('evMsg'), 'Logo „' + f.name + '“ konnte nicht geladen werden: ' + err.message, 'error'); }
     }
@@ -1027,7 +1027,7 @@
   }
   $('btnSaveCheckinPw').addEventListener('click', () => saveCheckinPw(false));
   $('btnClearCheckinPw').addEventListener('click', () => {
-    if (confirm('Einlass-Zugang für diesen Ball wirklich deaktivieren? Der bestehende Link funktioniert dann nicht mehr.')) saveCheckinPw(true);
+    if (confirm('Einlass-Zugang für dieses Event wirklich deaktivieren? Der bestehende Link funktioniert dann nicht mehr.')) saveCheckinPw(true);
   });
   $('btnCopyCheckin').addEventListener('click', () => {
     const inp = $('evCheckinUrl'); inp.select();
@@ -1079,8 +1079,9 @@
     };
     // Besitzer/Veranstalter zuweisen
     if (mySuper) ev.ownerEmail = $('evOwner').value || null;
-    else if (!ev.id) ev.ownerEmail = S.currentUser(); // Veranstalter legt eigenen Ball an
+    else if (!ev.id) ev.ownerEmail = S.currentUser(); // Veranstalter legt eigenes Event an
     if (!ev.name) { msg($('evMsg'), 'Bitte einen Eventnamen eingeben.', 'error'); return; }
+    if (!ev.club) { msg($('evMsg'), 'Bitte einen Club wählen (LEVEL oder YPSILON) – sonst ist das Event im Shop nicht sichtbar.', 'error'); return; }
     if (!cats.length) { msg($('evMsg'), 'Bitte mindestens eine Ticketkategorie anlegen.', 'error'); return; }
     try {
       $('btnSaveEvent').disabled = true;

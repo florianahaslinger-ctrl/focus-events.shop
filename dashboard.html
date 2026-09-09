@@ -83,7 +83,7 @@
   <div class="tabpane active" id="tabOverview">
     <div class="super-only" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px">
       <label for="statEvent" style="margin:0;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gray)">Umsätze anzeigen für</label>
-      <select id="statEvent" style="min-width:240px"><option value="">Alle Bälle (gesamt)</option></select>
+      <select id="statEvent" style="min-width:240px"><option value="">Alle Events (gesamt)</option></select>
     </div>
     <div class="dash-grid" id="statTiles"></div>
     <div class="charts-row">
@@ -170,7 +170,7 @@
         </div>
       </div>
       <label for="issueNote">Nachricht an Empfänger:in (optional)</label>
-      <textarea id="issueNote" rows="2" placeholder="z. B. Viel Spaß beim Ball! – dein FOCUS-Team"></textarea>
+      <textarea id="issueNote" rows="2" placeholder="z. B. Viel Spaß im Club! – dein Focus-Team"></textarea>
       <div class="msg" id="issueMsg"></div>
       <button class="btn btn-gold" id="btnIssue" style="margin-top:16px">Tickets erstellen &amp; senden</button>
       <p class="hint" style="margin-top:12px">Die Empfänger:innen erhalten eine E-Mail mit Ticketcode und QR-Link. Sie können sich unter <b>tickets.html</b> mit ihrer E-Mail anmelden und die Tickets als PDF laden. Ausgestellte Tickets erscheinen unter „Bestellungen“ (Zahlart <i>gast</i> bzw. <i>bar</i>) und sind sofort einlassfähig.</p>
@@ -243,7 +243,7 @@
 
     <div class="card super-only">
       <h2>Veranstalter &amp; Zugänge</h2>
-      <p class="sub">Lege Veranstalter an (per E-Mail). Ein Veranstalter sieht nach dem Login nur die ihm zugewiesenen Bälle. Die Zuweisung erfolgt beim Event unter „Bearbeiten → Veranstalter". Anmeldung per E-Mail-Verifizierung.</p>
+      <p class="sub">Lege Veranstalter an (per E-Mail). Ein Veranstalter sieht nach dem Login nur die ihm zugewiesenen Events. Die Zuweisung erfolgt beim Event unter „Bearbeiten → Veranstalter". Anmeldung per E-Mail-Verifizierung.</p>
       <div id="adminList" style="margin:12px 0"></div>
       <div class="field-row" style="align-items:flex-end">
         <div><label>Neue Veranstalter-E-Mail</label><input type="email" id="newAdminEmail" placeholder="veranstalter@example.at"></div>
@@ -298,18 +298,22 @@
     <h2 id="evModalTitle">Event bearbeiten</h2>
     <input type="hidden" id="evId">
     <div class="field-row">
-      <div style="flex:2 1 260px"><label>Eventname</label><input type="text" id="evName" placeholder="Schulball 2026"></div>
+      <div style="flex:2 1 260px"><label>Eventname</label><input type="text" id="evName" placeholder="Neon Rave"></div>
       <div><label>Datum &amp; Uhrzeit</label><input type="datetime-local" id="evDate"></div>
     </div>
     <div class="field-row">
-      <div><label>Club (Shop-Reiter)</label>
-        <select id="evClub">
-          <option value="">— kein Club —</option>
+      <div style="flex:1 1 100%">
+        <label>In welchem Club findet das Event statt? <span style="color:var(--gold-light)">*</span></label>
+        <select id="evClub" style="font-weight:600">
+          <option value="">— bitte wählen —</option>
           <option value="LEVEL">LEVEL</option>
           <option value="YPSILON">YPSILON</option>
         </select>
+        <p class="hint" style="margin:6px 0 0">Bestimmt, unter welchem Reiter das Event im Shop erscheint. Ohne Club-Auswahl ist das Event nirgends sichtbar.</p>
       </div>
-      <div><label>Ort</label><input type="text" id="evLocation" placeholder="z. B. LEVEL, Linz"></div>
+    </div>
+    <div class="field-row">
+      <div><label>Ort (optional, Adresse)</label><input type="text" id="evLocation" placeholder="z. B. Linz"></div>
       <div style="flex:0 0 auto;display:flex;align-items:flex-end;padding-bottom:2px">
         <label class="switch" style="margin:0"><input type="checkbox" id="evActive"> Event aktiv (im Shop sichtbar)</label>
       </div>
@@ -343,13 +347,13 @@
     <div class="super-only" style="margin-top:14px">
       <label>Haupt-Veranstalter (Besitzer &amp; Auszahlung)</label>
       <select id="evOwner"><option value="">— Head-Admin (FOCUS) —</option></select>
-      <p class="hint" style="margin-top:6px">Der Haupt-Veranstalter sieht und verwaltet diesen Ball – und nur auf sein Stripe-Konto läuft die Auszahlung.</p>
+      <p class="hint" style="margin-top:6px">Der Haupt-Veranstalter sieht und verwaltet dieses Event – und nur auf sein Stripe-Konto läuft die Auszahlung.</p>
     </div>
 
     <!-- Weitere Veranstalter (Mit-Verwalter, keine Auszahlung) – nur bestehende Events -->
     <div id="evCoOwnersBox" style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:none">
-      <label style="margin:0">Weitere Veranstalter (Zugriff auf diesen Ball)</label>
-      <p class="hint" style="margin:6px 0 10px">Diese E-Mails erhalten <strong>vollen Zugriff</strong> auf diesen Ball (Umsatz, Bestellungen, Einlass, Einstellungen) – aber <strong>keine Auszahlung</strong>. Das Geld läuft weiterhin nur auf das Konto des Haupt-Veranstalters. Jede E-Mail muss zuvor unter „Veranstalter &amp; Zugänge" als Veranstalter angelegt sein, damit sich die Person einloggen kann.</p>
+      <label style="margin:0">Weitere Veranstalter (Zugriff auf dieses Event)</label>
+      <p class="hint" style="margin:6px 0 10px">Diese E-Mails erhalten <strong>vollen Zugriff</strong> auf dieses Event (Umsatz, Bestellungen, Einlass, Einstellungen) – aber <strong>keine Auszahlung</strong>. Das Geld läuft weiterhin nur auf das Konto des Haupt-Veranstalters. Jede E-Mail muss zuvor unter „Veranstalter &amp; Zugänge" als Veranstalter angelegt sein, damit sich die Person einloggen kann.</p>
       <div id="evCoOwnerList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
       <div class="row" style="gap:8px">
         <div style="flex:1 1 220px"><input type="email" id="evCoOwnerEmail" placeholder="mit-veranstalter@example.at"></div>
@@ -359,7 +363,7 @@
     </div>
 
     <div id="evShopLink" style="margin-top:14px;display:none">
-      <label>Shop-Link für diesen Ball</label>
+      <label>Shop-Link für dieses Event</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input type="text" id="evShopUrl" readonly style="flex:1 1 260px">
         <button type="button" class="btn btn-ghost btn-sm" id="btnCopyShop">Kopieren</button>
@@ -367,7 +371,7 @@
       </div>
     </div>
 
-    <!-- Sponsoren-Logos (modular pro Ball) -->
+    <!-- Sponsoren-Logos (modular pro Event) -->
     <div style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px">
       <label style="margin:0">Sponsoren-Logos auf dem Ticket</label>
       <p class="hint" style="margin:6px 0 10px">Lade bis zu 25 Sponsor-Logos hoch – sie erscheinen automatisch unten auf jeder Ticket-PDF, bei vielen Logos in mehreren Reihen, überlappungsfrei und passend skaliert. PNG (auch transparent) oder JPG. Leer lassen = keine Sponsoren.</p>
@@ -379,7 +383,7 @@
     <!-- Einlass-Scanner: Passwort + Link (nur bestehende Events) -->
     <div id="evCheckinBox" style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:none">
       <label style="margin:0">Einlass-Scanner (Passwort für dein Personal)</label>
-      <p class="hint" style="margin:6px 0 10px">Vergib ein Einlass-Passwort und gib es an dein Einlasspersonal weiter. Sie öffnen den Einlass-Link, geben nur dieses Passwort ein und können ausschließlich diesen Ball einchecken – kein Zugriff auf Umsätze, Bestellungen oder Einstellungen.</p>
+      <p class="hint" style="margin:6px 0 10px">Vergib ein Einlass-Passwort und gib es an dein Einlasspersonal weiter. Sie öffnen den Einlass-Link, geben nur dieses Passwort ein und können ausschließlich dieses Event einchecken – kein Zugriff auf Umsätze, Bestellungen oder Einstellungen.</p>
       <div id="evCheckinStatus" class="hint" style="margin-bottom:8px"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <input type="text" id="evCheckinPw" placeholder="Einlass-Passwort (mind. 4 Zeichen)" autocomplete="off" style="flex:1 1 220px">
