@@ -167,8 +167,10 @@
   .qty button{width:34px;height:34px;border:none;background:transparent;color:var(--accent);
     font-size:1.2rem;cursor:pointer;transition:.15s;line-height:1;}
   .qty button:hover{background:var(--accent);color:var(--on-accent);}
-  .qty input{width:34px;height:34px;border:none;background:transparent;color:var(--ink);
-    text-align:center;font-family:'Space Grotesk';font-weight:600;font-size:.95rem;}
+  .qty input{width:40px;min-width:40px;height:34px;flex:0 0 auto;border:none;background:transparent;color:var(--ink);
+    text-align:center;padding:0;margin:0;appearance:none;-moz-appearance:textfield;
+    font-family:'Space Grotesk';font-weight:700;font-size:1rem;line-height:34px;}
+  .qty input::-webkit-inner-spin-button,.qty input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 
   .fx-empty{border:1px dashed var(--accent);border-radius:18px;padding:46px 26px;text-align:center;
     background:var(--accent-tint);}

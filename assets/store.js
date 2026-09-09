@@ -234,7 +234,7 @@
       // items: [{category_id, qty, seat_ids?}] – Edge Function prüft alles serverseitig.
       // returnPath (optional): Shop-Seite für die Rückkehr nach der Zahlung
       // (z. B. '/shop/' für den weißen Shop); ohne Angabe: /tickets.html.
-      const body = { items };
+      const body = { items, origin: location.origin };
       if (returnPath) body.return_path = returnPath;
       const { data, error } = await sb.functions.invoke('create-checkout', { body });
       if (error) {

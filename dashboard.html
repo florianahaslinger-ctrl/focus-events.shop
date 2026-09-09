@@ -9,14 +9,30 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="stylesheet" href="assets/shop.css">
 <style id="fxDashTheme">
-  /* Focus Events – Dashboard-Akzent (Türkis -> Focus-Blau), CORE unberührt */
+  /* Focus Events – Dashboard im gleichen hellen Look wie der Shop (Focus-Blau).
+     Die geteilten CORE-Variablen werden aufs helle Theme umgebogen -> CORE unberührt. */
   :root{
-    --gold:#2b38f5; --gold-light:#5a66ff; --gold-dim:rgba(43,56,245,.16);
-    --gold-grad:linear-gradient(135deg,#5a66ff 0%,#2b38f5 55%,#1b22c8 100%);
-    --line:rgba(90,102,255,.20);
-    --glow:0 0 0 1px rgba(43,56,245,.12), 0 20px 60px -28px rgba(43,56,245,.40);
+    --bg:#f4f2ec; --bg-2:#eceae2; --surface:#ffffff;
+    --ink:#0f0f12; --ink-2:#3a3a41; --mut:#7c7c84;
+    --accent:#2b38f5; --accent-lt:#5a66ff; --accent-dk:#1b22c8;
+    --accent-tint:rgba(43,56,245,.10); --accent-glow:rgba(43,56,245,.30); --on-accent:#ffffff;
+    /* CORE-Variablen -> helles Theme */
+    --black:var(--bg); --dark:var(--bg-2); --panel:var(--surface);
+    --white:var(--ink); --gray:var(--ink-2); --muted:var(--mut);
+    --line:rgba(15,15,18,.12);
+    --gold:var(--accent); --gold-light:var(--accent-lt); --gold-dim:var(--accent-tint);
+    --gold-grad:linear-gradient(135deg,var(--accent-lt),var(--accent) 55%,var(--accent-dk));
+    --card-grad:var(--surface);
+    --shadow:0 18px 46px -22px rgba(15,15,25,.28);
+    --glow:0 0 0 1px var(--accent-tint), 0 24px 60px -30px var(--accent-glow);
     --chart-1:#2b38f5;
   }
+  html,body{background:var(--bg);color:var(--ink);}
+  .card,.chart-card{background:var(--surface);border:1px solid var(--line);}
+  .dash-tabs button{color:var(--ink-2);}
+  .dash-tabs button.active{color:var(--accent);}
+  table.data th{color:var(--ink-2);}
+  input,select,textarea{background:var(--surface);color:var(--ink);border:1px solid var(--line);}
   .btn-gold{color:#fff;}
   .qty button:hover{color:#fff;}
   ::selection{background:rgba(43,56,245,.30);color:#fff;}
@@ -72,7 +88,7 @@
   <div class="dash-tabs" id="tabs">
     <button data-tab="tabOverview" class="active">Übersicht</button>
     <button data-tab="tabEvents">Events &amp; Tickets</button>
-    <button data-tab="tabSeats">Sitzplan</button>
+    <button data-tab="tabSeats" style="display:none">Sitzplan</button>
     <button data-tab="tabIssue">Tickets ausstellen</button>
     <button data-tab="tabOrders">Bestellungen</button>
     <button data-tab="tabCheckin">Check-in</button>

@@ -497,7 +497,7 @@
     try {
       $('btnPlaceOrder').disabled = true;
       msg($('checkoutMsg'), 'Bezahlvorgang wird gestartet …', 'info');
-      const res = await S.startCheckout(items);
+      const res = await S.startCheckout(items, '/index.html');
       cart = {}; selectedSeats = {};
       window.location.href = res.url;
     } catch (e) {

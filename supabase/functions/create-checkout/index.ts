@@ -34,21 +34,37 @@ Deno.serve(async (req) => {
     }
     const email = userData.user.email.toLowerCase();
 
-    const { items, return_path } = await req.json() as {
+    const { items, return_path, origin } = await req.json() as {
       items: { category_id: string; qty: number; seat_ids?: string[] }[];
       return_path?: string;
+      origin?: string;
     };
     if (!Array.isArray(items) || !items.length) {
       return json({ error: "Der Warenkorb ist leer." }, 400);
     }
 
-    // Rückkehr-Seite nach der Zahlung: nur bekannte Shop-Seiten erlauben.
-    // "/tickets.html" = klassischer Shop (Standard), "/shop/" = weiße Version.
+    // Basis-URL der Rückkehr: der Aufrufer sendet seine origin; nur erlaubte
+    // Hosts werden akzeptiert (Schutz vor Open-Redirect). Fallback = CORE (SHOP_URL).
+    // So teilen sich CORE und die gebrandeten Shops (Focus, inkl. Club-Subdomains)
+    // dieselbe Function, kehren aber jeweils zum richtigen Host zurück.
+    const ALLOWED_ORIGINS = new Set([
+      "https://core-management.at",
+      "https://www.core-management.at",
+      "https://focus-events.shop",
+      "https://level.focus-events.shop",
+      "https://ypsilon.focus-events.shop",
+    ]);
+    const cleanOrigin = (origin ?? "").replace(/\/+$/, "");
+    const base = ALLOWED_ORIGINS.has(cleanOrigin) ? cleanOrigin : SHOP_URL;
+
+    // Rückkehr-Seite (relativ) – nur bekannte Pfade erlauben.
     const RETURN_PATHS: Record<string, string> = {
-      "/tickets.html": SHOP_URL + "/tickets.html",
-      "/shop/": SHOP_URL + "/shop/index.html",
+      "/tickets.html": "/tickets.html",
+      "/shop/": "/shop/index.html",
+      "/index.html": "/index.html",
+      "/": "/index.html",
     };
-    const returnUrl = RETURN_PATHS[return_path ?? ""] ?? RETURN_PATHS["/tickets.html"];
+    const returnUrl = base + (RETURN_PATHS[return_path ?? ""] ?? "/tickets.html");
 
     // Kategorien + Event + Verfügbarkeit prüfen
     const ids = items.map((i) => i.category_id);
