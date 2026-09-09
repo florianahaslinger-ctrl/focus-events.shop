@@ -1,211 +1,226 @@
-# Focus Events – Ticketshop · Projekt-Übergabe (Stand: 08.09.2026)
+# Focus Events – Ticketshop · Projekt-Übergabe (Stand: 09.09.2026)
 
-> **Kurzfassung:** Eigenständiger Club-Ticketshop für die **Focus Events GmbH**
-> (Clubs **LEVEL** & **YPSILON Heidenreichstein**). Rebrand des CORE-Shops mit
-> **komplett eigenem Frontend**, **teilt sich aber das CORE-Backend** (dieselbe
-> Supabase + Stripe). Eigene Domain **focus-events.shop**. Trennung von CORE über
-> die Spalte `events.storefront`, Reiter LEVEL/YPSILON über `events.club`.
-> **CORE bleibt komplett unangetastet.**
+> **Kurzfassung:** Eigenständiger Club-Ticketshop der **Focus Events GmbH** (Clubs
+> **LEVEL** & **YPSILON Heidenreichstein**). **Helles** Poster-Design mit Club-Farben
+> (LEVEL blau, YPSILON magenta). **Teilt sich das CORE-Backend** (dieselbe Supabase +
+> Stripe) – **CORE bleibt komplett unangetastet**. Hosting auf **Cloudflare Pages**,
+> eigene Domain **focus-events.shop** + Subdomain je Club.
 >
-> Geheimnisse stehen **nicht** hier – der `sbp_`-Token liegt in `CORE-CREDENTIALS.txt`
-> (eine Ebene höher, gemeinsam mit CORE genutzt).
+> Diese Datei ist die **eine** gültige Übergabe (die frühere dunkle Version und die
+> separate Cowork-Datei wurden hier zusammengeführt). **Secrets stehen NICHT hier** (§9).
 
 ---
 
-## 0. Schnellstart
+## 0. Schnellzugriff
 
-```bash
-cd "C:/Users/pustl/OneDrive/Desktop/Claude/Focus-Events"
-git status && git log --oneline -5
-```
-
-* **Lokaler Ordner:** `C:\Users\pustl\OneDrive\Desktop\Claude\Focus-Events`
-* **Repo:** `florianahaslinger-ctrl/focus-events.shop` (öffentlich)
-* **Branch:** `master`  ·  **aktueller Stand:** `66775fc`
-* **Deploy-Flow:** committen → `git push origin master` → **GitHub Pages baut `master`** (Build ~1–2 Min)
-* **Live:** **http://focus-events.shop** (HTTPS-Zertifikat wird noch ausgestellt – siehe §6)
-* **GitHub CLI:** installiert unter `C:\Program Files\GitHub CLI\gh.exe`, eingeloggt als `florianahaslinger-ctrl`
+* **Live:** https://focus-events.shop · Subdomains https://level.focus-events.shop · https://ypsilon.focus-events.shop (beide 200/HTTPS aktiv)
+* **Dashboard:** https://focus-events.shop/dashboard.html (E-Mail-OTP-Login, nur Admins)
+* **Hosting:** **Cloudflare Pages**, Projekt **`focus-events`** (Preview `focus-events.pages.dev`), aktuell **Direct Upload** aus `dist/` (noch nicht Git-verbunden – siehe §3).
+* **DNS:** **Cloudflare** (Zone `focus-events.shop`). SSL/TLS-Modus **Full**.
+* **Repo (Quelle der Wahrheit):** `florianahaslinger-ctrl/focus-events.shop` (öffentlich, Branch `master`).
+* **Lokal:** `C:\Users\pustl\OneDrive\Desktop\Claude\Focus-Events`
+* **Cloudflare-Account-ID:** `20fc99620b59a24f532c573355ee9c30`
+* **Supabase-Projekt „Ticketsystem", Ref:** `xfdiuhmgkdujbjhdhvcw`
+* **GitHub CLI:** `C:\Program Files\GitHub CLI\gh.exe`, eingeloggt als `florianahaslinger-ctrl`
 
 ---
 
-## 1. Kernidee: ein Backend, zwei gebrandete Shops
+## 1. Kernidee: ein Backend, mehrere gebrandete Shops
 
-CORE („Ticketsystem für Bälle") und Focus Events nutzen **dieselbe Supabase-DB und
-dieselben Edge Functions**. Getrennt wird rein über zwei Spalten der Tabelle `events`:
+CORE („Bälle") und Focus Events teilen sich **dieselbe Supabase-DB + Edge Functions + Stripe**.
+Getrennt wird über zwei Spalten der Tabelle `events`:
 
 | Spalte | Werte | Bedeutung |
 |---|---|---|
 | `events.storefront` | `NULL` = CORE · `'focus'` = Focus | welcher Shop das Event zeigt |
-| `events.club` | `'LEVEL'` · `'YPSILON'` · `NULL` | welcher **Reiter** im Focus-Shop |
+| `events.club` | `'LEVEL'` · `'YPSILON'` · `NULL` | Reiter / Subdomain im Focus-Shop |
 
-* Das **Focus-Frontend** (`assets/store.js`, Konstante `STOREFRONT='focus'`) filtert in
-  `getEvents()` auf `storefront='focus'` **und** taggt neu angelegte Events automatisch damit.
-* **CORE ist unverändert** – es setzt/liest `storefront` nicht (also `NULL`) und bleibt dadurch
-  in seinem eigenen Shop unter sich.
-* ⚠️ **Bekannte Einschränkung:** Da COREs Frontend **nicht** angefasst wurde, filtert es *nicht*
-  auf storefront. CORE zeigt daher technisch weiterhin **alle** aktiven Events – auch die
-  Focus-Events. Praktisch fällt das kaum auf (Focus wird nur über focus-events.shop beworben),
-  aber wenn Focus-Events **nicht** im CORE-Shop auftauchen sollen, im CORE-Repo in
-  `getEvents()` **eine Zeile** ergänzen: `.is('storefront', null)` (bzw. `storefront is null`).
+* Focus-Frontend (`assets/store.js`, `STOREFRONT='focus'`) filtert auf `storefront='focus'` und
+  taggt neue Events automatisch.
+* **CORE unverändert** (setzt/liest diese Spalten nicht → `NULL`).
+* ⚠️ **Bekannte Einschränkung:** COREs Frontend filtert *nicht* auf storefront, zeigt also technisch
+  weiter alle aktiven Events (auch Focus-Events). Falls unerwünscht: im CORE-Repo in `getEvents()`
+  eine Zeile `.is('storefront', null)` ergänzen. (Bewusst offen gelassen.)
 
 ---
 
-## 2. Was in diesem Projekt gebaut wurde
+## 2. Design / Farbsystem (Cowork-Redesign, beibehalten)
 
-### a) Rebrand CORE → Focus Events
-* Farbe **Gold → Türkis `#079f96`** durchgängig (CSS/HTML/JS, inkl. Ticket-PDF-Akzent).
-  Grün/Rot/Blau (Status/Charts) blieben erhalten.
-* Marke überall **CORE Management → Focus Events**, Logo-Schriftzug **FOCUS · EVENTS**.
-* **Favicon** aus dem „F"-Zeichen des Focus-Logos generiert (`favicon.png`).
-* Logos unter `assets/img/`: `focus-logo.png`, `level-logo.png`, `ypsilon-logo.png`
-  sowie **weiße Varianten** `level-logo-white.png` / `ypsilon-logo-white.png` fürs dunkle Theme.
+* Helle Basis (`--bg #f4f2ec`, `--surface #fff`, `--ink #0f0f12`), Fonts **Anton** + **Space Grotesk**.
+* **Club-Akzent** über `data-club` auf `<html>`: **LEVEL `#2b38f5`** (blau), **YPSILON `#ff1466`** (magenta).
+  Die ganze Seite färbt sich je aktivem Club um. Technisch über Umbiegen der geteilten CORE-CSS-Variablen
+  (`--gold*` etc.) im `<style>` von `index.html` → **CORE bleibt intakt, kein Türkis mehr auf dieser Seite**.
+* Zwei **Club-Reiter** LEVEL/YPSILON (Logik `setupClubTabs`/`activeClub` in `assets/shop.js`).
+* **Subdomain-Routing:** `clubFromHost()` + Schalter `const SUBDOMAINS_LIVE = true;` in `shop.js`.
+  `level.`/`ypsilon.` laden direkt im jeweiligen Club; Klick auf den anderen Club springt auf dessen Subdomain.
+* Dashboard-Akzent Türkis → **Focus-Blau** (Override-Block `id="fxDashTheme"` in `dashboard.html`, dunkel bleibt).
 
-### b) Shop = Startseite
-* `index.html` **ist** der Shop (nicht mehr die CORE-SaaS-Marketingseite).
-* `tickets.html` → **Redirect** auf `index.html` (alte Links funktionieren weiter).
-
-### c) Eigenes Club-Design (bewusst NICHT wie CORE)
-* Fonts **Anton** (Display/Headlines) + **Space Grotesk** (UI/Text) – statt CORE-Serif (Cormorant).
-* Dunkler Hintergrund mit Türkis-Glow, Hero „**WÄHLE DEINEN CLUB.**".
-* **Zwei große Reiter LEVEL / YPSILON** (mit weißen Club-Logos, Event-Zähler, aktiver Reiter
-  leuchtet türkis). Event-Liste als **Grid** aus Cards (Datumsblock · Titel · Preise · Mengen-Stepper).
-* Warenkorb, Login (E-Mail-OTP), Checkout (Stripe), Sitzplan, „Meine Tickets" – **unverändert
-  übernommen** aus dem CORE-Shop, nur neu skiniert.
-
-### d) Reiter-Logik
-* `assets/shop.js`: `activeClub` (Default `LEVEL`), `setupClubTabs()`, gefiltertes `renderEvents()`.
-* Direktlink auf ein einzelnes Event weiterhin via `?event=<ID>` (übersteuert die Reiter).
-
-### e) Backend-Erweiterungen (auf der gemeinsamen CORE-Supabase, additiv)
-* Migration `supabase/migrations/20260907_storefront.sql` → Spalte `events.storefront` (**live eingespielt**).
-* Migration `supabase/migrations/20260907_club.sql` → Spalte `events.club` (**live eingespielt**).
-* `assets/store.js`: lädt/mappt/speichert `club`; taggt Inserts mit `storefront='focus'`.
-* `assets/dashboard.js` + `dashboard.html`: **Club-Dropdown** (LEVEL/YPSILON) im Event-Editor (`evClub`).
-
-### f) Rechtstexte
-* Impressum/Datenschutz/Cookie auf **Focus Events GmbH** umgestellt; die falschen CORE-Daten
-  (Julius Jeitschko/Einzelunternehmen) wurden entfernt und durch klar markierte
-  **`[wird ergänzt]`-Platzhalter** ersetzt (siehe offene To-dos §7).
+> Das **Favicon** ist noch das alte Türkis-„F" (`favicon.png`) – optional ans neue Design anpassen (§10).
 
 ---
 
-## 3. Architektur
+## 3. Hosting & Deploy (Cloudflare Pages)
 
-* **Frontend:** statisches HTML + Vanilla JS. Hosting **GitHub Pages** (`master`).
-  `.nojekyll` muss im Root bleiben. `CNAME` enthält `focus-events.shop`.
-* **Backend (geteilt mit CORE):** Supabase (Postgres + RLS, Edge Functions in Deno,
-  Auth per E-Mail-OTP). Projekt „Ticketsystem", Ref `xfdiuhmgkdujbjhdhvcw`,
-  URL `https://xfdiuhmgkdujbjhdhvcw.supabase.co` (steht in `assets/store.js`).
-* **Zahlung:** Stripe Connect (Express) wie CORE – Destination Charges mit `application_fee`.
-  Ein Event zahlt an das Stripe-Konto seines `owner_email` aus (Onboarding im Dashboard).
-* **E-Mail:** Brevo (Send-Email-Hook, geteilt). Tickets kommen **nicht** als PDF-Anhang –
-  das **PDF wird immer client-seitig** über `CMTicketPDF.download(order)` erzeugt.
+Cloudflare Pages ist **aktuell nicht mit Git verbunden** → Deploy per **Direct Upload** von `dist/`.
+
+**`dist/` bauen** (Git-Bash; nur die Website, ohne `.git`, `tools/`, `.claude/`, `supabase/`):
+```bash
+cd "C:/Users/pustl/OneDrive/Desktop/Claude/Focus-Events"
+rm -rf dist && mkdir dist
+cp *.html favicon.png CNAME dist/ ; cp -r assets dist/ ; [ -d shop ] && cp -r shop dist/ ; touch dist/.nojekyll
+```
+
+**Deployen** (PowerShell; frisches, scoped Cloudflare-Token – siehe §9):
+```powershell
+cd "C:\Users\pustl\OneDrive\Desktop\Claude\Focus-Events"
+$env:CLOUDFLARE_ACCOUNT_ID = "20fc99620b59a24f532c573355ee9c30"
+$env:CLOUDFLARE_API_TOKEN = (Read-Host "Cloudflare-Token einfuegen").Trim()
+npx --yes wrangler@latest pages deploy dist --project-name focus-events --branch master
+```
+
+**Empfehlung (offen):** Cloudflare Pages **mit dem GitHub-Repo verbinden** (Dashboard → Pages →
+Projekt → Settings → Builds & deployments → Connect to Git; Branch `master`, Build command *leer*,
+Output directory `/`). Dann deployt jeder `git push` automatisch – kein manuelles Direct-Upload mehr.
+
+**Repo aktuell halten (immer!):**
+```bash
+git add -A && git commit -m "..." && git push origin master   # im Windows-Git-Bash (autocrlf)
+```
 
 ---
 
-## 4. Wichtige Dateien
+## 4. DNS (Cloudflare)
+
+Zone `focus-events.shop` auf Cloudflare. Relevante Records:
+
+| Typ | Name | Ziel | Proxy |
+|---|---|---|---|
+| CNAME | `@` | `focus-events.pages.dev` | Proxied 🟠 |
+| CNAME | `level` | `focus-events.pages.dev` | Proxied 🟠 |
+| CNAME | `ypsilon` | `focus-events.pages.dev` | Proxied 🟠 |
+| MX | `@` | `mx00.ionos.de` / `mx01.ionos.de` (Prio 10) | DNS only |
+| TXT | `@` | `v=spf1 include:_spf-eu.ionos.com ~all` | DNS only |
+
+* Alle Custom Domains im Pages-Projekt unter **Custom domains** eingetragen.
+* **SSL/TLS-Modus der Zone = `Full`** (sonst Redirect-Loop mit Pages!).
+* Alte GitHub-Pages-A-Records (`185.199.*`) am Apex entfernt. `www.` zeigt evtl. noch auf alte GitHub-IPs → optional aufräumen.
+
+---
+
+## 5. Datenbank / Migrations (geteilte Supabase, alle additiv, **alle eingespielt**)
+
+| Datei | Inhalt | Status |
+|---|---|---|
+| `20260907_storefront.sql` | Spalte `events.storefront` (+Index) | ✅ eingespielt |
+| `20260907_club.sql` | Spalte `events.club` (+Index) | ✅ eingespielt |
+| `20260909_club_owners.sql` | Tabelle `club_owners` (max 5/Club), `is_club_owner`, `is_club_owner_of_event`, `owns_event_id` additiv erweitert, RLS | ✅ eingespielt (09.09.) |
+| `20260909_event_image.sql` | Spalte `events.image_url` + Storage-Bucket `event-images` (public read, admin write) | ✅ eingespielt (09.09.) |
+
+> **Korrektur ggü. Cowork-Handoff:** dort war behauptet, `club_owners` sei eingespielt und `event_image`
+> offen – **tatsächlich war keine der beiden Migrationen in der DB**. Beide wurden am 09.09. verifiziert
+> eingespielt (Tabelle/Spalte/Bucket/Funktionen bestätigt vorhanden).
+
+**Migration einspielen** (Git-Bash, liest `sbp_`-Token aus `CORE-CREDENTIALS.txt`):
+```bash
+bash tools/run-sql.sh --file supabase/migrations/DATEI.sql
+# oder beliebiges SQL:  bash tools/run-sql.sh "select 1;"
+```
+PowerShell-Alternative siehe frühere Doku; Git-Bash ist der einfachste Weg.
+
+---
+
+## 6. Features im Detail
+
+**Club-Veranstalter** (`club_owners`): Head-Admin trägt im Dashboard → Einstellungen →
+„Club-Veranstalter (LEVEL & YPSILON)" bis zu **5 E-Mails je Club** ein. Diese Personen verwalten nach
+Login **alle** Events ihres Clubs (via `owns_event_id` → `is_club_owner_of_event`). Auszahlung bleibt
+über das Stripe-Konto des jeweiligen Events. Datenschicht: `S.getClubOwners/addClubOwner/removeClubOwner`.
+
+**Event-Bilder** (Banner je Event): Event-Editor → „Event-Bild" → Upload nach Supabase Storage
+(`S.uploadEventImage`, Bucket `event-images`), URL in `events.image_url`, Anzeige als `.ev-banner` auf
+der Card. `getEvents` ist **fehlertolerant** (läuft auch ohne die Spalte weiter).
+
+**Reiter/Storefront:** siehe §1–2. **Club-Dropdown** im Event-Editor (`evClub`) setzt LEVEL/YPSILON.
+
+---
+
+## 7. Wichtige Dateien
 
 | Datei | Zweck |
 |---|---|
-| `index.html` | **Shop = Startseite** (Club-Design, zwei Reiter) |
-| `assets/shop.js` | Shop-Logik: Reiter, Rendering, Warenkorb, Checkout, „Meine Tickets" |
-| `assets/store.js` | Datenschicht `CMStore`; **`STOREFRONT='focus'`**, `getEvents()`-Filter, `club`-Handling |
-| `assets/dashboard.js` · `dashboard.html` | Admin-Dashboard; **Club-Dropdown** `evClub` |
-| `assets/ticket-pdf.js` | PDF-Generator (Türkis-Akzent, QR auf `focus-events.shop/ticket.html`) |
-| `ticket.html` · `einlass.html` | QR-Ziel bzw. Einlass-Scanner |
-| `impressum.html` · `datenschutz.html` · `cookie-policy.html` | Rechtstexte (Platzhalter für Firmendaten) |
-| `tickets.html` | Redirect → `index.html` |
-| `assets/img/*.png` | Logos (+ weiße Varianten) |
-| `favicon.png` | Focus-„F"-Favicon |
-| `CNAME` | `focus-events.shop` (GitHub Pages Custom-Domain) |
-| `supabase/migrations/20260907_storefront.sql` · `…_club.sql` | die zwei neuen Migrationen (live) |
+| `index.html` | Shop = Startseite (helles Club-Design, Club-Theme + Subdomain-Script) |
+| `assets/shop.js` | Reiter, Rendering, Warenkorb, Checkout, **Subdomain-Routing** (`SUBDOMAINS_LIVE`), Event-Banner |
+| `assets/store.js` | Datenschicht `CMStore`: `getEvents`/`saveEvent`, `club`, `uploadEventImage`, Club-/Event-Owner |
+| `dashboard.html` · `assets/dashboard.js` | Admin-Dashboard (Focus-Blau, Club-Veranstalter-UI, Event-Bild-Upload, Club-Dropdown) |
+| `assets/shop.css` | **geteiltes** CORE-Stylesheet – wird nur per CSS-Variablen umgefärbt, **nicht CORE-spezifisch ändern** |
+| `assets/ticket-pdf.js` | PDF-Tickets (QR auf `focus-events.shop/ticket.html`) |
+| `ticket.html` · `einlass.html` | QR-Ziel / Einlass-Scanner |
+| `impressum.html` · `datenschutz.html` · `cookie-policy.html` | Rechtstexte (Firmendaten noch Platzhalter, §10) |
+| `supabase/migrations/*.sql` | 4 Migrationen (alle eingespielt, §5) |
 | `tools/run-sql.sh` · `tools/apply-storefront-migration.sh` | SQL-/Migrations-Runner (in `.gitignore`, lesen Token aus `CORE-CREDENTIALS.txt`) |
-| `README-FOCUS.md` | Kurzanleitung |
-
-> `.gitignore` schließt `.claude/` und `tools/` aus (Helfer mit lokalem Pfad/Token-Zugriff bleiben lokal).
-
----
-
-## 5. Kochrezepte (Git Bash)
-
-**SQL / Migration auf dem gemeinsamen Backend ausführen** (Token wird aus `CORE-CREDENTIALS.txt` gelesen):
-```bash
-bash tools/run-sql.sh "alter table public.events add column if not exists foo int;"
-# oder eine Datei:
-bash tools/run-sql.sh --file supabase/migrations/DATEI.sql
-```
-
-**Deployen:**
-```bash
-git add -A
-git commit -m "…"
-git push origin master        # GitHub Pages baut danach master neu (~1–2 Min)
-```
-> `git push` funktioniert direkt. **`gh repo create` war durch den Sicherheits-Classifier
-> geblockt** (Veröffentlichungs-Aktion) – das Repo wurde einmalig von Florian selbst per
-> `gh repo create` im eigenen Terminal angelegt.
-
-**Neues Event anlegen (LEVEL/YPSILON):** im `dashboard.html` einloggen (E-Mail-OTP),
-Event anlegen und im **Club-Dropdown** LEVEL oder YPSILON wählen → erscheint automatisch im
-richtigen Reiter (bekommt `storefront='focus'` + gewählten `club`).
-
-**Edge-Function deployen** (identisch zu CORE, gleiches Projekt):
-```bash
-curl -s -X POST "https://api.supabase.com/v1/projects/xfdiuhmgkdujbjhdhvcw/functions/deploy?slug=create-checkout" \
-  -H "Authorization: Bearer $SBP" -H "User-Agent: Mozilla/5.0 supabase-setup" \
-  -F 'metadata={"entrypoint_path":"index.ts","verify_jwt":true};type=application/json' \
-  -F "file=@supabase/functions/create-checkout/index.ts;type=application/typescript"
-```
+| `dist/` | Deploy-Ordner für Cloudflare (in `.gitignore`) |
+| `CNAME` | `focus-events.shop` |
 
 ---
 
-## 6. DNS & HTTPS
+## 8. Aktueller Stand & nächste Schritte
 
-* **DNS (IONOS):** `focus-events.shop` (`@`) zeigt per **A-Records** auf GitHub Pages:
-  `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`.
-  (Der alte IONOS-Parking-A-Eintrag `217.160.0.22` + AAAA wurden entfernt.)
-* **GitHub Pages:** aktiv, Quelle `master` / Root, Custom-Domain aus `CNAME`.
-* **HTTPS:** Zertifikat wird von GitHub **automatisch** ausgestellt, sobald die Domain
-  verifiziert ist (kann Minuten bis ~1 h dauern). Status prüfen / erzwingen:
-  ```bash
-  # Status:
-  "/c/Program Files/GitHub CLI/gh.exe" api repos/florianahaslinger-ctrl/focus-events.shop/pages
-  # Sobald "https_certificate.state" = approved/issued: HTTPS erzwingen
-  "/c/Program Files/GitHub CLI/gh.exe" api -X PUT repos/florianahaslinger-ctrl/focus-events.shop/pages -F https_enforced=true
-  ```
+**Fertig & committet (`master`):** helles Redesign, Subdomains + HTTPS (Cloudflare), Dashboard-Blau,
+Club-Veranstalter (Migration + UI), Event-Bilder (Migration + Upload + Banner) – alles im Repo,
+`.gitignore` um `dist/`/`.wrangler/` ergänzt.
 
----
-
-## 7. Offene To-dos
-
-1. **HTTPS-Erzwingung** scharfschalten, sobald das Zertifikat ausgestellt ist (§6). Stand jetzt: noch nicht ausgestellt.
-2. **Impressum-/Datenschutz-Firmendaten** eintragen (aktuell `[wird ergänzt]`-Platzhalter in
-   `impressum.html`, `datenschutz.html`, `cookie-policy.html`):
-   Anschrift · Firmenbuchnummer (FN…) + Firmenbuchgericht · UID (ATU…) · Geschäftsführer:in · Telefon.
-   Kontakt-E-Mail steht aktuell als `office@focus-events.shop` – ggf. anpassen.
-3. **Test-Events entfernen** (aktuell öffentlich sichtbar), sobald echte Events da sind. IDs:
-   `11111111-1111-4111-8111-111111111111` (Neon Rave, LEVEL),
-   `22222222-2222-4222-8222-222222222222` (90s & 2000s Night, LEVEL),
-   `33333333-3333-4333-8333-333333333333` (YPSILON Clubbing, YPSILON).
-   Löschen z. B.:
-   ```bash
-   bash tools/run-sql.sh "delete from public.events where id in ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333');"
-   ```
-4. **Stripe-Auszahlung:** Für echte Verkäufe muss der/die Veranstalter:in (der `owner_email`
-   der Events) im Dashboard das eigene Stripe-Konto verbinden (Connect-Onboarding), sonst gehen
-   die Zahlungen an das Plattform-Konto (Head-Admin).
-5. **Textreste im Datenschutz** aus dem CORE-Kontext bereinigen (z. B. Kontaktformular-Absatz mit
-   „Schule / Wunschtermin", Formspree) – im Focus-Shop nicht relevant.
-6. Optional: echte Event-Bilder / Club-Fotos in die Cards, Social-Links, Google-Fonts lokal hosten (DSGVO).
+**Offen / dein Schritt:**
+1. **Redeploy nötig:** Der aktuelle Live-Stand ist inkonsistent (Club-Veranstalter-UI live, aber
+   `uploadEventImage`/`ev-banner` fehlten). `dist/` ist frisch gebaut → einmal deployen (§3), damit die
+   Event-Bilder auch live funktionieren. **Ideal:** stattdessen Pages mit Git verbinden (§3).
+2. **Cloudflare-Secrets rotieren** (§9) – dringend.
+3. **Club-Veranstalter testen:** Dashboard → Einstellungen → LEVEL eine E-Mail hinzufügen → „1/5"?
+4. **Event-Bild testen:** Event bearbeiten → Bild hochladen → speichern → Banner auf der Card.
+5. **Punkt 4 – Dynamic Pricing (noch NICHT gebaut).** Spezifikation:
+   * Preis-**Phasen pro Ticket-Kategorie** (Early Bird → Regular → Abendkasse).
+   * Umschalten **per Datum**, **per verkaufter Menge** oder **manuell**.
+   * Käufer sieht **aktuellen Preis + nächste Phase** (Countdown / „ab X verkauft").
+   * **Serverseitige Preisberechnung** in der geteilten `create-checkout`-Edge-Function (additiv;
+     CORE ohne Phasen exakt wie bisher), Test im **Stripe-Testmodus** vor Livegang.
+   * Geplant: Tabelle `category_phases`, Editor im Dashboard, Anzeige im Shop.
 
 ---
 
-## 8. Verifizierung (08.09.2026)
+## 9. Zugänge & Secrets — bewusst NICHT im Klartext
 
-* Farb-/Namens-/Domain-Rebrand vollständig; keine Gold-Reste, keine `core-management.at`-Reste.
-* Mandantentrennung getestet: Focus-Shop zeigt **nur** `storefront='focus'`; leerer Zustand korrekt,
-  keine CORE-Bälle sichtbar.
-* Reiter LEVEL/YPSILON getestet: Zähler (2 / 1), Umschalten filtert korrekt, Cards inkl. Kategorien/Preise.
-* Beide Migrationen (`storefront`, `club`) live eingespielt (HTTP 201).
-* Deploy live: `http://focus-events.shop` liefert das neue Club-Design (Marker `clubTabs`,
-  `level-logo-white`, `Space Grotesk` bestätigt). HTTPS ausstehend.
+| Zugang | Wo / wie |
+|---|---|
+| Supabase `sbp_`-Token (DB-Migrationen) | Datei `CORE-CREDENTIALS.txt` (eine Ebene über dem Repo) |
+| Supabase-URL/Anon-Key (öffentlich) | in `assets/store.js` bzw. `assets/supabase.js` |
+| Cloudflare-API-Token (Deploy) | Cloudflare → My Profile → API Tokens **neu erzeugen**, scoped: **Account · Cloudflare Pages · Edit** + **Account · Account Settings · Read** |
+| Cloudflare-Login | Account `office@core-management.at` (Passwort im Passwort-Manager) |
+| Stripe | dashboard.stripe.com |
+
+> **⚠️ DRINGENDES Sicherheits-To-do:** Laut Cowork-Handoff wurden in jener Session ein **Cloudflare
+> Global API Key**, mehrere **`cfut_`-API-Tokens** und das **Cloudflare-Passwort im Klartext gepostet**.
+> Diese **rotieren/widerrufen** (Cloudflare → My Profile → API Tokens; Passwort ändern). Für Deploys
+> **nur ein scoped Pages-Token** verwenden – **niemals** den Global Key.
+
+---
+
+## 10. Backlog
+
+1. **Punkt 4 – Dynamic Pricing** (§8).
+2. **Impressum/Datenschutz** echte Firmendaten (aktuell `[wird ergänzt]`): Anschrift, FN + Firmenbuchgericht,
+   UID (ATU…), Geschäftsführung, Telefon.
+3. **Test-Events entfernen**, sobald echte da sind (IDs `111…`, `222…`, `333…`):
+   `bash tools/run-sql.sh "delete from public.events where id in ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333');"`
+4. **Stripe-Connect-Onboarding** je Veranstalter/Club für echte Auszahlungen.
+5. CORE-Textreste im Datenschutz bereinigen (Kontaktformular „Schule/Wunschtermin", Formspree).
+6. **Cloudflare Pages ↔ Git** verbinden (Auto-Deploy statt Direct Upload, §3).
+7. Favicon vom Türkis-„F" aufs neue Design; `www.`-Subdomain sauber auf Pages; weitere Seiten (Ticket/Legal) optional ins helle Design.
+
+---
+
+## 11. Verifizierung (09.09.2026)
+
+* DB-Status geprüft: `club_owners`, `events.image_url`, Bucket `event-images`, Funktionen `is_club_owner`/
+  `is_club_owner_of_event`/`owns_event_id` **vorhanden** (alle 4 Migrationen eingespielt).
+* Live: `focus-events.shop` + `level.`/`ypsilon.` liefern das helle Design (HTTPS aktiv, 200).
+* Feature-Code (Club-Veranstalter, Event-Bilder) geprüft und mit den Migrationen konsistent; alles committet
+  auf `master`. **Live-Redeploy für Event-Bilder noch ausstehend** (§8.1).
