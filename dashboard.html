@@ -28,12 +28,25 @@
     --chart-1:#2b38f5;
   }
   html,body{background:var(--bg);color:var(--ink);}
-  .card,.chart-card{background:var(--surface);border:1px solid var(--line);}
+  .card,.chart-card,.stat-tile{background:var(--surface);border:1px solid var(--line);}
+  /* Nav hell wie im Shop */
+  .shop-nav{background:rgba(244,242,236,.85);}
+  .shop-nav .logo{color:var(--ink);}
   .dash-tabs button{color:var(--ink-2);}
-  .dash-tabs button.active{color:var(--accent);}
+  .dash-tabs button:hover{color:var(--ink);}
+  .dash-tabs button.active{color:var(--accent);border-bottom-color:var(--accent);}
   table.data th{color:var(--ink-2);}
-  input,select,textarea{background:var(--surface);color:var(--ink);border:1px solid var(--line);}
+  table.data td{border-bottom:1px solid var(--line);}
+  /* Formularfelder: shop.css setzt background:#0c0c0b mit hoher Spezifität ->
+     hier mit gleicher Selektorliste (später im Cascade) auf hell überschreiben */
+  input[type=text],input[type=email],input[type=number],input[type=password],
+  input[type=datetime-local],input[type=date],input[type=file],textarea,select{
+    background:var(--surface);color:var(--ink);border:1px solid var(--line);}
+  input::placeholder,textarea::placeholder{color:var(--mut);}
+  .qty{background:var(--surface);}
+  .qty input{color:var(--ink);}
   .btn-gold{color:#fff;}
+  .btn-gold:hover{color:#fff;}
   .qty button:hover{color:#fff;}
   ::selection{background:rgba(43,56,245,.30);color:#fff;}
 </style>
