@@ -12,7 +12,7 @@
   /* Focus Events – Dashboard im gleichen hellen Look wie der Shop (Focus-Blau).
      Die geteilten CORE-Variablen werden aufs helle Theme umgebogen -> CORE unberührt. */
   :root{
-    --bg:#f4f2ec; --bg-2:#eceae2; --surface:#ffffff;
+    --bg:#f4f2ec; --bg-2:#eceae2; --dark2:#eceae2; --surface:#ffffff;
     --ink:#0f0f12; --ink-2:#3a3a41; --mut:#7c7c84;
     --accent:#2b38f5; --accent-lt:#5a66ff; --accent-dk:#1b22c8;
     --accent-tint:rgba(43,56,245,.10); --accent-glow:rgba(43,56,245,.30); --on-accent:#ffffff;
@@ -45,6 +45,10 @@
   input::placeholder,textarea::placeholder{color:var(--mut);}
   .qty{background:var(--surface);}
   .qty input{color:var(--ink);}
+  /* Ticketkategorie-Zeile (shop.css: background:#0c0c0b) hell */
+  .admin-cat{background:var(--bg-2);border:1px solid var(--line);}
+  /* Chart-Tooltip lesbar auf hell */
+  .chart-tip{background:var(--surface)!important;color:var(--ink)!important;}
   .btn-gold{color:#fff;}
   .btn-gold:hover{color:#fff;}
   .qty button:hover{color:#fff;}
