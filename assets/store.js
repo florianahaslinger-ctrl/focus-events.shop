@@ -297,6 +297,12 @@
       return data; // { url, order_id }
     },
 
+    // Eigene offene Bestellung sofort freigeben (bei Checkout-Abbruch) – gibt Kontingent frei.
+    async releaseOpenOrder(orderId) {
+      if (!orderId) return;
+      try { await sb.rpc('release_open_order', { p_order: orderId }); } catch (_) { /* egal */ }
+    },
+
     // Gebühren-Aufschlüsselung (nur Anzeige – maßgeblich ist die Berechnung serverseitig)
     feeBreakdown(subtotal, tickets) {
       const r2 = n => Math.round(n * 100) / 100;

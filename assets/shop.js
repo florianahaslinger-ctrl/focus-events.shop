@@ -49,6 +49,46 @@
     return 'Danach ' + when + ': ' + S.fmtEUR.format(n.price);
   }
 
+  // Eine Ticketkategorie-Zeile (identisch in Karte und Detail-Ansicht)
+  function catRowHTML(cat) {
+    const rest = cat.remaining;
+    const qty = cart[cat.id] || 0;
+    const leftCls = rest === 0 ? 'out' : (rest <= 15 ? 'low' : '');
+    const leftTxt = rest === 0 ? 'Ausverkauft' : (rest <= 15 ? 'Nur noch ' + rest + ' verfügbar' : rest + ' verfügbar');
+    const maxQty = Math.min(rest, cat.maxPerOrder || 10);
+    return '<div class="cat-row">' +
+      '<div class="cat-info"><div class="name">' + esc(cat.name) +
+      (cat.currentPhaseName ? ' <span class="phase-tag">' + esc(cat.currentPhaseName) + '</span>' : '') + '</div>' +
+      (cat.description ? '<div class="desc">' + esc(cat.description) + '</div>' : '') + '</div>' +
+      '<div class="cat-price">' + S.fmtEUR.format(cat.price) + '</div>' +
+      (rest > 0
+        ? '<div class="qty">' +
+          '<button type="button" data-key="' + cat.id + '" data-d="-1" aria-label="weniger">−</button>' +
+          '<input type="text" readonly value="' + qty + '" data-qty="' + cat.id + '">' +
+          '<button type="button" data-key="' + cat.id + '" data-d="1" data-max="' + maxQty + '" aria-label="mehr">+</button></div>'
+        : '<div></div>') +
+      '<div class="cat-left ' + leftCls + '">' + leftTxt + '</div>' +
+      (nextPhaseHint(cat) ? '<div class="cat-next">' + nextPhaseHint(cat) + '</div>' : '') +
+      '</div>';
+  }
+
+  // Mengenänderung – aktualisiert Warenkorb und ALLE Anzeigen (Karte + Detail-Modal)
+  function changeQty(key, d, max) {
+    cart[key] = Math.max(0, Math.min(max, (cart[key] || 0) + d));
+    if (!cart[key]) delete cart[key];
+    delete selectedSeats[key];
+    document.querySelectorAll('[data-qty="' + key + '"]').forEach(i => { i.value = cart[key] || 0; });
+    renderCartBar();
+  }
+  function bindQty(container) {
+    container.querySelectorAll('.qty button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const max = btn.dataset.max ? parseInt(btn.dataset.max, 10) : 99;
+        changeQty(btn.dataset.key, parseInt(btn.dataset.d, 10), max);
+      });
+    });
+  }
+
   function msg(el, text, type) {
     el.textContent = text || '';
     el.className = 'msg' + (text ? ' show ' + (type || 'info') : '');
@@ -163,53 +203,53 @@
 
     box.innerHTML = list.map(ev => {
       const dp = dateParts(ev.date);
-      const rows = ev.categories.filter(c => c.active).map(cat => {
-        const rest = cat.remaining;
-        const qty = cart[cat.id] || 0;
-        const leftCls = rest === 0 ? 'out' : (rest <= 15 ? 'low' : '');
-        const leftTxt = rest === 0 ? 'Ausverkauft' : (rest <= 15 ? 'Nur noch ' + rest + ' verfügbar' : rest + ' verfügbar');
-        const maxQty = Math.min(rest, cat.maxPerOrder || 10);
-        return '<div class="cat-row">' +
-          '<div class="cat-info"><div class="name">' + esc(cat.name) +
-          (cat.currentPhaseName ? ' <span class="phase-tag">' + esc(cat.currentPhaseName) + '</span>' : '') + '</div>' +
-          (cat.description ? '<div class="desc">' + esc(cat.description) + '</div>' : '') + '</div>' +
-          '<div class="cat-price">' + S.fmtEUR.format(cat.price) + '</div>' +
-          (rest > 0
-            ? '<div class="qty">' +
-              '<button type="button" data-key="' + cat.id + '" data-d="-1" aria-label="weniger">−</button>' +
-              '<input type="text" readonly value="' + qty + '" data-qty="' + cat.id + '">' +
-              '<button type="button" data-key="' + cat.id + '" data-d="1" data-max="' + maxQty + '" aria-label="mehr">+</button></div>'
-            : '<div></div>') +
-          '<div class="cat-left ' + leftCls + '">' + leftTxt + '</div>' +
-          (nextPhaseHint(cat) ? '<div class="cat-next">' + nextPhaseHint(cat) + '</div>' : '') +
-          '</div>';
-      }).join('');
+      const rows = ev.categories.filter(c => c.active).map(catRowHTML).join('');
+      const desc = ev.description || '';
+      const descShort = desc.length > 140 ? esc(desc.slice(0, 140)) + '…' : esc(desc);
       return '<article class="ev-card">' +
+        '<div class="ev-open" data-open="' + esc(ev.id) + '" role="button" tabindex="0" title="Details anzeigen">' +
         (ev.imageUrl ? '<div class="ev-banner"><img src="' + esc(ev.imageUrl) + '" alt="" loading="lazy"></div>' : '') +
         '<div class="ev-top">' +
           '<div class="ev-date"><div class="d">' + dp.day + '</div><div class="m">' + esc(dp.month) + '</div>' +
           '<div class="wd">' + esc(dp.wd) + (dp.time ? ' · ' + dp.time : '') + '</div></div>' +
           '<div class="ev-head"><h3>' + esc(ev.name) + '</h3>' +
           (ev.club || ev.location ? '<span class="ev-loc">' + esc(ev.club || ev.location) + '</span>' : '') +
+          '<span class="ev-more">Details ansehen →</span>' +
           '</div>' +
         '</div>' +
-        (ev.description ? '<p class="ev-desc">' + esc(ev.description) + '</p>' : '') +
+        (desc ? '<p class="ev-desc">' + descShort + '</p>' : '') +
+        '</div>' +
         '<div class="ev-cats">' + rows + '</div>' +
       '</article>';
     }).join('');
 
-    box.querySelectorAll('.qty button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const key = btn.dataset.key;
-        const d = parseInt(btn.dataset.d, 10);
-        const max = btn.dataset.max ? parseInt(btn.dataset.max, 10) : 99;
-        cart[key] = Math.max(0, Math.min(max, (cart[key] || 0) + d));
-        if (!cart[key]) delete cart[key];
-        delete selectedSeats[key]; // Sitzplatzwahl bei Mengenänderung zurücksetzen
-        box.querySelector('[data-qty="' + key + '"]').value = cart[key] || 0;
-        renderCartBar();
-      });
+    bindQty(box);
+    box.querySelectorAll('.ev-open').forEach(el => {
+      el.addEventListener('click', () => openEventDetail(el.dataset.open));
+      el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEventDetail(el.dataset.open); } });
     });
+  }
+
+  // Detail-/Großansicht eines Events
+  function openEventDetail(id) {
+    const ev = eventsCache.find(e => e.id === id);
+    if (!ev) return;
+    const dp = dateParts(ev.date);
+    $('detailBanner').innerHTML = ev.imageUrl ? '<img src="' + esc(ev.imageUrl) + '" alt="">' : '';
+    $('detailBanner').style.display = ev.imageUrl ? '' : 'none';
+    $('detailTitle').textContent = ev.name;
+    const meta = [];
+    if (ev.date) meta.push('📅 ' + fmtDate(ev.date));
+    if (ev.club || ev.location) meta.push('📍 ' + (ev.club || ev.location));
+    $('detailMeta').textContent = meta.join('   ·   ');
+    $('detailDesc').textContent = ev.description || '';
+    $('detailDesc').style.display = ev.description ? '' : 'none';
+    const cats = ev.categories.filter(c => c.active);
+    $('detailCats').innerHTML = cats.length
+      ? cats.map(catRowHTML).join('')
+      : '<p class="sub">Für dieses Event sind aktuell keine Tickets verfügbar.</p>';
+    bindQty($('detailCats'));
+    openModal('eventDetailModal');
   }
 
   function cartDetails() {
@@ -516,6 +556,8 @@
       msg($('checkoutMsg'), 'Bezahlvorgang wird gestartet …', 'info');
       const res = await S.startCheckout(items, '/index.html');
       cart = {}; selectedSeats = {};
+      // Order-ID merken, um bei Abbruch das Kontingent sofort wieder freizugeben.
+      try { localStorage.setItem('fx_pending_order', res.order_id); } catch (_) {}
       window.location.href = res.url;
     } catch (e) {
       msg($('checkoutMsg'), e.message, 'error');
@@ -528,11 +570,17 @@
     const params = new URLSearchParams(location.search);
     if (params.get('cancelled') === '1') {
       history.replaceState(null, '', location.pathname + location.hash);
+      // Offene Bestellung sofort stornieren -> Kontingent wieder frei.
+      let pend = null;
+      try { pend = localStorage.getItem('fx_pending_order'); localStorage.removeItem('fx_pending_order'); } catch (_) {}
+      if (pend) { await S.releaseOpenOrder(pend); }
       msg($('shopMsg'), 'Die Zahlung wurde abgebrochen – es wurden keine Tickets gekauft.', 'info');
+      renderEvents(); // Verfügbarkeit aktualisieren
       return;
     }
     const orderId = params.get('order');
     if (params.get('paid') !== '1' || !orderId) return;
+    try { localStorage.removeItem('fx_pending_order'); } catch (_) {}
     history.replaceState(null, '', location.pathname + location.hash);
     $('successSub').textContent = 'Zahlung wird bestätigt – einen Moment bitte …';
     $('successTickets').innerHTML = '';
