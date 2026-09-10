@@ -424,9 +424,18 @@
       const evs = await this.getEvents(includeInactive);
       if (role === 'super_admin') return evs;
       const me = this.currentUser();
-      // Veranstalter sehen eigene Bälle UND Bälle, bei denen sie als
-      // Mit-Veranstalter eingetragen sind.
-      return evs.filter(e => e.ownerEmail === me || (e.coOwners || []).includes(me));
+      // Clubs, für die ich als Club-Veranstalter eingetragen bin (LEVEL/YPSILON).
+      let myClubs = [];
+      try {
+        const { data } = await sb.from('club_owners').select('club').eq('email', me);
+        myClubs = (data || []).map(r => String(r.club || '').toUpperCase());
+      } catch (_) { /* club_owners evtl. (noch) nicht vorhanden – ignorieren */ }
+      // Sichtbar: eigene Events, Mit-Veranstalter-Events UND alle Events meines Clubs.
+      return evs.filter(e =>
+        e.ownerEmail === me ||
+        (e.coOwners || []).includes(me) ||
+        (e.club && myClubs.includes(String(e.club).toUpperCase()))
+      );
     },
 
     // Veranstalter-Verwaltung (nur Head-Admin)
