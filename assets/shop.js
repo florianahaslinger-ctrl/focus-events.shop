@@ -208,7 +208,11 @@
       const descShort = desc.length > 140 ? esc(desc.slice(0, 140)) + '…' : esc(desc);
       return '<article class="ev-card">' +
         '<div class="ev-open" data-open="' + esc(ev.id) + '" role="button" tabindex="0" title="Details anzeigen">' +
-        (ev.imageUrl ? '<div class="ev-banner"><img src="' + esc(ev.imageUrl) + '" alt="" loading="lazy"></div>' : '') +
+        '<div class="ev-banner' + (ev.imageUrl ? '' : ' ev-banner-ph') + '">' +
+          (ev.imageUrl
+            ? '<img src="' + esc(ev.imageUrl) + '" alt="" loading="lazy">'
+            : '<img class="ev-ph-logo" src="assets/img/focus-logo.png" alt="Focus Events" loading="lazy">') +
+        '</div>' +
         '<div class="ev-top">' +
           '<div class="ev-date"><div class="d">' + dp.day + '</div><div class="m">' + esc(dp.month) + '</div>' +
           '<div class="wd">' + esc(dp.wd) + (dp.time ? ' · ' + dp.time : '') + '</div></div>' +
@@ -235,8 +239,12 @@
     const ev = eventsCache.find(e => e.id === id);
     if (!ev) return;
     const dp = dateParts(ev.date);
-    $('detailBanner').innerHTML = ev.imageUrl ? '<img src="' + esc(ev.imageUrl) + '" alt="">' : '';
-    $('detailBanner').style.display = ev.imageUrl ? '' : 'none';
+    // Kein eigenes Bild -> Focus-Logo als Platzhalter (wie auf der Kachel)
+    $('detailBanner').innerHTML = ev.imageUrl
+      ? '<img src="' + esc(ev.imageUrl) + '" alt="">'
+      : '<img class="ev-ph-logo" src="assets/img/focus-logo.png" alt="Focus Events">';
+    $('detailBanner').className = 'ev-detail-banner' + (ev.imageUrl ? '' : ' ev-banner-ph');
+    $('detailBanner').style.display = '';
     $('detailTitle').textContent = ev.name;
     const meta = [];
     if (ev.date) meta.push('📅 ' + fmtDate(ev.date));
