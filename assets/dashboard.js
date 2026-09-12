@@ -952,7 +952,7 @@
     if (!body) return;
     if (mySuper) {
       body.innerHTML = '<p class="sub">Du bist Head-Admin. Zahlungen für Focus-eigene Events laufen direkt über das Plattform-Konto. ' +
-        'Zugewiesene Veranstalter verbinden ihr eigenes Auszahlungskonto hier selbst – ihre Einnahmen fließen direkt an sie, deine Gebühr (3,5 % + 0,25 €/Ticket) bleibt automatisch bei FOCUS.</p>';
+        'Zugewiesene Veranstalter verbinden ihr eigenes Auszahlungskonto hier selbst – ihre Einnahmen fließen direkt an sie, deine Servicegebühr (0,1 %) bleibt automatisch bei FOCUS.</p>';
       return;
     }
     body.innerHTML = '<p class="sub">Status wird geprüft …</p>';

@@ -525,7 +525,7 @@
         '<div class="name" style="font-weight:400">' + name + '</div>' + (hint ? '<div class="desc">' + hint + '</div>' : '') +
         '</div><div class="cat-price">' + S.fmtEUR.format(val) + '</div></div>';
       $('checkoutItems').innerHTML += feeRow('Zwischensumme', '', fb.subtotal) +
-        feeRow('Servicegebühr', '3,5 % + 0,25 €/Ticket', fb.service) +
+        feeRow('Servicegebühr', '0,1 %', fb.service) +
         feeRow('Zahlungsgebühr', '1,5 % + 0,25 €/Ticket', fb.payment);
     }
     $('checkoutTotal').textContent = 'Gesamt: ' + S.fmtEUR.format(fb.total);

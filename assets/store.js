@@ -306,7 +306,8 @@
     // Gebühren-Aufschlüsselung (nur Anzeige – maßgeblich ist die Berechnung serverseitig)
     feeBreakdown(subtotal, tickets) {
       const r2 = n => Math.round(n * 100) / 100;
-      const service = subtotal > 0 ? r2(0.035 * subtotal + 0.25 * tickets) : 0;
+      // Focus: Servicegebühr 0,1 % (kein Fixbetrag). Zahlungsgebühr (Stripe) 1,5 % + 0,25 €/Ticket.
+      const service = subtotal > 0 ? r2(0.001 * subtotal) : 0;
       const payment = subtotal > 0 ? r2(0.015 * subtotal + 0.25 * tickets) : 0;
       return { subtotal, service, payment, total: r2(subtotal + service + payment) };
     },
@@ -320,7 +321,7 @@
         subtotal += l.sum;
         if (!(l.ev && l.ev.feesOnOrganizer)) { feeSub += l.sum; feeTickets += l.qty; }
       });
-      const service = feeSub > 0 ? r2(0.035 * feeSub + 0.25 * feeTickets) : 0;
+      const service = feeSub > 0 ? r2(0.001 * feeSub) : 0;
       const payment = feeSub > 0 ? r2(0.015 * feeSub + 0.25 * feeTickets) : 0;
       return { subtotal: r2(subtotal), service, payment, total: r2(subtotal + service + payment) };
     },
