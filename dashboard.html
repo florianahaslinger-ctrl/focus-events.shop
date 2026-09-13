@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260913d">
+<link rel="stylesheet" href="assets/shop.css?v=20260913e">
 <style id="fxDashTheme">
   /* Focus Events – Dashboard im gleichen dunklen Look wie der Shop (Focus-Blau).
      Die geteilten CORE-Variablen werden aufs dunkle Theme umgebogen -> CORE unberührt. */
@@ -97,9 +97,18 @@
 
 <!-- Dashboard -->
 <div class="wrap" id="dash" style="display:none">
-  <div class="page-head" style="margin-bottom:24px">
+  <div class="page-head" style="margin-bottom:18px">
     <div class="eyebrow">Adminbereich</div>
     <h1>Ticketshop-<em>Dashboard</em></h1>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+    <label for="clubFilter" style="margin:0;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gray)">Club-Ansicht</label>
+    <select id="clubFilter" style="min-width:200px">
+      <option value="">Beide Clubs</option>
+      <option value="LEVEL">LEVEL</option>
+      <option value="YPSILON">YPSILON</option>
+    </select>
   </div>
 
   <div class="dash-tabs" id="tabs">
@@ -509,8 +518,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260913d"></script>
-<script src="assets/store.js?v=20260913d"></script>
-<script src="assets/dashboard.js?v=20260913d"></script>
+<script src="assets/ticket-pdf.js?v=20260913e"></script>
+<script src="assets/store.js?v=20260913e"></script>
+<script src="assets/dashboard.js?v=20260913e"></script>
 </body>
 </html>

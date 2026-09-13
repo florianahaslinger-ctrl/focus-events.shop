@@ -6,11 +6,14 @@
   const $ = id => document.getElementById(id);
   const GOLD = '#067c75'; // validierte Diagrammfarbe auf dunklem Grund
 
-  let orders = [];   // Cache aller Bestellungen
-  let events = [];   // Cache aller Events (inkl. inaktive)
+  let allOrders = []; // ungefilterter Cache aller Bestellungen
+  let allEvents = []; // ungefilterter Cache aller Events (inkl. inaktive)
+  let orders = [];   // aktuell sichtbar (nach Club-Filter)
+  let events = [];   // aktuell sichtbar (nach Club-Filter)
   let myRole = null; // 'super_admin' | 'organizer'
   let mySuper = false;
   let statFilter = ''; // Übersicht: '' = alle Events, sonst event.id
+  let clubFilter = ''; // Club-Ansicht: '' = beide, sonst 'LEVEL' | 'YPSILON'
 
   // Gefilterte Sicht für die Übersicht (nach gewähltem Event)
   function fOrders() { return statFilter ? orders.filter(o => o.eventId === statFilter) : orders; }
@@ -1107,9 +1110,16 @@
     }
   }
 
-  /* ================= Gesamt-Render ================= */
-  async function renderAll() {
-    [orders, events] = await Promise.all([S.allOrders(), S.getManagedEvents(true)]);
+  /* ================= Club-Filter ================= */
+  // Setzt die sichtbaren Caches (events/orders) anhand der Club-Auswahl.
+  function applyClubFilter() {
+    events = clubFilter ? allEvents.filter(e => (e.club || '') === clubFilter) : allEvents.slice();
+    const eids = new Set(events.map(e => e.id));
+    orders = clubFilter ? allOrders.filter(o => eids.has(o.eventId)) : allOrders.slice();
+  }
+
+  // Rendert das gesamte Dashboard neu (ohne Daten neu zu laden).
+  function renderDashboard() {
     populateStatEvents();
     renderStats();
     chartSales();
@@ -1126,6 +1136,13 @@
     renderConnect();
   }
 
+  /* ================= Gesamt-Render ================= */
+  async function renderAll() {
+    [allOrders, allEvents] = await Promise.all([S.allOrders(), S.getManagedEvents(true)]);
+    applyClubFilter();
+    renderDashboard();
+  }
+
   /* ================= Init & Events ================= */
   $('btnGateSend').addEventListener('click', gateSend);
   $('adminEmail').addEventListener('keydown', e => { if (e.key === 'Enter') gateSend(); });
@@ -1138,6 +1155,12 @@
     e.preventDefault(); await S.logout(); location.reload();
   });
   $('statEvent').addEventListener('change', () => { statFilter = $('statEvent').value; renderOverview(); });
+  if ($('clubFilter')) $('clubFilter').addEventListener('change', () => {
+    clubFilter = $('clubFilter').value;
+    statFilter = ''; if ($('statEvent')) $('statEvent').value = ''; // Event-Filter zurücksetzen
+    applyClubFilter();
+    renderDashboard();
+  });
   $('orderSearch').addEventListener('input', renderOrders);
   $('orderFilter').addEventListener('change', renderOrders);
   $('btnCheckin').addEventListener('click', doCheckin);
