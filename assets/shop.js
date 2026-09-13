@@ -718,14 +718,25 @@
     $('vipStepConfirm').style.display = 'none';
     $('vipStepTable').style.display = '';
     const fp = $('vipFloorplan');
-    fp.innerHTML = ev.vipFloorplanUrl ? '<img src="' + esc(ev.vipFloorplanUrl) + '" alt="Grundriss">' : '';
-    fp.style.display = ev.vipFloorplanUrl ? '' : 'none';
+    const fpImgs = (ev.vipFloorplans && ev.vipFloorplans.length)
+      ? ev.vipFloorplans
+      : (ev.vipFloorplanUrl ? [ev.vipFloorplanUrl] : []);
+    fp.innerHTML = fpImgs.map(u =>
+      '<img src="' + esc(u) + '" alt="Grundriss" title="Zum Vergrößern klicken" data-fp="' + esc(u) + '">').join('');
+    fp.style.display = fpImgs.length ? '' : 'none';
+    fp.querySelectorAll('img[data-fp]').forEach(im =>
+      im.addEventListener('click', () => openVipLightbox(im.dataset.fp)));
     $('vipTables').innerHTML = '<p class="sub">Tische werden geladen …</p>';
     closeModal('eventDetailModal');
     openModal('vipModal');
     try { vipTables = await S.tableStatus(ev.id); }
     catch (e) { $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">' + esc(e.message) + '</p>'; return; }
     renderVipTables();
+  }
+
+  function openVipLightbox(url) {
+    $('vipLightboxImg').src = url;
+    $('vipLightbox').classList.add('open');
   }
 
   function renderVipTables() {
@@ -868,6 +879,7 @@
     // VIP-Tisch-Modal
     $('vipBack').addEventListener('click', () => { $('vipStepConfirm').style.display = 'none'; $('vipStepTable').style.display = ''; });
     $('vipConfirm').addEventListener('click', confirmReservation);
+    $('vipLightbox').addEventListener('click', () => $('vipLightbox').classList.remove('open'));
 
     await S.init();          // stellt auch Sessions aus Magic-Link-URLs her
     renderNav();

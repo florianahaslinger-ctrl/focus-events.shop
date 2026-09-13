@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260913c">
+<link rel="stylesheet" href="assets/shop.css?v=20260913d">
 <style id="fxDashTheme">
   /* Focus Events – Dashboard im gleichen dunklen Look wie der Shop (Focus-Blau).
      Die geteilten CORE-Variablen werden aufs dunkle Theme umgebogen -> CORE unberührt. */
@@ -385,14 +385,10 @@
         <label>Hinweistext (optional)</label>
         <input type="text" id="evVipInfo" placeholder="z. B. Mindestkonsum wird vor Ort im Club konsumiert.">
 
-        <label style="margin-top:12px">Grundriss-Bild (Saalplan mit Tischnamen)</label>
-        <div id="evVipFpPreview"></div>
-        <div class="field-row" style="align-items:center;gap:10px">
-          <input type="file" id="evVipFpFile" accept="image/*">
-          <button type="button" class="btn btn-ghost btn-sm" id="btnRemoveVipFp" style="display:none">Grundriss entfernen</button>
-        </div>
-        <input type="hidden" id="evVipFpUrl">
-        <p class="hint">Das Bild zeigt den Saal mit den Tischnamen. Darunter wählt der Kunde den Tisch per Name.</p>
+        <label style="margin-top:12px">Grundriss-Bilder (Saalplan mit Tischnamen)</label>
+        <div id="evVipFpList" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px"></div>
+        <input type="file" id="evVipFpFile" accept="image/*" multiple>
+        <p class="hint">Ein oder mehrere Bilder möglich. Im Shop kann der Kunde sie zum Vergrößern anklicken. Darunter wählt er den Tisch per Name.</p>
 
         <label style="margin-top:12px">Tische (Name + Mindestkonsum in €)</label>
         <div id="vipTableEditor" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -513,8 +509,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260913c"></script>
-<script src="assets/store.js?v=20260913c"></script>
-<script src="assets/dashboard.js?v=20260913c"></script>
+<script src="assets/ticket-pdf.js?v=20260913d"></script>
+<script src="assets/store.js?v=20260913d"></script>
+<script src="assets/dashboard.js?v=20260913d"></script>
 </body>
 </html>

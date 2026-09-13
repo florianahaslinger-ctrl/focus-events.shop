@@ -403,10 +403,9 @@
     if ($('evVipOn')) {
       $('evVipOn').checked = ev ? !!ev.vipEnabled : false;
       $('evVipInfo').value = ev ? (ev.vipInfo || '') : '';
-      const fp = ev ? (ev.vipFloorplanUrl || '') : '';
-      $('evVipFpUrl').value = fp;
+      editorFloorplans = ev && Array.isArray(ev.vipFloorplans) ? ev.vipFloorplans.slice() : [];
       if ($('evVipFpFile')) $('evVipFpFile').value = '';
-      renderVipFpPreview(fp);
+      renderFloorplans();
       vipDrinksDraft = []; vipDrinksDirty = false;
       $('vipTableEditor').innerHTML = '';
       $('vipReservations').innerHTML = '';
@@ -506,10 +505,18 @@
   let vipDrinksDirty = false;    // true, sobald eine neue Excel-Liste importiert/geleert wurde
 
   /* ---- VIP-Tische im Event-Editor ---- */
-  function renderVipFpPreview(url) {
-    const p = $('evVipFpPreview'); if (!p) return;
-    p.innerHTML = url ? '<img src="' + url + '" alt="" style="max-height:160px;border-radius:8px;border:1px solid var(--line);display:block;margin:6px 0">' : '';
-    if ($('btnRemoveVipFp')) $('btnRemoveVipFp').style.display = url ? '' : 'none';
+  let editorFloorplans = []; // Liste der Grundriss-Bild-URLs
+  function renderFloorplans() {
+    const box = $('evVipFpList'); if (!box) return;
+    box.innerHTML = (editorFloorplans || []).map((url, i) =>
+      '<div style="position:relative;display:inline-block">' +
+        '<img src="' + esc(url) + '" alt="" style="max-height:120px;border-radius:8px;border:1px solid var(--line);display:block">' +
+        '<button type="button" class="btn btn-danger btn-sm fp-rm" data-i="' + i + '" ' +
+          'style="position:absolute;top:4px;right:4px;padding:2px 8px" title="Entfernen">×</button>' +
+      '</div>').join('');
+    box.querySelectorAll('.fp-rm').forEach(b => b.addEventListener('click', () => {
+      editorFloorplans.splice(parseInt(b.dataset.i, 10), 1); renderFloorplans();
+    }));
   }
   function vipTableRowHTML(t) {
     t = t || {};
@@ -1274,16 +1281,17 @@
     $('vipTableEditor').insertAdjacentHTML('beforeend', vipTableRowHTML(null)); bindVipTableRemove();
   });
   if ($('evVipFpFile')) $('evVipFpFile').addEventListener('change', async (e) => {
-    const file = e.target.files && e.target.files[0]; if (!file) return;
+    const files = Array.from(e.target.files || []); if (!files.length) return;
     try {
-      msg($('evMsg'), 'Grundriss wird hochgeladen …', 'info');
-      const url = await S.uploadFloorplan(file, $('evId').value || null);
-      $('evVipFpUrl').value = url; renderVipFpPreview(url);
+      msg($('evMsg'), files.length > 1 ? 'Grundriss-Bilder werden hochgeladen …' : 'Grundriss wird hochgeladen …', 'info');
+      for (const file of files) {
+        const url = await S.uploadFloorplan(file, $('evId').value || null);
+        editorFloorplans.push(url);
+        renderFloorplans();
+      }
+      if ($('evVipFpFile')) $('evVipFpFile').value = '';
       msg($('evMsg'), 'Grundriss hochgeladen.', 'ok');
     } catch (err) { msg($('evMsg'), 'Upload fehlgeschlagen: ' + err.message, 'error'); }
-  });
-  if ($('btnRemoveVipFp')) $('btnRemoveVipFp').addEventListener('click', () => {
-    $('evVipFpUrl').value = ''; if ($('evVipFpFile')) $('evVipFpFile').value = ''; renderVipFpPreview('');
   });
   if ($('evVipDrinksFile')) $('evVipDrinksFile').addEventListener('change', async (e) => {
     const file = e.target.files && e.target.files[0]; if (!file) return;
@@ -1342,7 +1350,7 @@
       imageUrl: $('evImageUrl') ? ($('evImageUrl').value || null) : undefined,
       vipEnabled: $('evVipOn') ? $('evVipOn').checked : undefined,
       vipInfo: $('evVipInfo') ? ($('evVipInfo').value.trim() || null) : undefined,
-      vipFloorplanUrl: $('evVipFpUrl') ? ($('evVipFpUrl').value || null) : undefined,
+      vipFloorplans: $('evVipOn') ? editorFloorplans.slice() : undefined,
       categories: cats
     };
     // Besitzer/Veranstalter zuweisen

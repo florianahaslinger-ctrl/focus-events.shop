@@ -119,7 +119,7 @@
 
     /* --- Events & Verfügbarkeit --- */
     async getEvents(includeInactive) {
-      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_info,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
+      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_floorplans,vip_info,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
       let res = await sb.from('events').select(evCols + ',image_url').eq('storefront', STOREFRONT).order('date', { ascending: true });
       if (res.error && /image_url/i.test(res.error.message || '')) {
         res = await sb.from('events').select(evCols).eq('storefront', STOREFRONT).order('date', { ascending: true });
@@ -147,6 +147,9 @@
             imageUrl: e.image_url || null,
             vipEnabled: !!e.vip_enabled,
             vipFloorplanUrl: e.vip_floorplan_url || null,
+            vipFloorplans: (Array.isArray(e.vip_floorplans) && e.vip_floorplans.length)
+              ? e.vip_floorplans.filter(Boolean)
+              : (e.vip_floorplan_url ? [e.vip_floorplan_url] : []),
             vipInfo: e.vip_info || null,
             ownerEmail: e.owner_email || null,
             // Zusätzliche Veranstalter (Mit-Verwalter, ohne Auszahlung)
@@ -698,7 +701,14 @@
       if (ev.imageUrl !== undefined) row.image_url = ev.imageUrl || null;
       // VIP-Tische nur setzen, wenn explizit übergeben.
       if (ev.vipEnabled !== undefined) row.vip_enabled = !!ev.vipEnabled;
-      if (ev.vipFloorplanUrl !== undefined) row.vip_floorplan_url = ev.vipFloorplanUrl || null;
+      // Grundriss-Bilder als Liste; erstes Bild zusätzlich in die Alt-Spalte.
+      if (ev.vipFloorplans !== undefined) {
+        const fps = Array.isArray(ev.vipFloorplans) ? ev.vipFloorplans.filter(Boolean) : [];
+        row.vip_floorplans = fps;
+        row.vip_floorplan_url = fps[0] || null;
+      } else if (ev.vipFloorplanUrl !== undefined) {
+        row.vip_floorplan_url = ev.vipFloorplanUrl || null;
+      }
       if (ev.vipInfo !== undefined) row.vip_info = ev.vipInfo || null;
       if (ev.ownerEmail !== undefined) row.owner_email = ev.ownerEmail ? normEmail(ev.ownerEmail) : null;
       let eventId = ev.id;
