@@ -119,7 +119,7 @@
 
     /* --- Events & Verfügbarkeit --- */
     async getEvents(includeInactive) {
-      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
+      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_info,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
       let res = await sb.from('events').select(evCols + ',image_url').eq('storefront', STOREFRONT).order('date', { ascending: true });
       if (res.error && /image_url/i.test(res.error.message || '')) {
         res = await sb.from('events').select(evCols).eq('storefront', STOREFRONT).order('date', { ascending: true });
@@ -145,6 +145,9 @@
             club: e.club || null,
             description: e.description, active: e.active, layout: e.layout || null,
             imageUrl: e.image_url || null,
+            vipEnabled: !!e.vip_enabled,
+            vipFloorplanUrl: e.vip_floorplan_url || null,
+            vipInfo: e.vip_info || null,
             ownerEmail: e.owner_email || null,
             // Zusätzliche Veranstalter (Mit-Verwalter, ohne Auszahlung)
             coOwners: Array.isArray(e.event_owners) ? e.event_owners.map(o => o.email).filter(Boolean) : [],
@@ -559,6 +562,118 @@
       const { data } = sb.storage.from('event-images').getPublicUrl(path);
       return data.publicUrl;
     },
+
+    /* --- VIP-Tische: Grundriss, Tische, Getränke, Reservierungen --- */
+    async uploadFloorplan(file, eventId) {
+      const ext = ((file.name.split('.').pop()) || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = 'floorplans/' + (eventId || ('neu-' + Date.now())) + '-' + Date.now() + '.' + ext;
+      const { error } = await sb.storage.from('event-images').upload(path, file, { upsert: true, contentType: file.type || undefined });
+      if (error) throw new Error(error.message);
+      const { data } = sb.storage.from('event-images').getPublicUrl(path);
+      return data.publicUrl;
+    },
+
+    // Öffentlicher Tischstatus (frei/belegt) – für die Kundenauswahl.
+    async tableStatus(eventId) {
+      const { data, error } = await sb.rpc('table_status', { p_event: eventId });
+      if (error) throw new Error(error.message);
+      return (data || []).map(t => ({
+        id: t.id, name: t.name, minConsumption: Number(t.min_consumption || 0),
+        sort: t.sort || 0, taken: !!t.taken
+      }));
+    },
+
+    // Tische eines Events (Admin – inkl. inaktiver).
+    async getTables(eventId) {
+      const { data, error } = await sb.from('event_tables')
+        .select('id,name,min_consumption,sort,active').eq('event_id', eventId)
+        .order('sort').order('name');
+      if (error) throw new Error(error.message);
+      return (data || []).map(t => ({
+        id: t.id, name: t.name, minConsumption: Number(t.min_consumption || 0),
+        sort: t.sort || 0, active: t.active !== false
+      }));
+    },
+
+    // Tische abgleichen (Upsert per id, Löschen entfernter).
+    // Achtung: Löschen eines Tisches entfernt via FK auch dessen Reservierungen.
+    async saveTables(eventId, tables) {
+      const { data: existing } = await sb.from('event_tables').select('id').eq('event_id', eventId);
+      const keep = new Set();
+      for (let i = 0; i < tables.length; i++) {
+        const t = tables[i];
+        const row = {
+          event_id: eventId, name: t.name, sort: i, active: t.active !== false,
+          min_consumption: Math.max(0, Number(t.minConsumption) || 0)
+        };
+        if (t.id && (existing || []).some(x => x.id === t.id)) {
+          keep.add(t.id);
+          const { error } = await sb.from('event_tables').update(row).eq('id', t.id);
+          if (error) throw new Error(error.message);
+        } else {
+          const { error } = await sb.from('event_tables').insert(row);
+          if (error) throw new Error(error.message);
+        }
+      }
+      for (const x of existing || []) {
+        if (!keep.has(x.id)) await sb.from('event_tables').delete().eq('id', x.id);
+      }
+    },
+
+    async getDrinks(eventId) {
+      const { data, error } = await sb.from('event_drinks')
+        .select('id,name,price,sort').eq('event_id', eventId).order('sort').order('name');
+      if (error) throw new Error(error.message);
+      return (data || []).map(d => ({ id: d.id, name: d.name, price: Number(d.price || 0), sort: d.sort || 0 }));
+    },
+
+    // Getränkeliste komplett ersetzen (aus Excel-Import). Keine FKs -> delete+insert ok.
+    async replaceDrinks(eventId, drinks) {
+      await sb.from('event_drinks').delete().eq('event_id', eventId);
+      const rows = (drinks || [])
+        .filter(d => d && String(d.name).trim())
+        .map((d, i) => ({ event_id: eventId, name: String(d.name).trim(), price: Math.max(0, Number(d.price) || 0), sort: i }));
+      if (rows.length) {
+        const { error } = await sb.from('event_drinks').insert(rows);
+        if (error) throw new Error(error.message);
+      }
+      return rows.length;
+    },
+
+    // Kunde: Tisch reservieren (atomar, exklusiv). drinks = [{name,price,qty}].
+    async reserveTable(tableId, opts) {
+      opts = opts || {};
+      const { data, error } = await sb.rpc('reserve_table', {
+        p_table: tableId,
+        p_guest_name: opts.guestName || null,
+        p_phone: opts.phone || null,
+        p_party: (opts.partySize == null || opts.partySize === '') ? null : parseInt(opts.partySize, 10),
+        p_drinks: Array.isArray(opts.drinks) ? opts.drinks : []
+      });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+
+    // Veranstalter: Reservierungen eines Events (inkl. Getränke-Vorbestellung).
+    async getReservations(eventId) {
+      const { data, error } = await sb.from('table_reservations')
+        .select('id,email,guest_name,phone,party_size,min_consumption,drinks,drinks_total,status,created_at,event_tables(name)')
+        .eq('event_id', eventId).order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data || []).map(r => ({
+        id: r.id, email: r.email, guestName: r.guest_name, phone: r.phone,
+        partySize: r.party_size, minConsumption: Number(r.min_consumption || 0),
+        drinks: Array.isArray(r.drinks) ? r.drinks : [],
+        drinksTotal: Number(r.drinks_total || 0), status: r.status, createdAt: r.created_at,
+        tableName: r.event_tables ? r.event_tables.name : null
+      }));
+    },
+
+    async cancelReservation(id) {
+      const { error } = await sb.from('table_reservations').update({ status: 'storniert' }).eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+
     async saveEvent(ev) {
       const row = {
         name: ev.name, date: ev.date || null, location: ev.location || null,
@@ -579,6 +694,10 @@
       if (ev.sponsorLogos !== undefined) row.sponsor_logos = Array.isArray(ev.sponsorLogos) ? ev.sponsorLogos : [];
       // Besitzer nur setzen, wenn explizit übergeben (sonst bestehenden nicht überschreiben)
       if (ev.imageUrl !== undefined) row.image_url = ev.imageUrl || null;
+      // VIP-Tische nur setzen, wenn explizit übergeben.
+      if (ev.vipEnabled !== undefined) row.vip_enabled = !!ev.vipEnabled;
+      if (ev.vipFloorplanUrl !== undefined) row.vip_floorplan_url = ev.vipFloorplanUrl || null;
+      if (ev.vipInfo !== undefined) row.vip_info = ev.vipInfo || null;
       if (ev.ownerEmail !== undefined) row.owner_email = ev.ownerEmail ? normEmail(ev.ownerEmail) : null;
       let eventId = ev.id;
       if (eventId) {

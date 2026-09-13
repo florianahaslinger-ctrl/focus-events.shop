@@ -9,28 +9,28 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="stylesheet" href="assets/shop.css">
 <style id="fxDashTheme">
-  /* Focus Events – Dashboard im gleichen hellen Look wie der Shop (Focus-Blau).
-     Die geteilten CORE-Variablen werden aufs helle Theme umgebogen -> CORE unberührt. */
+  /* Focus Events – Dashboard im gleichen dunklen Look wie der Shop (Focus-Blau).
+     Die geteilten CORE-Variablen werden aufs dunkle Theme umgebogen -> CORE unberührt. */
   :root{
-    --bg:#f4f2ec; --bg-2:#eceae2; --dark2:#eceae2; --surface:#ffffff;
-    --ink:#0f0f12; --ink-2:#3a3a41; --mut:#7c7c84;
+    --bg:#08080a; --bg-2:#131317; --dark2:#131317; --surface:#16161b;
+    --ink:#f5f4f2; --ink-2:#c2c1c9; --mut:#8a8a95;
     --accent:#2b38f5; --accent-lt:#5a66ff; --accent-dk:#1b22c8;
-    --accent-tint:rgba(43,56,245,.10); --accent-glow:rgba(43,56,245,.30); --on-accent:#ffffff;
-    /* CORE-Variablen -> helles Theme */
+    --accent-tint:rgba(43,56,245,.16); --accent-glow:rgba(43,56,245,.38); --on-accent:#ffffff;
+    /* CORE-Variablen -> dunkles Theme */
     --black:var(--bg); --dark:var(--bg-2); --panel:var(--surface);
     --white:var(--ink); --gray:var(--ink-2); --muted:var(--mut);
-    --line:rgba(15,15,18,.12);
+    --line:rgba(255,255,255,.13);
     --gold:var(--accent); --gold-light:var(--accent-lt); --gold-dim:var(--accent-tint);
     --gold-grad:linear-gradient(135deg,var(--accent-lt),var(--accent) 55%,var(--accent-dk));
     --card-grad:var(--surface);
-    --shadow:0 18px 46px -22px rgba(15,15,25,.28);
+    --shadow:0 22px 50px -24px rgba(0,0,0,.7);
     --glow:0 0 0 1px var(--accent-tint), 0 24px 60px -30px var(--accent-glow);
-    --chart-1:#2b38f5;
+    --chart-1:#5a66ff;
   }
   html,body{background:var(--bg);color:var(--ink);}
   .card,.chart-card,.stat-tile{background:var(--surface);border:1px solid var(--line);}
   /* Nav hell wie im Shop */
-  .shop-nav{background:rgba(244,242,236,.85);}
+  .shop-nav{background:rgba(8,8,10,.85);}
   .shop-nav .logo{color:var(--ink);}
   .dash-tabs button{color:var(--ink-2);}
   .dash-tabs button:hover{color:var(--ink);}
@@ -377,6 +377,40 @@
       <p class="hint" style="margin:6px 0 0">Standard (aus): Der Kunde zahlt Ticketpreis + Service- &amp; Zahlungsgebühr. Ein Ticket für 28&nbsp;€ kostet ihn ca. 28,70&nbsp;€.<br>An: Der Kunde zahlt exakt den Ticketpreis (28&nbsp;€ bleiben 28&nbsp;€). Die Gebühren werden vom Auszahlungsbetrag des Veranstalters abgezogen.</p>
     </div>
 
+    <!-- VIP-Tische (modular pro Event) -->
+    <div style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px">
+      <label class="switch" style="margin:0"><input type="checkbox" id="evVipOn"> VIP-Tische anbieten</label>
+      <p class="hint" style="margin:6px 0 0">Kunden können neben normalen Tickets einen VIP-Tisch reservieren – reine Reservierung, keine Online-Zahlung; der Mindestkonsum wird vor Ort im Club konsumiert.</p>
+      <div id="evVipBox" style="display:none;margin-top:12px">
+        <label>Hinweistext (optional)</label>
+        <input type="text" id="evVipInfo" placeholder="z. B. Mindestkonsum wird vor Ort im Club konsumiert.">
+
+        <label style="margin-top:12px">Grundriss-Bild (Saalplan mit Tischnamen)</label>
+        <div id="evVipFpPreview"></div>
+        <div class="field-row" style="align-items:center;gap:10px">
+          <input type="file" id="evVipFpFile" accept="image/*">
+          <button type="button" class="btn btn-ghost btn-sm" id="btnRemoveVipFp" style="display:none">Grundriss entfernen</button>
+        </div>
+        <input type="hidden" id="evVipFpUrl">
+        <p class="hint">Das Bild zeigt den Saal mit den Tischnamen. Darunter wählt der Kunde den Tisch per Name.</p>
+
+        <label style="margin-top:12px">Tische (Name + Mindestkonsum in €)</label>
+        <div id="vipTableEditor" style="display:flex;flex-direction:column;gap:8px"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnAddVipTable" style="margin-top:8px">+ Tisch hinzufügen</button>
+
+        <label style="margin-top:14px">Getränkeliste (Excel/CSV: Spalte A = Name, Spalte B = Preis)</label>
+        <div class="field-row" style="align-items:center;gap:10px">
+          <input type="file" id="evVipDrinksFile" accept=".xlsx,.xls,.csv">
+          <button type="button" class="btn btn-ghost btn-sm" id="btnClearVipDrinks" style="display:none">Liste leeren</button>
+        </div>
+        <p class="hint" id="evVipDrinksInfo">Noch keine Getränke hinterlegt.</p>
+        <div id="vipDrinksPreview" style="max-height:180px;overflow:auto;margin-top:6px"></div>
+
+        <label style="margin-top:14px">VIP-Reservierungen</label>
+        <div id="vipReservations" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+
     <div class="super-only" style="margin-top:14px">
       <label>Haupt-Veranstalter (Besitzer &amp; Auszahlung)</label>
       <select id="evOwner"><option value="">— Head-Admin (FOCUS) —</option></select>
@@ -476,6 +510,7 @@
 </footer>
 
 <script src="assets/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
 <script src="assets/ticket-pdf.js"></script>

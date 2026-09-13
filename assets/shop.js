@@ -7,6 +7,8 @@
 
   let cart = {};          // { categoryId: qty }
   let selectedSeats = {}; // { categoryId: [seatId, …] }
+  // VIP-Tische
+  let vipEv = null, vipTables = [], vipDrinksList = null, vipSel = null, vipCart = {};
   let eventsCache = [];
   let activeClub = 'LEVEL'; // aktiver Reiter: 'LEVEL' | 'YPSILON'
   let pendingEmail = '';
@@ -201,9 +203,14 @@
       return;
     }
 
+    // Kachel zeigt NUR Event-Infos (kein direkter Ticketkauf). Tickets/VIP
+    // erscheinen erst nach Klick in der Detail-Ansicht.
     box.innerHTML = list.map(ev => {
       const dp = dateParts(ev.date);
-      const rows = ev.categories.filter(c => c.active).map(catRowHTML).join('');
+      const nCats = ev.categories.filter(c => c.active).length;
+      const bits = [];
+      if (nCats) bits.push(nCats + (nCats === 1 ? ' Ticketkategorie' : ' Ticketkategorien'));
+      if (ev.vipEnabled) bits.push('VIP-Tische');
       const desc = ev.description || '';
       const descShort = desc.length > 140 ? esc(desc.slice(0, 140)) + '…' : esc(desc);
       return '<article class="ev-card">' +
@@ -218,16 +225,15 @@
           '<div class="wd">' + esc(dp.wd) + (dp.time ? ' · ' + dp.time : '') + '</div></div>' +
           '<div class="ev-head"><h3>' + esc(ev.name) + '</h3>' +
           (ev.club || ev.location ? '<span class="ev-loc">' + esc(ev.club || ev.location) + '</span>' : '') +
-          '<span class="ev-more">Details ansehen →</span>' +
+          (bits.length ? '<span class="ev-avail">' + bits.join(' · ') + '</span>' : '') +
+          '<span class="ev-more">Tickets ansehen →</span>' +
           '</div>' +
         '</div>' +
         (desc ? '<p class="ev-desc">' + descShort + '</p>' : '') +
         '</div>' +
-        '<div class="ev-cats">' + rows + '</div>' +
       '</article>';
     }).join('');
 
-    bindQty(box);
     box.querySelectorAll('.ev-open').forEach(el => {
       el.addEventListener('click', () => openEventDetail(el.dataset.open));
       el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEventDetail(el.dataset.open); } });
@@ -257,6 +263,20 @@
       ? cats.map(catRowHTML).join('')
       : '<p class="sub">Für dieses Event sind aktuell keine Tickets verfügbar.</p>';
     bindQty($('detailCats'));
+    // VIP-Tisch-Bereich (nur wenn aktiviert)
+    const vipBox = $('detailVip');
+    if (ev.vipEnabled) {
+      vipBox.style.display = '';
+      vipBox.innerHTML =
+        '<div class="fx-secline" style="margin:20px 0 8px"><h2 style="font-size:1.25rem">VIP-Tisch</h2></div>' +
+        '<p class="ev-detail-desc" style="margin-bottom:12px">Lieber exklusiv? Reserviere einen VIP-Tisch mit eigenem Bereich.' +
+        (ev.vipInfo ? ' ' + esc(ev.vipInfo) : '') + '</p>' +
+        '<button class="btn btn-gold" id="btnOpenVip" type="button">VIP-Tisch reservieren</button>';
+      $('btnOpenVip').addEventListener('click', () => openVipModal(ev));
+    } else {
+      vipBox.style.display = 'none';
+      vipBox.innerHTML = '';
+    }
     openModal('eventDetailModal');
   }
 
@@ -689,6 +709,137 @@
     }));
   };
 
+  /* ---------- VIP-Tisch-Reservierung ---------- */
+  async function openVipModal(ev) {
+    vipEv = ev; vipSel = null; vipCart = {};
+    $('vipEventName').textContent = ev.name + (ev.date ? ' · ' + fmtDate(ev.date) : '');
+    $('vipInfoText').textContent = ev.vipInfo || '';
+    $('vipInfoText').style.display = ev.vipInfo ? '' : 'none';
+    $('vipStepConfirm').style.display = 'none';
+    $('vipStepTable').style.display = '';
+    const fp = $('vipFloorplan');
+    fp.innerHTML = ev.vipFloorplanUrl ? '<img src="' + esc(ev.vipFloorplanUrl) + '" alt="Grundriss">' : '';
+    fp.style.display = ev.vipFloorplanUrl ? '' : 'none';
+    $('vipTables').innerHTML = '<p class="sub">Tische werden geladen …</p>';
+    closeModal('eventDetailModal');
+    openModal('vipModal');
+    try { vipTables = await S.tableStatus(ev.id); }
+    catch (e) { $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">' + esc(e.message) + '</p>'; return; }
+    renderVipTables();
+  }
+
+  function renderVipTables() {
+    if (!vipTables.length) {
+      $('vipTables').innerHTML = '<p class="sub">Für dieses Event sind noch keine VIP-Tische hinterlegt.</p>';
+      return;
+    }
+    $('vipTables').innerHTML = vipTables.map(t =>
+      '<button type="button" class="vip-table' + (t.taken ? ' taken' : '') + '"' +
+        (t.taken ? ' disabled' : ' data-table="' + esc(t.id) + '"') + '>' +
+        '<span class="vt-name">' + esc(t.name) + '</span>' +
+        '<span class="vt-min">' + (t.minConsumption > 0 ? 'Mind. ' + S.fmtEUR.format(t.minConsumption) : 'ohne Mindestkonsum') + '</span>' +
+        '<span class="vt-state">' + (t.taken ? 'belegt' : 'frei') + '</span>' +
+      '</button>').join('');
+    $('vipTables').querySelectorAll('[data-table]').forEach(b =>
+      b.addEventListener('click', () => selectVipTable(b.dataset.table)));
+  }
+
+  async function selectVipTable(id) {
+    vipSel = vipTables.find(t => t.id === id);
+    if (!vipSel) return;
+    vipCart = {};
+    if (!vipDrinksList || vipDrinksList.eventId !== vipEv.id) {
+      try { vipDrinksList = { eventId: vipEv.id, items: await S.getDrinks(vipEv.id) }; }
+      catch (_) { vipDrinksList = { eventId: vipEv.id, items: [] }; }
+    }
+    renderVipConfirm();
+    $('vipStepTable').style.display = 'none';
+    $('vipStepConfirm').style.display = '';
+  }
+
+  function vipDrinksTotal() {
+    let t = 0;
+    (vipDrinksList ? vipDrinksList.items : []).forEach(d => { t += (d.price || 0) * (vipCart[d.id] || 0); });
+    return t;
+  }
+
+  function renderVipTotal() {
+    const total = vipDrinksTotal();
+    const min = vipSel ? vipSel.minConsumption : 0;
+    let html = 'Getränke (ca.): <b>' + S.fmtEUR.format(total) + '</b>';
+    if (min > 0) {
+      html += ' &nbsp;·&nbsp; Mindestkonsum: <b>' + S.fmtEUR.format(min) + '</b> ';
+      html += total >= min
+        ? '<span class="vip-ok">✓ erreicht</span>'
+        : '<span class="vip-warn">noch ' + S.fmtEUR.format(min - total) + '</span>';
+    }
+    $('vipTotal').innerHTML = html;
+  }
+
+  function renderVipConfirm() {
+    const min = vipSel.minConsumption;
+    $('vipSelected').innerHTML =
+      '<div class="vip-sel-name">' + esc(vipSel.name) + '</div>' +
+      '<div class="vip-sel-min">' + (min > 0
+        ? 'Mindestkonsum <b>' + S.fmtEUR.format(min) + '</b> – wird vor Ort im Club konsumiert und bezahlt.'
+        : 'Kein Mindestkonsum.') + '</div>';
+    const items = vipDrinksList ? vipDrinksList.items : [];
+    $('vipDrinks').innerHTML = items.length
+      ? items.map(d => {
+        const q = vipCart[d.id] || 0;
+        return '<div class="cat-row"><div class="cat-info"><div class="name">' + esc(d.name) + '</div></div>' +
+          '<div class="cat-price">' + S.fmtEUR.format(d.price) + '</div>' +
+          '<div class="qty">' +
+          '<button type="button" data-vd="' + esc(d.id) + '" data-d="-1" aria-label="weniger">−</button>' +
+          '<input type="text" readonly value="' + q + '" data-vq="' + esc(d.id) + '">' +
+          '<button type="button" data-vd="' + esc(d.id) + '" data-d="1" aria-label="mehr">+</button></div></div>';
+      }).join('')
+      : '<p class="sub">Für dieses Event ist keine Getränkeliste hinterlegt – du kannst den Tisch trotzdem reservieren.</p>';
+    $('vipDrinks').querySelectorAll('.qty button').forEach(btn => btn.addEventListener('click', () => {
+      const id = btn.dataset.vd, d = parseInt(btn.dataset.d, 10);
+      vipCart[id] = Math.max(0, Math.min(99, (vipCart[id] || 0) + d));
+      if (!vipCart[id]) delete vipCart[id];
+      const inp = $('vipDrinks').querySelector('[data-vq="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      if (inp) inp.value = vipCart[id] || 0;
+      renderVipTotal();
+    }));
+    renderVipTotal();
+    msg($('vipMsg'), '');
+  }
+
+  async function confirmReservation() {
+    if (!vipSel) return;
+    if (!S.currentUser()) {
+      msg($('vipMsg'), 'Bitte melde dich an, um zu reservieren.', 'info');
+      openLogin(() => { if ($('vipModal').classList.contains('open')) confirmReservation(); });
+      return;
+    }
+    const drinks = (vipDrinksList ? vipDrinksList.items : [])
+      .filter(d => vipCart[d.id] > 0)
+      .map(d => ({ name: d.name, price: d.price, qty: vipCart[d.id] }));
+    try {
+      $('vipConfirm').disabled = true;
+      msg($('vipMsg'), 'Reservierung wird gespeichert …', 'info');
+      await S.reserveTable(vipSel.id, {
+        guestName: $('vipName').value, phone: $('vipPhone').value,
+        partySize: $('vipParty').value, drinks
+      });
+      const tName = vipSel.name, tMin = vipSel.minConsumption;
+      closeModal('vipModal');
+      closeModal('eventDetailModal');
+      $('successSub').textContent = '„' + tName + '" ist für dich reserviert' +
+        (tMin > 0 ? ' – Mindestkonsum ' + S.fmtEUR.format(tMin) + ', vor Ort im Club.' : '.') +
+        (drinks.length ? ' Deine Getränke-Vorbestellung wurde an den Veranstalter übermittelt.' : '');
+      $('successTickets').innerHTML = '';
+      openModal('successModal');
+      renderEvents();
+    } catch (e) {
+      msg($('vipMsg'), e.message, 'error');
+    } finally {
+      $('vipConfirm').disabled = false;
+    }
+  }
+
   /* ---------- Init ---------- */
   async function init() {
     $('btnSendCode').addEventListener('click', () => sendCode(false));
@@ -699,6 +850,9 @@
     $('btnCheckout').addEventListener('click', openCheckout);
     $('btnPlaceOrder').addEventListener('click', placeOrder);
     $('navMyTickets').addEventListener('click', () => setTimeout(renderMyTickets, 0));
+    // VIP-Tisch-Modal
+    $('vipBack').addEventListener('click', () => { $('vipStepConfirm').style.display = 'none'; $('vipStepTable').style.display = ''; });
+    $('vipConfirm').addEventListener('click', confirmReservation);
 
     await S.init();          // stellt auch Sessions aus Magic-Link-URLs her
     renderNav();

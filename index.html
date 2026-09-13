@@ -21,15 +21,15 @@
      kein Türkis mehr auf dieser Seite.
      ============================================================ */
   :root{
-    /* Helle Basis */
-    --bg:#f4f2ec;          /* warmes Papier */
-    --bg-2:#eceae2;
-    --surface:#ffffff;
-    --ink:#0f0f12;         /* fast-schwarze Schrift */
-    --ink-2:#3a3a41;
-    --mut:#7c7c84;
-    --line:rgba(15,15,18,.12);
-    --line-soft:rgba(15,15,18,.06);
+    /* Dunkle Basis (schwarzer Hintergrund) */
+    --bg:#08080a;          /* fast schwarz */
+    --bg-2:#131317;
+    --surface:#16161b;
+    --ink:#f5f4f2;         /* helle Schrift */
+    --ink-2:#c2c1c9;
+    --mut:#8a8a95;
+    --line:rgba(255,255,255,.13);
+    --line-soft:rgba(255,255,255,.06);
 
     /* Club-Akzent (per data-club überschrieben) */
     --accent:#2b38f5; --accent-lt:#5a66ff; --accent-dk:#1b22c8;
@@ -42,7 +42,7 @@
     --gold:var(--accent); --gold-light:var(--accent); --gold-dim:var(--accent-tint);
     --gold-grad:linear-gradient(135deg,var(--accent-lt),var(--accent) 55%,var(--accent-dk));
     --card-grad:var(--surface);
-    --shadow:0 18px 46px -22px rgba(15,15,25,.28);
+    --shadow:0 22px 50px -24px rgba(0,0,0,.7);
     --glow:0 0 0 1px var(--accent-tint), 0 24px 60px -30px var(--accent-glow);
   }
   /* Club-Farbwelten */
@@ -70,13 +70,13 @@
   ::selection{background:var(--accent);color:var(--on-accent);}
   ::-webkit-scrollbar{width:11px;height:11px;}
   ::-webkit-scrollbar-track{background:var(--bg-2);}
-  ::-webkit-scrollbar-thumb{background:#c9c6bc;border:3px solid var(--bg-2);border-radius:8px;}
-  ::-webkit-scrollbar-thumb:hover{background:#b3b0a5;}
+  ::-webkit-scrollbar-thumb{background:#33333c;border:3px solid var(--bg-2);border-radius:8px;}
+  ::-webkit-scrollbar-thumb:hover{background:#44444f;}
 
   /* ---------- Nav ---------- */
   .fx-nav{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;
     padding:15px clamp(18px,5vw,54px);
-    background:rgba(244,242,236,.82);backdrop-filter:blur(14px) saturate(1.1);
+    background:rgba(8,8,10,.82);backdrop-filter:blur(14px) saturate(1.1);
     border-top:4px solid var(--accent);border-bottom:1px solid var(--line);transition:border-color .45s ease;}
   .fx-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);}
   .fx-brand b{font-family:'Space Grotesk';font-weight:700;font-size:1.02rem;letter-spacing:.30em;
@@ -85,7 +85,7 @@
   .fx-navlinks{display:flex;align-items:center;gap:6px;}
   .fx-navlinks a{font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);
     padding:9px 14px;border-radius:999px;transition:.2s;}
-  .fx-navlinks a:hover{color:var(--ink);background:rgba(15,15,18,.05);}
+  .fx-navlinks a:hover{color:var(--ink);background:rgba(255,255,255,.07);}
   .fx-navlinks a.fx-cta{background:var(--accent);color:var(--on-accent);border:1px solid var(--accent);}
   .fx-navlinks a.fx-cta:hover{background:var(--accent-dk);border-color:var(--accent-dk);color:#fff;}
 
@@ -112,8 +112,8 @@
   .fx-tab::after{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--tile);opacity:.85;}
   .fx-tab:hover{transform:translateY(-3px);box-shadow:0 22px 46px -26px var(--tile-glow);}
   .fx-tab .fx-logo{height:clamp(30px,4.6vw,42px);width:auto;object-fit:contain;object-position:left center;}
-  .fx-tab .fx-logo.on-light{display:block;}
-  .fx-tab .fx-logo.on-dark{display:none;}
+  .fx-tab .fx-logo.on-light{display:none;}
+  .fx-tab .fx-logo.on-dark{display:block;}
   .fx-tab .fx-tab-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;
     font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);position:relative;z-index:1;}
   .fx-tab .fx-count{font-weight:700;color:var(--ink);}
@@ -141,8 +141,9 @@
     box-shadow:0 26px 56px -32px var(--accent-glow);}
   .ev-banner{width:100%;aspect-ratio:16 / 7;overflow:hidden;background:var(--bg-2);border-bottom:1px solid var(--line);}
   .ev-banner img{width:100%;height:100%;object-fit:cover;display:block;}
-  .ev-banner-ph{display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 30%, #ffffff, var(--bg-2));}
-  .ev-banner-ph .ev-ph-logo{width:min(48%,220px);height:auto;opacity:.9;object-fit:contain;}
+  .ev-banner-ph{display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 120% at 50% 30%, #23232b, var(--bg-2));}
+  .ev-banner-ph .ev-ph-logo{width:min(48%,220px);height:auto;opacity:.85;object-fit:contain;
+    filter:brightness(0) invert(1);}  /* schwarzes Logo -> weiß auf dunklem Grund */
   .ev-top{display:flex;gap:16px;padding:22px 22px 14px;}
   .ev-date{flex:0 0 auto;width:68px;text-align:center;border-radius:14px;
     padding:11px 0;background:var(--accent);color:var(--on-accent);}
@@ -192,6 +193,37 @@
     font-family:'Space Grotesk';font-weight:700;font-size:1rem;line-height:34px;}
   .qty input::-webkit-inner-spin-button,.qty input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 
+  .ev-avail{display:block;margin-top:6px;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);}
+
+  /* ---------- VIP-Tische ---------- */
+  .vip-hint{color:var(--ink-2);font-size:.92rem;line-height:1.55;margin:2px 0 14px;}
+  .vip-floorplan{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--bg-2);}
+  .vip-floorplan img{width:100%;height:auto;display:block;max-height:60vh;object-fit:contain;background:#0b0b0e;}
+  .vip-tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+  .vip-table{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;cursor:pointer;
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:15px 16px;
+    color:var(--ink);font-family:'Space Grotesk',sans-serif;transition:.18s;}
+  .vip-table:hover:not(.taken){border-color:var(--accent);transform:translateY(-2px);
+    box-shadow:0 18px 40px -26px var(--accent-glow);}
+  .vip-table .vt-name{font-family:'Anton',sans-serif;font-size:1.35rem;letter-spacing:.02em;text-transform:uppercase;line-height:1;}
+  .vip-table .vt-min{font-size:.8rem;color:var(--accent);font-weight:600;}
+  .vip-table .vt-state{font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-top:2px;}
+  .vip-table.taken{cursor:not-allowed;opacity:.5;filter:grayscale(.6);}
+  .vip-table.taken .vt-state{color:#c0504f;}
+  .vip-selected{background:var(--accent-tint);border:1px solid var(--accent);border-radius:14px;padding:16px 18px;margin-bottom:16px;}
+  .vip-selected .vip-sel-name{font-family:'Anton',sans-serif;font-size:1.5rem;text-transform:uppercase;line-height:1;color:var(--ink);}
+  .vip-selected .vip-sel-min{font-size:.9rem;color:var(--ink-2);margin-top:6px;}
+  .vip-selected .vip-sel-min b{color:var(--accent);}
+  .vip-guest{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+  .vip-guest label{display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;}
+  .vip-guest input{width:100%;padding:10px 12px;}
+  .vip-drinks{max-height:38vh;overflow:auto;}
+  .vip-total{margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--bg-2);border:1px solid var(--line);
+    font-size:.95rem;color:var(--ink-2);}
+  .vip-total b{color:var(--ink);}
+  .vip-ok{color:#37b26b;font-weight:700;}
+  .vip-warn{color:#c77e2e;font-weight:700;}
+
   .fx-empty{border:1px dashed var(--accent);border-radius:18px;padding:46px 26px;text-align:center;
     background:var(--accent-tint);}
   .fx-empty::before{content:"\25C6";display:block;font-size:1.4rem;color:var(--accent);margin-bottom:10px;}
@@ -228,7 +260,9 @@
   .hint{color:var(--mut);}
   .msg.info{background:var(--accent-tint);border:1px solid var(--accent);color:var(--accent-dk);}
 
-  .modal-backdrop{background:rgba(18,17,24,.42);backdrop-filter:blur(6px);}
+  .modal-backdrop{background:rgba(0,0,0,.66);backdrop-filter:blur(6px);}
+  /* Login-Modal immer zuoberst – auch über dem VIP-Modal */
+  #loginModal{z-index:130;}
   .modal{background:var(--surface);border:1px solid var(--line);border-radius:20px;color:var(--ink);
     box-shadow:0 50px 110px -40px rgba(15,15,25,.5);}
   .modal h2{color:var(--ink);}
@@ -411,6 +445,45 @@
     <p id="detailDesc" class="ev-detail-desc"></p>
     <div class="fx-secline" style="margin:16px 0 8px"><h2 style="font-size:1.25rem">Tickets</h2></div>
     <div id="detailCats" class="ev-cats"></div>
+    <div id="detailVip" style="display:none"></div>
+  </div>
+</div>
+
+<!-- VIP-Tisch-Reservierung -->
+<div class="modal-backdrop" id="vipModal">
+  <div class="modal modal-wide" style="position:relative">
+    <button class="ev-detail-close" onclick="closeModal('vipModal')" aria-label="Schließen">×</button>
+    <h2 id="vipTitle">VIP-Tisch reservieren</h2>
+    <p class="sub" id="vipEventName"></p>
+
+    <!-- Schritt 1: Tisch wählen -->
+    <div id="vipStepTable">
+      <p class="vip-hint" id="vipInfoText"></p>
+      <div id="vipFloorplan" class="vip-floorplan"></div>
+      <div class="fx-secline" style="margin:18px 0 10px"><h2 style="font-size:1.1rem">Tisch wählen</h2>
+        <span class="fx-sub">auf einen freien Tisch tippen</span></div>
+      <div id="vipTables" class="vip-tables"></div>
+    </div>
+
+    <!-- Schritt 2: Getränke-Vorbestellung + Bestätigung -->
+    <div id="vipStepConfirm" style="display:none">
+      <button class="btn btn-ghost btn-sm" id="vipBack" type="button" style="margin-bottom:12px">← Anderer Tisch</button>
+      <div class="vip-selected" id="vipSelected"></div>
+      <div class="vip-guest">
+        <div><label for="vipName">Name (optional)</label><input type="text" id="vipName" placeholder="z. B. Anna B."></div>
+        <div><label for="vipParty">Personen (optional)</label><input type="number" id="vipParty" min="1" placeholder="z. B. 6"></div>
+        <div><label for="vipPhone">Telefon (optional)</label><input type="text" id="vipPhone" placeholder="für Rückfragen"></div>
+      </div>
+      <div class="fx-secline" style="margin:18px 0 8px"><h2 style="font-size:1.1rem">Getränke-Vorbestellung</h2>
+        <span class="fx-sub">unverbindlich &amp; ungefähr</span></div>
+      <div id="vipDrinks" class="vip-drinks"></div>
+      <div class="vip-total" id="vipTotal"></div>
+      <div class="msg" id="vipMsg"></div>
+      <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn btn-gold" id="vipConfirm" type="button">Reservierung bestätigen</button>
+        <button class="btn btn-ghost" onclick="closeModal('vipModal')">Abbrechen</button>
+      </div>
+    </div>
   </div>
 </div>
 

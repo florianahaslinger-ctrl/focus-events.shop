@@ -399,6 +399,32 @@
     } else {
       box.style.display = 'none';
     }
+    // VIP-Tische in den Editor laden
+    if ($('evVipOn')) {
+      $('evVipOn').checked = ev ? !!ev.vipEnabled : false;
+      $('evVipInfo').value = ev ? (ev.vipInfo || '') : '';
+      const fp = ev ? (ev.vipFloorplanUrl || '') : '';
+      $('evVipFpUrl').value = fp;
+      if ($('evVipFpFile')) $('evVipFpFile').value = '';
+      renderVipFpPreview(fp);
+      vipDrinksDraft = []; vipDrinksDirty = false;
+      $('vipTableEditor').innerHTML = '';
+      $('vipReservations').innerHTML = '';
+      if (ev) {
+        S.getTables(ev.id).then(tables => {
+          $('vipTableEditor').innerHTML = tables.map(vipTableRowHTML).join('');
+          bindVipTableRemove();
+        }).catch(() => {});
+        S.getDrinks(ev.id).then(drinks => {
+          vipDrinksDraft = drinks.map(d => ({ name: d.name, price: d.price }));
+          vipDrinksDirty = false; renderVipDrinksPreview();
+        }).catch(() => {});
+        renderVipReservations(ev.id);
+      } else {
+        renderVipDrinksPreview();
+      }
+      updateVipUI();
+    }
     $('eventModal').classList.add('open');
   }
 
@@ -475,6 +501,103 @@
   /* ---- Sponsoren-Logos im Event-Editor ---- */
   let editorSponsors = []; // Array von data-URLs
   let editorCats = [];     // Kategorien des aktuell offenen Events (für Phasen-UI-Restore)
+  // VIP-Tische: Entwurf im offenen Editor
+  let vipDrinksDraft = [];       // [{name, price}]
+  let vipDrinksDirty = false;    // true, sobald eine neue Excel-Liste importiert/geleert wurde
+
+  /* ---- VIP-Tische im Event-Editor ---- */
+  function renderVipFpPreview(url) {
+    const p = $('evVipFpPreview'); if (!p) return;
+    p.innerHTML = url ? '<img src="' + url + '" alt="" style="max-height:160px;border-radius:8px;border:1px solid var(--line);display:block;margin:6px 0">' : '';
+    if ($('btnRemoveVipFp')) $('btnRemoveVipFp').style.display = url ? '' : 'none';
+  }
+  function vipTableRowHTML(t) {
+    t = t || {};
+    return '<div class="vip-table-row" data-id="' + esc(t.id || '') + '" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+      '<input type="text" class="vt-name" placeholder="Tischname (z. B. Tisch 1)" value="' + esc(t.name || '') + '" style="flex:2 1 180px">' +
+      '<input type="number" class="vt-min" min="0" step="1" placeholder="Mindestkonsum €" value="' + (t.minConsumption != null ? t.minConsumption : '') + '" style="flex:1 1 130px">' +
+      '<button type="button" class="btn btn-ghost btn-sm vt-remove">Entfernen</button>' +
+      '</div>';
+  }
+  function bindVipTableRemove() {
+    $('vipTableEditor').querySelectorAll('.vt-remove').forEach(b => {
+      b.onclick = () => b.closest('.vip-table-row').remove();
+    });
+  }
+  function renderVipDrinksPreview() {
+    const box = $('vipDrinksPreview'); if (!box) return;
+    const list = vipDrinksDraft || [];
+    $('evVipDrinksInfo').textContent = list.length
+      ? (list.length + ' Getränk(e) hinterlegt' + (vipDrinksDirty ? ' – wird beim Speichern übernommen' : '') + '.')
+      : 'Noch keine Getränke hinterlegt.';
+    if ($('btnClearVipDrinks')) $('btnClearVipDrinks').style.display = list.length ? '' : 'none';
+    box.innerHTML = list.length
+      ? '<table class="data" style="width:100%"><thead><tr><th>Getränk</th><th style="text-align:right">Preis</th></tr></thead><tbody>' +
+        list.map(d => '<tr><td>' + esc(d.name) + '</td><td style="text-align:right">' + S.fmtEUR.format(d.price || 0) + '</td></tr>').join('') +
+        '</tbody></table>'
+      : '';
+  }
+  // Excel/CSV -> [{name, price}] (Spalte A Name, Spalte B Preis). Kopfzeile wird erkannt/übersprungen.
+  function parseDrinksSheet(file) {
+    return new Promise((resolve, reject) => {
+      if (typeof XLSX === 'undefined') { reject(new Error('Excel-Bibliothek nicht geladen (Seite neu laden).')); return; }
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+          const out = [];
+          rows.forEach(r => {
+            if (!r || r[0] == null || String(r[0]).trim() === '') return;
+            const name = String(r[0]).trim();
+            let priceRaw = r[1];
+            // Kopfzeile überspringen (z. B. "Name" / "Preis")
+            if (/^(name|getr[äa]nk|bezeichnung)$/i.test(name) && (priceRaw == null || /preis|price|eur|€/i.test(String(priceRaw)))) return;
+            let price = 0;
+            if (priceRaw != null) price = parseFloat(String(priceRaw).replace(/[^0-9.,-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')) || 0;
+            out.push({ name, price: Math.max(0, price) });
+          });
+          resolve(out);
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+  async function renderVipReservations(eventId) {
+    const box = $('vipReservations'); if (!box) return;
+    if (!eventId) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="hint">Reservierungen werden geladen …</p>';
+    let list;
+    try { list = await S.getReservations(eventId); }
+    catch (e) { box.innerHTML = '<p class="hint">' + esc(e.message) + '</p>'; return; }
+    const active = list.filter(r => r.status === 'reserviert');
+    if (!active.length) { box.innerHTML = '<p class="hint">Noch keine VIP-Reservierungen.</p>'; return; }
+    box.innerHTML = active.map(r => {
+      const drinks = (r.drinks || []).map(d => (d.qty + '× ' + d.name)).join(', ');
+      return '<div class="admin-cat" style="display:block">' +
+        '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
+        '<b>Tisch ' + esc(r.tableName || '?') + '</b>' +
+        '<span class="hint">' + new Date(r.createdAt).toLocaleString('de-AT') + '</span></div>' +
+        '<div class="hint" style="margin-top:4px">' + esc(r.email) +
+        (r.guestName ? ' · ' + esc(r.guestName) : '') + (r.partySize ? ' · ' + r.partySize + ' Pers.' : '') +
+        (r.phone ? ' · ' + esc(r.phone) : '') + '</div>' +
+        (r.minConsumption > 0 ? '<div class="hint">Mindestkonsum: ' + S.fmtEUR.format(r.minConsumption) + '</div>' : '') +
+        (drinks ? '<div style="margin-top:6px">Getränke-Vorbestellung (ca. ' + S.fmtEUR.format(r.drinksTotal || 0) + '): ' + esc(drinks) + '</div>' : '<div class="hint" style="margin-top:6px">Keine Getränke-Vorbestellung.</div>') +
+        '<div style="margin-top:8px"><button type="button" class="btn btn-ghost btn-sm vip-res-cancel" data-res="' + esc(r.id) + '">Reservierung stornieren</button></div>' +
+        '</div>';
+    }).join('');
+    box.querySelectorAll('.vip-res-cancel').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('Diese Reservierung wirklich stornieren? Der Tisch wird wieder frei.')) return;
+      try { await S.cancelReservation(b.dataset.res); await renderVipReservations(eventId); }
+      catch (e) { alert(e.message); }
+    }));
+  }
+  function updateVipUI() {
+    const on = $('evVipOn') && $('evVipOn').checked;
+    if ($('evVipBox')) $('evVipBox').style.display = on ? '' : 'none';
+  }
 
   // Bild aus Datei lesen und auf handliche Größe verkleinern (max. 240px hoch),
   // damit die Logos die Event-Daten nicht aufblähen – auch bei bis zu 25 Stück.
@@ -1145,6 +1268,34 @@
   if ($('btnRemoveEvImage')) $('btnRemoveEvImage').addEventListener('click', () => {
     $('evImageUrl').value = ''; if ($('evImageFile')) $('evImageFile').value = ''; renderEvImagePreview('');
   });
+  // ---- VIP-Tische ----
+  if ($('evVipOn')) $('evVipOn').addEventListener('change', updateVipUI);
+  if ($('btnAddVipTable')) $('btnAddVipTable').addEventListener('click', () => {
+    $('vipTableEditor').insertAdjacentHTML('beforeend', vipTableRowHTML(null)); bindVipTableRemove();
+  });
+  if ($('evVipFpFile')) $('evVipFpFile').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    try {
+      msg($('evMsg'), 'Grundriss wird hochgeladen …', 'info');
+      const url = await S.uploadFloorplan(file, $('evId').value || null);
+      $('evVipFpUrl').value = url; renderVipFpPreview(url);
+      msg($('evMsg'), 'Grundriss hochgeladen.', 'ok');
+    } catch (err) { msg($('evMsg'), 'Upload fehlgeschlagen: ' + err.message, 'error'); }
+  });
+  if ($('btnRemoveVipFp')) $('btnRemoveVipFp').addEventListener('click', () => {
+    $('evVipFpUrl').value = ''; if ($('evVipFpFile')) $('evVipFpFile').value = ''; renderVipFpPreview('');
+  });
+  if ($('evVipDrinksFile')) $('evVipDrinksFile').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    try {
+      const list = await parseDrinksSheet(file);
+      vipDrinksDraft = list; vipDrinksDirty = true; renderVipDrinksPreview();
+      msg($('evMsg'), list.length + ' Getränk(e) aus Datei übernommen – zum Übernehmen speichern.', 'ok');
+    } catch (err) { msg($('evMsg'), 'Import fehlgeschlagen: ' + err.message, 'error'); }
+  });
+  if ($('btnClearVipDrinks')) $('btnClearVipDrinks').addEventListener('click', () => {
+    vipDrinksDraft = []; vipDrinksDirty = true; renderVipDrinksPreview();
+  });
   $('btnSaveEvent').addEventListener('click', async () => {
     const cats = Array.from($('catEditor').querySelectorAll('.admin-cat')).map(row => {
       const phasedOn = !!(row.querySelector('.c-phased') && row.querySelector('.c-phased').checked);
@@ -1189,6 +1340,9 @@
       feesOnOrganizer: $('evFeesOnOrganizer').checked,
       sponsorLogos: editorSponsors.slice(),
       imageUrl: $('evImageUrl') ? ($('evImageUrl').value || null) : undefined,
+      vipEnabled: $('evVipOn') ? $('evVipOn').checked : undefined,
+      vipInfo: $('evVipInfo') ? ($('evVipInfo').value.trim() || null) : undefined,
+      vipFloorplanUrl: $('evVipFpUrl') ? ($('evVipFpUrl').value || null) : undefined,
       categories: cats
     };
     // Besitzer/Veranstalter zuweisen
@@ -1196,10 +1350,22 @@
     else if (!ev.id) ev.ownerEmail = S.currentUser(); // Veranstalter legt eigenes Event an
     if (!ev.name) { msg($('evMsg'), 'Bitte einen Eventnamen eingeben.', 'error'); return; }
     if (!ev.club) { msg($('evMsg'), 'Bitte einen Club wählen (LEVEL oder YPSILON) – sonst ist das Event im Shop nicht sichtbar.', 'error'); return; }
-    if (!cats.length) { msg($('evMsg'), 'Bitte mindestens eine Ticketkategorie anlegen.', 'error'); return; }
+    const vipOn = !!($('evVipOn') && $('evVipOn').checked);
+    if (!cats.length && !vipOn) { msg($('evMsg'), 'Bitte mindestens eine Ticketkategorie anlegen (oder VIP-Tische aktivieren).', 'error'); return; }
     try {
       $('btnSaveEvent').disabled = true;
-      await S.saveEvent(ev);
+      const savedId = await S.saveEvent(ev);
+      // VIP: Tische & Getränke speichern (nur wenn aktiviert – so bleiben bei
+      // deaktiviertem VIP bestehende Tische/Reservierungen unangetastet)
+      if (vipOn && savedId) {
+        const tables = Array.from($('vipTableEditor').querySelectorAll('.vip-table-row')).map(r => ({
+          id: r.dataset.id || null,
+          name: r.querySelector('.vt-name').value.trim(),
+          minConsumption: parseFloat(r.querySelector('.vt-min').value) || 0
+        })).filter(t => t.name);
+        await S.saveTables(savedId, tables);
+        if (vipDrinksDirty) await S.replaceDrinks(savedId, vipDrinksDraft);
+      }
       $('eventModal').classList.remove('open');
       await renderAll();
     } catch (e) {
