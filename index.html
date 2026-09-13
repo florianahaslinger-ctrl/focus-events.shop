@@ -31,9 +31,9 @@
     --line:rgba(255,255,255,.13);
     --line-soft:rgba(255,255,255,.06);
 
-    /* Club-Akzent (per data-club überschrieben) */
-    --accent:#2b38f5; --accent-lt:#5a66ff; --accent-dk:#1b22c8;
-    --accent-tint:rgba(43,56,245,.10); --accent-glow:rgba(43,56,245,.30);
+    /* Club-Akzent (per data-club überschrieben) – Default = LEVEL (Rot) */
+    --accent:#e11d2a; --accent-lt:#ff4d5a; --accent-dk:#a80d18;
+    --accent-tint:rgba(225,29,42,.14); --accent-glow:rgba(225,29,42,.38);
     --on-accent:#ffffff;
 
     /* ---- CORE-Variablen auf das helle Theme mappen ---- */
@@ -47,12 +47,12 @@
   }
   /* Club-Farbwelten */
   [data-club="LEVEL"]{
-    --accent:#2b38f5; --accent-lt:#5a66ff; --accent-dk:#1b22c8;
-    --accent-tint:rgba(43,56,245,.10); --accent-glow:rgba(43,56,245,.34);
+    --accent:#e11d2a; --accent-lt:#ff4d5a; --accent-dk:#a80d18;
+    --accent-tint:rgba(225,29,42,.14); --accent-glow:rgba(225,29,42,.38);
   }
   [data-club="YPSILON"]{
-    --accent:#ff1466; --accent-lt:#ff578f; --accent-dk:#d1004e;
-    --accent-tint:rgba(255,20,102,.10); --accent-glow:rgba(255,20,102,.36);
+    --accent:#2b38f5; --accent-lt:#5a66ff; --accent-dk:#1b22c8;
+    --accent-tint:rgba(43,56,245,.14); --accent-glow:rgba(43,56,245,.36);
   }
 
   *{box-sizing:border-box;}
@@ -107,8 +107,8 @@
     padding:30px 28px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between;
     transition:transform .25s ease, box-shadow .25s ease, background .25s ease;
     box-shadow:0 10px 30px -22px rgba(15,15,25,.3);}
-  .fx-tab[data-club="LEVEL"]{--tile:#2b38f5;--tile-glow:rgba(43,56,245,.4);}
-  .fx-tab[data-club="YPSILON"]{--tile:#ff1466;--tile-glow:rgba(255,20,102,.42);}
+  .fx-tab[data-club="LEVEL"]{--tile:#e11d2a;--tile-glow:rgba(225,29,42,.42);}
+  .fx-tab[data-club="YPSILON"]{--tile:#2b38f5;--tile-glow:rgba(43,56,245,.42);}
   .fx-tab::after{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--tile);opacity:.85;}
   .fx-tab:hover{transform:translateY(-3px);box-shadow:0 22px 46px -26px var(--tile-glow);}
   .fx-tab .fx-logo{height:clamp(30px,4.6vw,42px);width:auto;object-fit:contain;object-position:left center;}
