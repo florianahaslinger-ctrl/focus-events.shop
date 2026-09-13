@@ -579,19 +579,19 @@
       if (error) throw new Error(error.message);
       return (data || []).map(t => ({
         id: t.id, name: t.name, minConsumption: Number(t.min_consumption || 0),
-        sort: t.sort || 0, taken: !!t.taken
+        capacity: Number(t.capacity || 1), sort: t.sort || 0, taken: !!t.taken
       }));
     },
 
     // Tische eines Events (Admin – inkl. inaktiver).
     async getTables(eventId) {
       const { data, error } = await sb.from('event_tables')
-        .select('id,name,min_consumption,sort,active').eq('event_id', eventId)
+        .select('id,name,min_consumption,capacity,sort,active').eq('event_id', eventId)
         .order('sort').order('name');
       if (error) throw new Error(error.message);
       return (data || []).map(t => ({
         id: t.id, name: t.name, minConsumption: Number(t.min_consumption || 0),
-        sort: t.sort || 0, active: t.active !== false
+        capacity: Number(t.capacity || 10), sort: t.sort || 0, active: t.active !== false
       }));
     },
 
@@ -604,7 +604,8 @@
         const t = tables[i];
         const row = {
           event_id: eventId, name: t.name, sort: i, active: t.active !== false,
-          min_consumption: Math.max(0, Number(t.minConsumption) || 0)
+          min_consumption: Math.max(0, Number(t.minConsumption) || 0),
+          capacity: Math.max(1, parseInt(t.capacity, 10) || 10)
         };
         if (t.id && (existing || []).some(x => x.id === t.id)) {
           keep.add(t.id);
@@ -647,7 +648,7 @@
         p_table: tableId,
         p_guest_name: opts.guestName || null,
         p_phone: opts.phone || null,
-        p_party: (opts.partySize == null || opts.partySize === '') ? null : parseInt(opts.partySize, 10),
+        p_qty: (opts.qty == null || opts.qty === '') ? 1 : parseInt(opts.qty, 10),
         p_drinks: Array.isArray(opts.drinks) ? opts.drinks : []
       });
       if (error) throw new Error(error.message);
@@ -670,7 +671,8 @@
     },
 
     async cancelReservation(id) {
-      const { error } = await sb.from('table_reservations').update({ status: 'storniert' }).eq('id', id);
+      // Storniert Reservierung UND die zugehörigen Freitickets (RPC).
+      const { error } = await sb.rpc('cancel_table_reservation', { p_id: id });
       if (error) throw new Error(error.message);
     },
 

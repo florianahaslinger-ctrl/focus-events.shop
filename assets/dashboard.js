@@ -514,8 +514,9 @@
   function vipTableRowHTML(t) {
     t = t || {};
     return '<div class="vip-table-row" data-id="' + esc(t.id || '') + '" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
-      '<input type="text" class="vt-name" placeholder="Tischname (z. B. Tisch 1)" value="' + esc(t.name || '') + '" style="flex:2 1 180px">' +
-      '<input type="number" class="vt-min" min="0" step="1" placeholder="Mindestkonsum €" value="' + (t.minConsumption != null ? t.minConsumption : '') + '" style="flex:1 1 130px">' +
+      '<input type="text" class="vt-name" placeholder="Tischname (z. B. Tisch 1)" value="' + esc(t.name || '') + '" style="flex:2 1 160px">' +
+      '<input type="number" class="vt-min" min="0" step="1" placeholder="Mindestkonsum €" value="' + (t.minConsumption != null ? t.minConsumption : '') + '" style="flex:1 1 120px" title="Mindestkonsum in €">' +
+      '<input type="number" class="vt-cap" min="1" step="1" placeholder="max. Tickets" value="' + (t.capacity != null ? t.capacity : 10) + '" style="flex:1 1 100px" title="max. Eintrittstickets pro Tisch">' +
       '<button type="button" class="btn btn-ghost btn-sm vt-remove">Entfernen</button>' +
       '</div>';
   }
@@ -581,7 +582,7 @@
         '<b>Tisch ' + esc(r.tableName || '?') + '</b>' +
         '<span class="hint">' + new Date(r.createdAt).toLocaleString('de-AT') + '</span></div>' +
         '<div class="hint" style="margin-top:4px">' + esc(r.email) +
-        (r.guestName ? ' · ' + esc(r.guestName) : '') + (r.partySize ? ' · ' + r.partySize + ' Pers.' : '') +
+        (r.guestName ? ' · ' + esc(r.guestName) : '') + (r.partySize ? ' · ' + r.partySize + ' Ticket(s)' : '') +
         (r.phone ? ' · ' + esc(r.phone) : '') + '</div>' +
         (r.minConsumption > 0 ? '<div class="hint">Mindestkonsum: ' + S.fmtEUR.format(r.minConsumption) + '</div>' : '') +
         (drinks ? '<div style="margin-top:6px">Getränke-Vorbestellung (ca. ' + S.fmtEUR.format(r.drinksTotal || 0) + '): ' + esc(drinks) + '</div>' : '<div class="hint" style="margin-top:6px">Keine Getränke-Vorbestellung.</div>') +
@@ -1361,7 +1362,8 @@
         const tables = Array.from($('vipTableEditor').querySelectorAll('.vip-table-row')).map(r => ({
           id: r.dataset.id || null,
           name: r.querySelector('.vt-name').value.trim(),
-          minConsumption: parseFloat(r.querySelector('.vt-min').value) || 0
+          minConsumption: parseFloat(r.querySelector('.vt-min').value) || 0,
+          capacity: Math.max(1, parseInt(r.querySelector('.vt-cap').value, 10) || 10)
         })).filter(t => t.name);
         await S.saveTables(savedId, tables);
         if (vipDrinksDirty) await S.replaceDrinks(savedId, vipDrinksDraft);
