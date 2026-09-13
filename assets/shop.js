@@ -8,7 +8,7 @@
   let cart = {};          // { categoryId: qty }
   let selectedSeats = {}; // { categoryId: [seatId, …] }
   // VIP-Tische
-  let vipEv = null, vipTables = [], vipDrinksList = null, vipSel = null, vipCart = {}, vipQty = 1;
+  let vipEv = null, vipTables = [], vipDrinksList = null, vipSel = null, vipCart = {};
   let eventsCache = [];
   let activeClub = 'LEVEL'; // aktiver Reiter: 'LEVEL' | 'YPSILON'
   let pendingEmail = '';
@@ -776,23 +776,19 @@
     $('vipTotal').innerHTML = html;
   }
 
-  function updateVipQtyUI() {
-    const cap = Math.max(1, vipSel ? vipSel.capacity : 1);
-    if (vipQty > cap) vipQty = cap;
-    if (vipQty < 1) vipQty = 1;
-    if ($('vipQty')) $('vipQty').value = vipQty;
-    if ($('vipQtyMax')) $('vipQtyMax').textContent = 'max. ' + cap + ' pro Tisch';
-  }
-
   function renderVipConfirm() {
     const min = vipSel.minConsumption;
-    vipQty = 1;
-    updateVipQtyUI();
     $('vipSelected').innerHTML =
       '<div class="vip-sel-name">' + esc(vipSel.name) + '</div>' +
       '<div class="vip-sel-min">' + (min > 0
         ? 'Mindestkonsum <b>' + S.fmtEUR.format(min) + '</b> – wird vor Ort im Club konsumiert und bezahlt.'
         : 'Kein Mindestkonsum.') + '</div>';
+    // Eintrittstickets: normale Ticketkategorien des Events (online zu bezahlen).
+    const cats = (vipEv.categories || []).filter(c => c.active);
+    $('vipTickets').innerHTML = cats.length
+      ? cats.map(catRowHTML).join('')
+      : '<p class="sub">Für dieses Event sind aktuell keine Tickets im Verkauf – der Tisch kann trotzdem reserviert werden.</p>';
+    bindQty($('vipTickets'));
     const items = vipDrinksList ? vipDrinksList.items : [];
     $('vipDrinks').innerHTML = items.length
       ? items.map(d => {
@@ -834,19 +830,24 @@
     try {
       $('vipConfirm').disabled = true;
       msg($('vipMsg'), 'Reservierung wird gespeichert …', 'info');
-      const res = await S.reserveTable(vipSel.id, { guestName: guestName, phone: phone, qty: vipQty, drinks });
+      await S.reserveTable(vipSel.id, { guestName: guestName, phone: phone, drinks });
       const tName = vipSel.name, tMin = vipSel.minConsumption;
-      const nT = (res && res.tickets) || vipQty;
+      // Hat der Gast Eintrittstickets dazugebucht? -> normaler Checkout (Stripe)
+      const hasTickets = (vipEv.categories || []).some(c => (cart[c.id] || 0) > 0);
       closeModal('vipModal');
       closeModal('eventDetailModal');
-      $('successSub').textContent = '„' + tName + '" ist für dich reserviert – ' +
-        nT + ' Eintrittsticket' + (nT === 1 ? '' : 's') + ' inklusive (unter „Meine Tickets").' +
-        (tMin > 0 ? ' Mindestkonsum ' + S.fmtEUR.format(tMin) + ' wird vor Ort im Club bezahlt.' : '') +
-        (drinks.length ? ' Deine Getränke-Vorbestellung wurde an den Veranstalter übermittelt.' : '');
-      $('successTickets').innerHTML = '';
-      openModal('successModal');
       renderEvents();
-      renderMyTickets();
+      if (hasTickets) {
+        // Tisch ist reserviert; jetzt die Tickets wie im normalen Shop bezahlen.
+        openCheckout();
+      } else {
+        $('successSub').textContent = '„' + tName + '" ist für dich reserviert.' +
+          (tMin > 0 ? ' Mindestkonsum ' + S.fmtEUR.format(tMin) + ' wird vor Ort im Club bezahlt.' : '') +
+          (drinks.length ? ' Deine Getränke-Vorbestellung wurde an den Veranstalter übermittelt.' : '') +
+          ' Eintrittstickets kannst du jederzeit im Shop dazubuchen.';
+        $('successTickets').innerHTML = '';
+        openModal('successModal');
+      }
     } catch (e) {
       msg($('vipMsg'), e.message, 'error');
     } finally {
@@ -867,8 +868,6 @@
     // VIP-Tisch-Modal
     $('vipBack').addEventListener('click', () => { $('vipStepConfirm').style.display = 'none'; $('vipStepTable').style.display = ''; });
     $('vipConfirm').addEventListener('click', confirmReservation);
-    $('vipQtyMinus').addEventListener('click', () => { vipQty--; updateVipQtyUI(); });
-    $('vipQtyPlus').addEventListener('click', () => { vipQty++; updateVipQtyUI(); });
 
     await S.init();          // stellt auch Sessions aus Magic-Link-URLs her
     renderNav();
