@@ -809,6 +809,10 @@
 
   async function confirmReservation() {
     if (!vipSel) return;
+    const guestName = $('vipName').value.trim();
+    const phone = $('vipPhone').value.trim();
+    if (!guestName) { msg($('vipMsg'), 'Bitte gib deinen Namen an.', 'error'); $('vipName').focus(); return; }
+    if (!phone) { msg($('vipMsg'), 'Bitte gib eine Telefonnummer an.', 'error'); $('vipPhone').focus(); return; }
     if (!S.currentUser()) {
       msg($('vipMsg'), 'Bitte melde dich an, um zu reservieren.', 'info');
       openLogin(() => { if ($('vipModal').classList.contains('open')) confirmReservation(); });
@@ -820,10 +824,7 @@
     try {
       $('vipConfirm').disabled = true;
       msg($('vipMsg'), 'Reservierung wird gespeichert …', 'info');
-      await S.reserveTable(vipSel.id, {
-        guestName: $('vipName').value, phone: $('vipPhone').value,
-        partySize: $('vipParty').value, drinks
-      });
+      await S.reserveTable(vipSel.id, { guestName: guestName, phone: phone, drinks });
       const tName = vipSel.name, tMin = vipSel.minConsumption;
       closeModal('vipModal');
       closeModal('eventDetailModal');
