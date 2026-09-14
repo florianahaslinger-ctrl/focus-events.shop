@@ -289,8 +289,7 @@
       '<div><label>Kontingent</label><input type="number" class="c-quota" min="0" step="1" value="' + esc(c.quota) + '"></div>' +
       '<div><label>Max./Bestellung</label><input type="number" class="c-max" min="1" step="1" value="' + esc(c.maxPerOrder || 10) + '"></div>' +
       '<div style="flex:2 1 200px"><label>Beschreibung</label><input type="text" class="c-desc" value="' + esc(c.description || '') + '"></div>' +
-      '<div style="flex:0 0 auto"><label class="switch" style="margin:0 0 6px"><input type="checkbox" class="c-active"' + (c.active ? ' checked' : '') + '> aktiv</label>' +
-      '<label class="switch" style="margin:0 0 8px" title="Nur bei Sitzkarten wählen Kund:innen einen Sitzplatz"><input type="checkbox" class="c-seating"' + (c.seating ? ' checked' : '') + '> Sitzkarte</label>' +
+      '<div style="flex:0 0 auto"><label class="switch" style="margin:0 0 8px"><input type="checkbox" class="c-active"' + (c.active ? ' checked' : '') + '> aktiv</label>' +
       '<button type="button" class="btn btn-danger btn-sm c-remove">Entfernen</button></div>' +
       // Dynamic Pricing: Preis-Phasen
       '<div class="cat-phases" style="flex:1 1 100%;border-top:1px dashed var(--line);margin-top:8px;padding-top:10px">' +
@@ -386,22 +385,9 @@
     initPhaseUI();
     updateSharedUI();
     msg($('evMsg'), '');
-    // Sitzplan-Bereich nur bei bestehenden Events
+    // Sitzplan bei Focus deaktiviert -> Bereich immer ausblenden
     const box = $('seatPlanBox');
-    msg($('seatPlanMsg'), '');
-    if (ev) {
-      box.style.display = '';
-      $('seatPlanInfo').textContent = 'Sitzplan wird geladen …';
-      S.seatMap(ev.id).then(seats => {
-        const total = seats.length;
-        const sold = seats.filter(s => s.status === 'sold').length;
-        $('seatPlanInfo').textContent = total
-          ? (total + ' Sitzplätze angelegt' + (sold ? ' · ' + sold + ' verkauft' : '') + '.')
-          : 'Noch kein Sitzplan angelegt.';
-      }).catch(() => { $('seatPlanInfo').textContent = ''; });
-    } else {
-      box.style.display = 'none';
-    }
+    if (box) box.style.display = 'none';
     // VIP-Tische in den Editor laden
     if ($('evVipOn')) {
       $('evVipOn').checked = ev ? !!ev.vipEnabled : false;
@@ -1350,7 +1336,7 @@
         maxPerOrder: parseInt(row.querySelector('.c-max').value, 10) || 10,
         description: row.querySelector('.c-desc').value.trim(),
         active: row.querySelector('.c-active').checked,
-        seating: row.querySelector('.c-seating').checked,
+        seating: false, // Sitzplan bei Focus deaktiviert
         pricingMode: (phasedOn && phases.length) ? 'phased' : 'fixed',
         phases: phases,
         activePhaseManual: (phasedOn && apVal !== '') ? parseInt(apVal, 10) : null

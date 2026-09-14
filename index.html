@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260913e">
+<link rel="stylesheet" href="assets/shop.css?v=20260914">
 <script src="assets/supabase.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260913e"></script>
+<script src="assets/ticket-pdf.js?v=20260914"></script>
 <style>
   /* ============================================================
      FOCUS EVENTS – Club-Shop · helles Poster-Design
@@ -157,10 +157,11 @@
     display:inline-flex;align-items:center;gap:6px;font-weight:600;}
   .ev-desc{color:var(--ink-2);font-size:.9rem;line-height:1.55;padding:0 22px 6px;}
   .ev-cats{padding:6px 16px 18px;display:flex;flex-direction:column;gap:2px;}
-  .cat-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;
-    padding:13px 6px;border-top:1px solid var(--line-soft);}
+  .cat-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;
+    padding:13px 6px;margin:0;border-top:1px solid var(--line-soft);}
   .cat-row:first-child{border-top:none;}
-  .cat-info .name{font-weight:600;font-size:.96rem;color:var(--ink);}
+  .cat-info{min-width:0;}
+  .cat-info .name{font-weight:600;font-size:.96rem;color:var(--ink);overflow-wrap:anywhere;}
   .cat-info .desc{color:var(--mut);font-size:.78rem;margin-top:2px;}
   .cat-price{font-family:'Space Grotesk';font-weight:700;font-size:1.04rem;color:var(--accent);white-space:nowrap;}
   .cat-left{grid-column:1 / -1;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);}
@@ -229,7 +230,7 @@
   .vip-guest{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
   .vip-guest label{display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;}
   .vip-guest input{width:100%;padding:10px 12px;}
-  .vip-drinks{max-height:38vh;overflow:auto;}
+  .vip-drinks{max-height:38vh;overflow-x:hidden;overflow-y:auto;}
   .vip-total{margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--bg-2);border:1px solid var(--line);
     font-size:.95rem;color:var(--ink-2);}
   .vip-total b{color:var(--ink);}
@@ -544,7 +545,7 @@
 })();
 </script>
 
-<script src="assets/store.js?v=20260913e"></script>
-<script src="assets/shop.js?v=20260913e"></script>
+<script src="assets/store.js?v=20260914"></script>
+<script src="assets/shop.js?v=20260914"></script>
 </body>
 </html>
