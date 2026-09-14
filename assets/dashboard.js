@@ -1151,7 +1151,7 @@
   $('orderFilter').addEventListener('change', renderOrders);
   $('btnCheckin').addEventListener('click', doCheckin);
   $('checkinCode').addEventListener('keydown', e => { if (e.key === 'Enter') doCheckin(); });
-  $('btnGenSeats').addEventListener('click', async () => {
+  if ($('btnGenSeats')) $('btnGenSeats').addEventListener('click', async () => {
     const id = $('evId').value;
     if (!id) { msg($('seatPlanMsg'), 'Bitte das Event zuerst speichern.', 'error'); return; }
     try {
@@ -1168,7 +1168,7 @@
     } catch (e) { msg($('seatPlanMsg'), e.message, 'error'); }
     finally { $('btnGenSeats').disabled = false; }
   });
-  $('btnClearSeats').addEventListener('click', async () => {
+  if ($('btnClearSeats')) $('btnClearSeats').addEventListener('click', async () => {
     const id = $('evId').value;
     if (!id) return;
     if (!confirm('Sitzplan wirklich leeren?')) return;

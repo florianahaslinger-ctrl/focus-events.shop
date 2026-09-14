@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260914">
+<link rel="stylesheet" href="assets/shop.css?v=20260914b">
 <style id="fxDashTheme">
   /* Focus Events – Dashboard im gleichen dunklen Look wie der Shop (Focus-Blau).
      Die geteilten CORE-Variablen werden aufs dunkle Theme umgebogen -> CORE unberührt. */
@@ -477,29 +477,7 @@
     <div id="catEditor"></div>
     <button class="btn btn-ghost btn-sm" id="btnAddCat" style="margin-top:10px">+ Kategorie hinzufügen</button>
 
-    <div id="seatPlanBox" style="margin-top:26px;border-top:1px solid var(--line);padding-top:18px;display:none">
-      <label style="margin-top:0">Sitzplan (nur nötig, wenn es eine Sitzkarte gibt)</label>
-      <p class="hint" id="seatPlanInfo" style="margin-bottom:10px"></p>
-
-      <div style="background:var(--dark2,#181818);border:1px solid var(--gold);border-radius:8px;padding:14px 16px;margin-bottom:16px">
-        <div style="font-weight:600;color:var(--gold-light);margin-bottom:4px">🎨 Grafischer Saalplan-Editor</div>
-        <p class="hint" style="margin:0 0 10px">Tische frei platzieren &amp; verschieben, Form (rund/eckig) wählen, Bühne, Tanzfläche, Bar und Eingang setzen. Erzeugt die buchbaren Sitzplätze automatisch.</p>
-        <a href="saalplan-editor.html" target="_blank" rel="noopener" class="btn btn-gold btn-sm" style="text-decoration:none;display:inline-block">Saalplan-Editor öffnen →</a>
-      </div>
-
-      <p class="hint" style="margin-bottom:8px">Oder einfacher Raster-Plan (Reihen × Tische):</p>
-      <div class="field-row">
-        <div><label>Reihen</label><input type="number" id="spRows" min="1" max="50" value="5"></div>
-        <div><label>Tische pro Reihe</label><input type="number" id="spTables" min="1" max="50" value="10"></div>
-        <div><label>Sitze pro Tisch</label><input type="number" id="spSeats" min="1" max="30" value="6"></div>
-      </div>
-      <div class="msg" id="seatPlanMsg"></div>
-      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
-        <button type="button" class="btn btn-gold btn-sm" id="btnGenSeats">Sitzplan erstellen</button>
-        <button type="button" class="btn btn-danger btn-sm" id="btnClearSeats">Sitzplan leeren</button>
-      </div>
-      <p class="hint" style="margin-top:8px">Erstellen ersetzt einen bestehenden Plan nur, wenn noch keine Sitzplätze verkauft wurden. Event zuerst speichern, dann Sitzplan anlegen.</p>
-    </div>
+    <!-- Sitzplan bei Focus entfernt -->
 
     <div class="msg" id="evMsg"></div>
     <div style="display:flex;gap:10px;margin-top:22px">
@@ -518,8 +496,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260914"></script>
-<script src="assets/store.js?v=20260914"></script>
-<script src="assets/dashboard.js?v=20260914"></script>
+<script src="assets/ticket-pdf.js?v=20260914b"></script>
+<script src="assets/store.js?v=20260914b"></script>
+<script src="assets/dashboard.js?v=20260914b"></script>
 </body>
 </html>
