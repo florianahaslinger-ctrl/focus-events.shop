@@ -1,8 +1,8 @@
-# Focus Events – Ticketshop · Projekt-Übergabe (Stand: 12.09.2026)
+# Focus Events – Ticketshop · Projekt-Übergabe (Stand: 14.09.2026)
 
 > **Kurzfassung:** Eigenständiger Club-Ticketshop der **Focus Events GmbH** (Clubs
-> **LEVEL** & **YPSILON Heidenreichstein**). **Helles** Poster-Design mit Club-Farben
-> (LEVEL blau `#2b38f5`, YPSILON magenta `#ff1466`). **Teilt sich das CORE-Backend**
+> **LEVEL** & **YPSILON Heidenreichstein**). **Dunkles (schwarzes)** Poster-Design mit Club-Farben
+> (**LEVEL rot `#e11d2a`**, **YPSILON blau `#2b38f5`**). **Teilt sich das CORE-Backend**
 > (dieselbe Supabase + Stripe) – **CORE bleibt eigenständig, wird nur minimal ergänzt**.
 > Hosting auf **Cloudflare Pages (mit GitHub verbunden → Auto-Deploy bei Push)**,
 > Domain **focus-events.shop** + Subdomain je Club.
@@ -18,8 +18,8 @@
 * **Hosting:** **Cloudflare Pages**, Projekt `focus-events`, **mit GitHub-Repo verbunden** → **jeder `git push origin master` deployt automatisch**. (Kein manuelles Direct-Upload mehr nötig.)
 * **DNS:** Cloudflare-Zone `focus-events.shop`, SSL-Modus **Full**. CNAMEs `@`/`level`/`ypsilon` → `focus-events.pages.dev`. MX weiter IONOS.
 * **Repos (Quelle der Wahrheit):**
-  * Focus: `florianahaslinger-ctrl/focus-events.shop` – Branch `master`, Stand `e815988`
-  * CORE: `florianahaslinger-ctrl/Core-management.at` – Branch `main`, Stand `04d12ff` (GitHub Pages)
+  * Focus: `florianahaslinger-ctrl/focus-events.shop` – Branch `master`, Stand `a8cf0c9`
+  * CORE: `florianahaslinger-ctrl/Core-management.at` – Branch `main`, Stand `c53c4b7`+ (GitHub Pages; promnight-SSO ergänzt)
 * **Lokal:** `C:\Users\pustl\OneDrive\Desktop\Claude\Focus-Events` (CORE daneben: `…\Core-management.at`)
 * **Supabase-Projekt „Ticketsystem", Ref:** `xfdiuhmgkdujbjhdhvcw` · **Cloudflare-Account-ID:** `20fc99620b59a24f532c573355ee9c30`
 * **GitHub CLI:** `C:\Program Files\GitHub CLI\gh.exe` (eingeloggt als florianahaslinger-ctrl)
@@ -41,12 +41,14 @@ Getrennt wird über zwei Spalten auf `events`:
 
 ---
 
-## 2. Design
+## 2. Design (seit 13.09. DUNKEL)
 
-* Helle Basis (`--bg #f4f2ec`, `--surface #fff`, `--ink #0f0f12`), Fonts **Anton** (Headlines) + **Space Grotesk** (Text).
-* **Club-Akzent** über `data-club` auf `<html>`: LEVEL blau, YPSILON magenta – die ganze Seite färbt sich je aktivem Club um (Umbiegen der geteilten CORE-CSS-Variablen im `<style>` von `index.html` → CORE bleibt intakt).
+* **Dunkle/schwarze Basis** (`--bg #08080a`, `--surface #16161b`, `--ink #f5f4f2`), Fonts **Anton** (Headlines) + **Space Grotesk** (Text). Basis-Variablen im `:root` im `<style>` von `index.html`.
+* **Club-Akzent** über `data-club` auf `<html>`: **LEVEL rot `#e11d2a`**, **YPSILON blau `#2b38f5`** – die ganze Seite färbt sich je aktivem Club um (Umbiegen der geteilten CORE-CSS-Variablen → CORE bleibt intakt). Farbwelten in `[data-club="LEVEL"]`/`[data-club="YPSILON"]` + `.fx-tab[...]`.
+* Focus-Platzhalterlogo (schwarz) wird per CSS-Filter `brightness(0) invert(1)` **weiß** gerendert; Club-Reiter zeigen die **weißen** Logo-Varianten (`level-logo-white.png`/`ypsilon-logo-white.png`).
 * Zwei **Club-Reiter** LEVEL/YPSILON; **Subdomain-Routing** (`shop.js`, `SUBDOMAINS_LIVE=true`, `clubFromHost()`).
-* **Dashboard** im gleichen hellen Look (Override-Block `#fxDashTheme` in `dashboard.html`, inkl. Formularfelder/Nav/Kategorie-Zeile/Saalplan-Box aufgehellt – shop.css-Dunkeltöne überschrieben).
+* **Dashboard** ebenfalls **dunkel** (Override-Block `#fxDashTheme` in `dashboard.html` auf dunkles Palette umgestellt; Admin-Akzent neutral blau). **Club-Ansicht-Dropdown** oben (LEVEL/YPSILON/Beide) filtert das ganze Dashboard – siehe §11.
+* **Cache-Busting:** eigene Assets sind mit `?v=<token>` versioniert (aktuell `20260913e`) in `index.html`/`dashboard.html`. **Bei jeder Änderung an `shop.js`/`store.js`/`dashboard.js`/`shop.css`/`ticket-pdf.js` den Token erhöhen**, sonst laden Browser altes JS (verursachte einen „null"-Fehler).
 
 ---
 
@@ -91,6 +93,16 @@ Remove-Item meta.json
 10. **Club-Veranstalter** sehen im Dashboard alle Events ihres Clubs (`getManagedEvents` ergänzt).
 11. **Focus-Servicegebühr 0,1 %** ohne Fixbetrag/Ticket – siehe §7.
 
+### Session 13.–14.09.2026 (Fortsetzung)
+
+1. **Schwarzes Design** für Shop **und** Dashboard (Club-Akzente bleiben) – §2.
+2. **Club-Farben getauscht:** LEVEL = **rot**, YPSILON = **blau** (vorher blau/magenta) – §2.
+3. **Kauf erst nach Klick:** Event-Kachel zeigt keine Stepper mehr; Mengen erscheinen erst in der Detail-Ansicht.
+4. **VIP-Tisch-Reservierung** (neu) – §10.
+5. **Cache-Busting** über `?v=`-Token an eigenen Assets – §2.
+6. **Dashboard Club-Ansicht-Dropdown** (LEVEL/YPSILON/Beide) – §11.
+7. (CORE-Repo, parallel:) **promnight-SSO-Empfänger** + Rückkanal gebaut – siehe CORE-Handoff/README.
+
 ---
 
 ## 5. Dynamic Pricing (Preis-Phasen)
@@ -121,13 +133,13 @@ Remove-Item meta.json
 
 | Datei | Zweck |
 |---|---|
-| `index.html` | Shop = Startseite (helles Club-Design, Club-Theme + Subdomain-Script, Detail-Modal) |
-| `assets/shop.js` | Reiter, Rendering, Warenkorb/Checkout, Subdomain-Routing, Dynamic-Pricing-Anzeige, Detail-Ansicht, Reservierungs-Freigabe |
-| `assets/store.js` | Datenschicht `CMStore`: getEvents/saveEvent, Phasen, club, uploadEventImage, Club-/Event-Owner, feeBreakdown, releaseOpenOrder |
-| `dashboard.html` · `assets/dashboard.js` | Admin-Dashboard (hell, Club/Event-Sprache, Phasen-Editor, Club-Veranstalter, Event-Bild-Upload) |
+| `index.html` | Shop = Startseite (dunkles Club-Design, Club-Theme + Subdomain-Script, Detail-Modal, VIP-Modal + Lightbox, `?v=`-Token) |
+| `assets/shop.js` | Reiter, Rendering, Warenkorb/Checkout, Subdomain-Routing, Dynamic-Pricing-Anzeige, Detail-Ansicht, Reservierungs-Freigabe, **VIP-Flow** (`openVipModal`…) |
+| `assets/store.js` | Datenschicht `CMStore`: getEvents/saveEvent, Phasen, club, uploadEventImage, Club-/Event-Owner, feeBreakdown, releaseOpenOrder, **VIP** (`tableStatus`/`getTables`/`saveTables`/`getDrinks`/`replaceDrinks`/`reserveTable`/`getReservations`/`cancelReservation`/`uploadFloorplan`) |
+| `dashboard.html` · `assets/dashboard.js` | Admin-Dashboard (dunkel, Club/Event-Sprache, Phasen-Editor, Club-Veranstalter, Event-Bild-Upload, **VIP-Verwaltung**, **Club-Ansicht-Dropdown**). SheetJS (CDN) für Excel-Import |
 | `assets/shop.css` | **geteiltes** CORE-Stylesheet – nur per Variablen umgefärbt, **nicht** CORE-spezifisch ändern |
 | `supabase/functions/create-checkout/index.ts` | Checkout: Server-Preis (Phasen), storefront-Gebühr, origin-Return, Reservierung. **In beiden Repos synchron.** |
-| `supabase/migrations/*.sql` | u. a. `20260907_storefront`, `_club`, `20260909_category_phases`/`club_owners`/`event_image`, `20260910_reservation_window` (alle eingespielt) |
+| `supabase/migrations/*.sql` | u. a. `20260907_storefront`, `_club`, `20260909_*`, `20260910_reservation_window`, **`20260913_vip_tables`/`_vip_reservation_only`/`_vip_floorplans`** (alle eingespielt) |
 | `tools/run-sql.sh` · `tools/deploy-function.sh` | SQL-/Function-Helfer (in `.gitignore`, lesen Token aus `CORE-CREDENTIALS.txt`) |
 
 ---
@@ -137,12 +149,50 @@ Remove-Item meta.json
 1. **Impressum/Datenschutz** mit echten **Focus Events GmbH**-Daten füllen (aktuell Platzhalter `[wird ergänzt]`): Anschrift, FN + Firmenbuchgericht, UID (ATU…), Geschäftsführung, Telefon.
 2. **Zahlungsgebühr:** klären, ob die 0,25 €/Ticket für Focus entfallen soll (§7).
 3. Datenschutz-Textreste aus CORE-Kontext bereinigen (Formspree/„Schule/Wunschtermin").
-4. Favicon vom Türkis-„F" aufs neue Design; Sitzplatz-Kachelfarben (falls VIP-Sitzpläne genutzt werden) noch CORE-dunkel; `www.`-Subdomain sauber auf Pages.
-5. **Browser-Cache:** Assets sind nicht gehasht → nach JS-Deploys ggf. **Strg+F5** nötig.
+4. **Favicon** noch Türkis-„F" → aufs neue (dunkle) Design anpassen; `www.`-Subdomain sauber auf Pages.
+5. **Cache-Busting** ist eingebaut (`?v=`-Token, aktuell `20260913e`) – **Token bei jeder Asset-Änderung erhöhen** (in `index.html` **und** `dashboard.html`), sonst laden Browser altes JS. (Erst-Kunden brauchen dann kein Strg+F5 mehr.)
+6. Getränke-Excel-Format mit den Veranstaltern final abstimmen (aktuell Spalte A=Name, B=Preis); optional Kategorie-Spalte.
 
 ---
 
-## 10. Zugänge (nicht im Klartext)
+## 10. VIP-Tische (Reservierung + Online-Tickets)
+
+Pro Event optional aktivierbar. **Modell:** der **Tisch** ist eine **kostenlose Reservierung**
+(exklusiv, ein Tisch = eine aktive Reservierung); der **Mindestkonsum** wird **vor Ort** im Club
+bezahlt. Der Tisch enthält **keine** Tickets – **Eintrittstickets kauft der Gast separat online**
+über den **normalen Checkout** (Stripe), aus den normalen Ticketkategorien des Events.
+
+**Kunden-Flow (Shop):** Event-Detail → „VIP-Tisch reservieren" → Tisch wählen (Grundriss-Bilder,
+frei/belegt, Mindestkonsum) → **Name + Telefon (Pflicht)** + **Eintrittstickets** (normale
+Kategorien, Preis+Stepper) + **unverbindliche Getränke-Vorbestellung** → „Reservierung bestätigen":
+Tisch wird reserviert (`reserve_table`), bei gewählten Tickets folgt der normale Stripe-Checkout.
+
+* **Grundriss:** mehrere Bilder je Event (`vip_floorplans` = JSON-Array; Alt-Spalte `vip_floorplan_url`
+  führt das erste Bild). Im Shop **Klick = Lightbox/Vollbild**.
+* **Getränke-Liste:** Veranstalter importiert Excel/CSV (Spalte A = Name, B = Preis) → `event_drinks`.
+  Parser via **SheetJS** (CDN in `dashboard.html`).
+* **Reservierungen** sieht der Veranstalter im Event-Editor (inkl. Getränke-Vorbestellung), Storno per
+  `cancel_table_reservation` (RPC).
+* **DB (alle eingespielt):** `event_tables` (Name + `min_consumption`), `event_drinks`,
+  `table_reservations` (exklusiver Partial-Index auf aktive Reservierung), RPCs `table_status`,
+  `reserve_table`, `cancel_table_reservation`. Migrationen `20260913_vip_tables.sql`,
+  `20260913_vip_reservation_only.sql`, `20260913_vip_floorplans.sql`.
+  (Die Zwischenstufe `20260913_vip_tickets.sql` = Gratis-Tickets wurde bewusst wieder zurückgenommen.)
+* **Kein Edge-Function-Deploy nötig** – Tickets laufen über den bestehenden `create-checkout`/`stripe-webhook`.
+* Verkaufszählung: VIP-Tickets sind normale Tickets → zählen bei Gesamtkontingent normal mit.
+
+---
+
+## 11. Dashboard: Club-Ansicht
+
+Dropdown oben im Dashboard (sichtbar nach Login): **Beide Clubs / LEVEL / YPSILON**.
+Filtert zentral die `events`/`orders`-Caches (`clubFilter` + `applyClubFilter()` in `dashboard.js`),
+daher ziehen **alle** Ansichten (Übersicht, Events, Bestellungen, Check-in, Auslastung) mit.
+Beim Wechsel wird der Event-Filter der Übersicht zurückgesetzt.
+
+---
+
+## 12. Zugänge (nicht im Klartext)
 
 | Zugang | Wo |
 |---|---|
