@@ -548,6 +548,16 @@
         feeRow('Servicegebühr', '0,1 %', fb.service) +
         feeRow('Zahlungsgebühr', '1,5 % + 0,25 €/Ticket', fb.payment);
     }
+    // MwSt ausweisen (im Ticketpreis enthalten), sofern beim Event hinterlegt
+    const vat = S.vatBreakdown(lines);
+    if (vat.total > 0) {
+      const nice = n => S.fmtEUR.format(n);
+      $('checkoutItems').innerHTML += vat.parts.map(p =>
+        '<div class="cat-row" style="opacity:.85"><div class="cat-info">' +
+        '<div class="name" style="font-weight:400">inkl. ' + (Number.isInteger(p.rate) ? p.rate : p.rate.toFixed(2)) + ' % MwSt</div>' +
+        '<div class="desc">enthalten im Ticketpreis</div></div>' +
+        '<div class="cat-price">' + nice(p.vat) + '</div></div>').join('');
+    }
     $('checkoutTotal').textContent = 'Gesamt: ' + S.fmtEUR.format(fb.total);
     $('checkoutNote').textContent = 'Du wirst zur sicheren Stripe-Bezahlseite weitergeleitet ' +
       '(Kreditkarte, Apple Pay u. a.). Deine Tickets werden sofort nach erfolgreicher Zahlung freigeschaltet.';

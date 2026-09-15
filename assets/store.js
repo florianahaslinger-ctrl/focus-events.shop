@@ -119,7 +119,7 @@
 
     /* --- Events & Verfügbarkeit --- */
     async getEvents(includeInactive) {
-      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_floorplans,vip_info,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
+      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_floorplans,vip_info,vat_rate,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
       let res = await sb.from('events').select(evCols + ',image_url').eq('storefront', STOREFRONT).order('date', { ascending: true });
       if (res.error && /image_url/i.test(res.error.message || '')) {
         res = await sb.from('events').select(evCols).eq('storefront', STOREFRONT).order('date', { ascending: true });
@@ -151,6 +151,7 @@
               ? e.vip_floorplans.filter(Boolean)
               : (e.vip_floorplan_url ? [e.vip_floorplan_url] : []),
             vipInfo: e.vip_info || null,
+            vatRate: (e.vat_rate == null ? null : Number(e.vat_rate)),
             ownerEmail: e.owner_email || null,
             // Zusätzliche Veranstalter (Mit-Verwalter, ohne Auszahlung)
             coOwners: Array.isArray(e.event_owners) ? e.event_owners.map(o => o.email).filter(Boolean) : [],
@@ -330,6 +331,26 @@
       const service = feeSub > 0 ? r2(0.001 * feeSub) : 0;
       const payment = feeSub > 0 ? r2(0.015 * feeSub + 0.25 * feeTickets) : 0;
       return { subtotal: r2(subtotal), service, payment, total: r2(subtotal + service + payment) };
+    },
+
+    // MwSt-Ausweis je Warenkorb: rechnet aus den Brutto-Ticketpreisen die
+    // enthaltene MwSt je Satz heraus (nur Events mit gesetztem vat_rate).
+    // Rückgabe: { total, parts:[{rate, gross, vat}] }.
+    vatBreakdown(lines) {
+      const r2 = n => Math.round(n * 100) / 100;
+      const byRate = {};
+      (lines || []).forEach(l => {
+        const rate = (l.ev && l.ev.vatRate) ? Number(l.ev.vatRate) : 0;
+        if (rate > 0) { byRate[rate] = (byRate[rate] || 0) + l.sum; }
+      });
+      let total = 0;
+      const parts = Object.keys(byRate).map(k => {
+        const rate = Number(k), gross = byRate[k];
+        const vat = r2(gross - gross / (1 + rate / 100));
+        total += vat;
+        return { rate, gross: r2(gross), vat };
+      }).sort((a, b) => a.rate - b.rate);
+      return { total: r2(total), parts };
     },
 
     // Sponsor-Logos eines Events (für die Ticket-PDF). Öffentlich lesbar.
@@ -710,6 +731,8 @@
         row.vip_floorplan_url = ev.vipFloorplanUrl || null;
       }
       if (ev.vipInfo !== undefined) row.vip_info = ev.vipInfo || null;
+      // MwSt-Satz (%) nur setzen, wenn übergeben. null/'' = keine MwSt ausweisen.
+      if (ev.vatRate !== undefined) row.vat_rate = (ev.vatRate === null || ev.vatRate === '') ? null : Math.min(100, Math.max(0, Number(ev.vatRate)));
       if (ev.ownerEmail !== undefined) row.owner_email = ev.ownerEmail ? normEmail(ev.ownerEmail) : null;
       let eventId = ev.id;
       if (eventId) {

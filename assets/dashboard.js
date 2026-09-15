@@ -337,6 +337,13 @@
     $('evSharedOn').checked = sharedOn;
     $('evSharedQuota').value = sharedOn ? ev.sharedQuota : '';
     updateSharedUI();
+    // MwSt: Satz (%) oder aus (null)
+    if ($('evVatOn')) {
+      const hasVat = !!(ev && ev.vatRate != null);
+      $('evVatOn').checked = hasVat;
+      $('evVatRate').value = hasVat ? ev.vatRate : '';
+      updateVatUI();
+    }
     // Gebühren-Modus: false (Standard) = Kunde zahlt Gebühren, true = Veranstalter übernimmt
     $('evFeesOnOrganizer').checked = ev ? !!ev.feesOnOrganizer : false;
     // Veranstalter-Zuweisung (nur Head-Admin)
@@ -652,6 +659,12 @@
       if (wrap) wrap.style.opacity = on ? '.45' : '';
       inp.title = on ? 'Deaktiviert – dieses Event nutzt ein Gesamtkontingent.' : '';
     });
+  }
+
+  // MwSt-Eingabefeld nur zeigen, wenn „MwSt ausweisen" aktiv ist.
+  function updateVatUI() {
+    if (!$('evVatOn')) return;
+    $('evVatBox').style.display = $('evVatOn').checked ? '' : 'none';
   }
 
   /* ================= Sitzplan: Gäste umsetzen ================= */
@@ -1193,6 +1206,7 @@
     updateSharedUI();
   });
   $('evSharedOn').addEventListener('change', updateSharedUI);
+  if ($('evVatOn')) $('evVatOn').addEventListener('change', updateVatUI);
   $('btnAddAdmin').addEventListener('click', async () => {
     try {
       await S.addOrganizer($('newAdminEmail').value);
@@ -1355,6 +1369,7 @@
       active: $('evActive').checked,
       sharedQuota: $('evSharedOn').checked ? (parseInt($('evSharedQuota').value, 10) || 0) : null,
       feesOnOrganizer: $('evFeesOnOrganizer').checked,
+      vatRate: ($('evVatOn') && $('evVatOn').checked) ? (parseFloat($('evVatRate').value) || 0) : null,
       sponsorLogos: editorSponsors.slice(),
       imageUrl: $('evImageUrl') ? ($('evImageUrl').value || null) : undefined,
       vipEnabled: $('evVipOn') ? $('evVipOn').checked : undefined,
