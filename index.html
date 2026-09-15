@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260915">
+<link rel="stylesheet" href="assets/shop.css?v=20260915b">
 <script src="assets/supabase.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260915"></script>
+<script src="assets/ticket-pdf.js?v=20260915b"></script>
 <style>
   /* ============================================================
      FOCUS EVENTS – Club-Shop · helles Poster-Design
@@ -196,8 +196,24 @@
 
   .ev-avail{display:block;margin-top:6px;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);}
 
+  /* Zentraler VIP-Einstieg unter den Club-Kacheln */
+  .fx-vip-cta{max-width:1200px;margin:16px auto 0;padding:0 clamp(18px,5vw,54px);display:flex;justify-content:center;}
+  .fx-vip-cta .btn{width:100%;max-width:520px;padding:15px 22px;font-size:1rem;letter-spacing:.06em;text-transform:uppercase;}
+
   /* ---------- VIP-Tische ---------- */
   .vip-hint{color:var(--ink-2);font-size:.92rem;line-height:1.55;margin:2px 0 14px;}
+  /* Lokal-Auswahl im VIP-Modal */
+  .vip-local-choice{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .vip-local{cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    padding:26px 20px;display:flex;align-items:center;justify-content:center;transition:.18s;min-height:110px;}
+  .vip-local:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 18px 40px -26px var(--accent-glow);}
+  .vip-local[data-club="LEVEL"]:hover{border-color:#e11d2a;}
+  .vip-local[data-club="YPSILON"]:hover{border-color:#2b38f5;}
+  .vip-local img{max-height:38px;width:auto;object-fit:contain;}
+  /* Datumsleiste im Tisch-Schritt */
+  .vip-datebar{display:flex;gap:12px;align-items:flex-end;margin-bottom:14px;}
+  .vip-datebar label{display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;}
+  .vip-datebar select{width:100%;padding:10px 12px;}
   .vip-floorplan{display:flex;flex-direction:column;gap:10px;margin-bottom:6px;}
   .vip-floorplan img{width:100%;height:auto;display:block;max-height:52vh;object-fit:contain;background:#0b0b0e;
     border-radius:14px;border:1px solid var(--line);cursor:zoom-in;transition:border-color .15s;}
@@ -344,6 +360,11 @@
   </div>
 </div>
 
+<!-- Zentraler VIP-Einstieg (unter den Club-Kacheln) -->
+<div class="fx-vip-cta">
+  <button type="button" class="btn btn-gold" id="btnVipReserve">VIP-Tisch reservieren</button>
+</div>
+
 <main class="fx-wrap">
   <div class="fx-secline">
     <h2>Events <em id="clubName">LEVEL</em></h2>
@@ -471,8 +492,26 @@
     <h2 id="vipTitle">VIP-Tisch reservieren</h2>
     <p class="sub" id="vipEventName"></p>
 
-    <!-- Schritt 1: Tisch wählen -->
-    <div id="vipStepTable">
+    <!-- Schritt 0: Lokal wählen -->
+    <div id="vipStepLocal" style="display:none">
+      <p class="vip-hint">Wähle dein Lokal.</p>
+      <div class="vip-local-choice">
+        <button type="button" class="vip-local" data-club="LEVEL">
+          <img src="assets/img/level-logo-white.png" alt="LEVEL"></button>
+        <button type="button" class="vip-local" data-club="YPSILON">
+          <img src="assets/img/ypsilon-logo-white.png" alt="YPSILON"></button>
+      </div>
+      <p class="vip-hint" id="vipLocalMsg" style="margin-top:12px"></p>
+    </div>
+
+    <!-- Schritt 1: Datum + Tisch wählen -->
+    <div id="vipStepTable" style="display:none">
+      <div class="vip-datebar" id="vipDateBar" style="display:none">
+        <div style="flex:1 1 auto">
+          <label for="vipEventSelect">Datum</label>
+          <select id="vipEventSelect"></select>
+        </div>
+      </div>
       <p class="vip-hint" id="vipInfoText"></p>
       <div id="vipFloorplan" class="vip-floorplan"></div>
       <div class="fx-secline" style="margin:18px 0 10px"><h2 style="font-size:1.1rem">Tisch wählen</h2>
@@ -547,7 +586,7 @@
 })();
 </script>
 
-<script src="assets/store.js?v=20260915"></script>
-<script src="assets/shop.js?v=20260915"></script>
+<script src="assets/store.js?v=20260915b"></script>
+<script src="assets/shop.js?v=20260915b"></script>
 </body>
 </html>

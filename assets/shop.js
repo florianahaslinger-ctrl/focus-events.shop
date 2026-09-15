@@ -188,6 +188,10 @@
       if (el) el.textContent = eventsCache.filter(ev => clubOf(ev) === c).length;
     });
 
+    // Zentralen VIP-Button nur zeigen, wenn es VIP-Events gibt
+    const vipCta = document.querySelector('.fx-vip-cta');
+    if (vipCta) vipCta.style.display = eventsCache.some(ev => ev.vipEnabled) ? 'flex' : 'none';
+
     // Welche Events zeigen? Direktlink > aktiver Reiter
     const list = evParam
       ? eventsCache.filter(e => e.id === evParam)
@@ -720,13 +724,57 @@
   };
 
   /* ---------- VIP-Tisch-Reservierung ---------- */
-  async function openVipModal(ev) {
+  function showVipStep(step) {
+    ['vipStepLocal', 'vipStepTable', 'vipStepConfirm'].forEach(s => {
+      const el = $(s); if (el) el.style.display = (s === step) ? '' : 'none';
+    });
+  }
+
+  // VIP-Events eines Clubs (aktiv & VIP aktiviert), nach Datum sortiert.
+  function vipEventsForClub(club) {
+    return eventsCache
+      .filter(e => e.vipEnabled && clubOf(e) === club)
+      .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+  }
+
+  // Einstieg über den zentralen Button: zuerst Lokal wählen.
+  function openVipReserveFlow() {
+    vipEv = null; vipSel = null; vipCart = {};
+    $('vipEventName').textContent = '';
+    $('vipLocalMsg').textContent = '';
+    showVipStep('vipStepLocal');
+    openModal('vipModal');
+  }
+
+  // Lokal (Club) gewählt -> Datumsliste füllen und erstes Event laden.
+  function chooseVipClub(club) {
+    const list = vipEventsForClub(club);
+    if (!list.length) {
+      $('vipLocalMsg').textContent = 'Für ' + club + ' sind aktuell keine VIP-Tische verfügbar.';
+      return;
+    }
+    $('vipEventSelect').innerHTML = list.map(e =>
+      '<option value="' + esc(e.id) + '">' + esc((e.date ? fmtDate(e.date) : 'ohne Datum') + ' · ' + e.name) + '</option>').join('');
+    $('vipDateBar').style.display = ''; // Datum-Feld immer zeigen
+    loadVipEvent(list[0]);
+    showVipStep('vipStepTable');
+  }
+
+  // Einstieg direkt für ein bestimmtes Event (aus der Event-Detailansicht).
+  function openVipModal(ev) {
+    $('vipDateBar').style.display = 'none';
+    closeModal('eventDetailModal');
+    openModal('vipModal');
+    loadVipEvent(ev);
+    showVipStep('vipStepTable');
+  }
+
+  // Lädt Grundriss + Tische eines Events (Tisch-Schritt).
+  async function loadVipEvent(ev) {
     vipEv = ev; vipSel = null; vipCart = {};
     $('vipEventName').textContent = ev.name + (ev.date ? ' · ' + fmtDate(ev.date) : '');
     $('vipInfoText').textContent = ev.vipInfo || '';
     $('vipInfoText').style.display = ev.vipInfo ? '' : 'none';
-    $('vipStepConfirm').style.display = 'none';
-    $('vipStepTable').style.display = '';
     const fp = $('vipFloorplan');
     const fpImgs = (ev.vipFloorplans && ev.vipFloorplans.length)
       ? ev.vipFloorplans
@@ -737,8 +785,6 @@
     fp.querySelectorAll('img[data-fp]').forEach(im =>
       im.addEventListener('click', () => openVipLightbox(im.dataset.fp)));
     $('vipTables').innerHTML = '<p class="sub">Tische werden geladen …</p>';
-    closeModal('eventDetailModal');
-    openModal('vipModal');
     try { vipTables = await S.tableStatus(ev.id); }
     catch (e) { $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">' + esc(e.message) + '</p>'; return; }
     renderVipTables();
@@ -890,6 +936,14 @@
     $('vipBack').addEventListener('click', () => { $('vipStepConfirm').style.display = 'none'; $('vipStepTable').style.display = ''; });
     $('vipConfirm').addEventListener('click', confirmReservation);
     $('vipLightbox').addEventListener('click', () => $('vipLightbox').classList.remove('open'));
+    // Zentraler VIP-Einstieg + Lokal-/Datumsauswahl
+    if ($('btnVipReserve')) $('btnVipReserve').addEventListener('click', openVipReserveFlow);
+    document.querySelectorAll('#vipStepLocal .vip-local').forEach(b =>
+      b.addEventListener('click', () => chooseVipClub(b.dataset.club)));
+    if ($('vipEventSelect')) $('vipEventSelect').addEventListener('change', () => {
+      const ev = eventsCache.find(e => e.id === $('vipEventSelect').value);
+      if (ev) loadVipEvent(ev);
+    });
 
     await S.init();          // stellt auch Sessions aus Magic-Link-URLs her
     renderNav();
