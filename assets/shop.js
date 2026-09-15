@@ -9,6 +9,7 @@
   let selectedSeats = {}; // { categoryId: [seatId, …] }
   // VIP-Tische
   let vipEv = null, vipTables = [], vipDrinksList = null, vipSel = null, vipCart = {};
+  let vipDayEvent = null; // Event am gewählten Tag (falls vorhanden) -> Eintrittsticket nötig
   let eventsCache = [];
   let activeClub = 'LEVEL'; // aktiver Reiter: 'LEVEL' | 'YPSILON'
   let pendingEmail = '';
@@ -811,8 +812,13 @@
     if (!vipEv) return;
     const club = clubOf(vipEv) || '';
     const dateVal = $('vipDate').value;
+    // Findet ein Event dieses Clubs am gewählten Tag statt (mit Tickets)? -> Ticketpflicht
+    vipDayEvent = eventsCache.find(e => clubOf(e) === club && localDateStr(e.date) === dateVal &&
+      (e.categories || []).some(c => c.active)) || null;
     $('vipEventName').textContent = (club ? club + ' · ' : '') + niceDateStr(dateVal);
-    $('vipDateHint').textContent = 'Freie Terminwahl – wähle deinen Wunschtag.';
+    $('vipDateHint').textContent = vipDayEvent
+      ? 'An diesem Tag: „' + vipDayEvent.name + '" – Eintrittsticket erforderlich (im nächsten Schritt).'
+      : 'Freie Terminwahl – wähle deinen Wunschtag.';
     $('vipTables').innerHTML = '<p class="sub">Tische werden geladen …</p>';
     try { vipTables = await S.tableStatus(vipEv.id, dateVal); }
     catch (e) { $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">' + esc(e.message) + '</p>'; return; }
@@ -882,6 +888,16 @@
         ? 'Mindestkonsum <b>' + S.fmtEUR.format(min) + '</b> – wird vor Ort im Club konsumiert und bezahlt.'
         : 'Kein Mindestkonsum.') + '</div>' +
       '<div class="vip-sel-min">' + esc($('vipEventName').textContent) + '</div>';
+    // Eintrittstickets nur an Event-Tagen (normale Kategorien, online zu bezahlen)
+    if (vipDayEvent) {
+      const cats = (vipDayEvent.categories || []).filter(c => c.active);
+      $('vipTicketsWrap').style.display = cats.length ? '' : 'none';
+      $('vipTickets').innerHTML = cats.map(catRowHTML).join('');
+      bindQty($('vipTickets'));
+    } else {
+      $('vipTicketsWrap').style.display = 'none';
+      $('vipTickets').innerHTML = '';
+    }
     const items = vipDrinksList ? vipDrinksList.items : [];
     $('vipDrinks').innerHTML = items.length
       ? items.map(d => {
@@ -922,6 +938,11 @@
       .map(d => ({ name: d.name, price: d.price, qty: vipCart[d.id] }));
     const dateVal = $('vipDate').value;
     if (!dateVal) { msg($('vipMsg'), 'Bitte ein Datum wählen.', 'error'); return; }
+    // An Event-Tagen ist ein Eintrittsticket Pflicht.
+    if (vipDayEvent) {
+      const hasEntry = (vipDayEvent.categories || []).some(c => (cart[c.id] || 0) > 0);
+      if (!hasEntry) { msg($('vipMsg'), 'An diesem Event-Tag bitte mindestens ein Eintrittsticket wählen.', 'error'); return; }
+    }
     try {
       $('vipConfirm').disabled = true;
       msg($('vipMsg'), 'Reservierung wird gespeichert …', 'info');
@@ -929,12 +950,18 @@
       const tName = vipSel.name, tMin = vipSel.minConsumption;
       closeModal('vipModal');
       closeModal('eventDetailModal');
-      $('successSub').textContent = 'Tisch „' + tName + '" ist für ' + niceDateStr(dateVal) + ' reserviert.' +
-        (tMin > 0 ? ' Mindestkonsum ' + S.fmtEUR.format(tMin) + ' wird vor Ort im Club bezahlt.' : '') +
-        (drinks.length ? ' Deine Getränke-Vorbestellung wurde an den Veranstalter übermittelt.' : '') +
-        ' Eintrittstickets kannst du separat im Shop kaufen.';
-      $('successTickets').innerHTML = '';
-      openModal('successModal');
+      renderMyTickets();
+      if (vipDayEvent) {
+        // Reservierung + VIP-Ticket erstellt; jetzt die Eintrittstickets bezahlen.
+        openCheckout();
+      } else {
+        $('successSub').textContent = 'Tisch „' + tName + '" ist für ' + niceDateStr(dateVal) + ' reserviert.' +
+          (tMin > 0 ? ' Mindestkonsum ' + S.fmtEUR.format(tMin) + ' wird vor Ort im Club bezahlt.' : '') +
+          (drinks.length ? ' Deine Getränke-Vorbestellung wurde an den Veranstalter übermittelt.' : '') +
+          ' Dein VIP-Ticket mit QR-Code findest du unter „Meine Tickets".';
+        $('successTickets').innerHTML = '';
+        openModal('successModal');
+      }
     } catch (e) {
       msg($('vipMsg'), e.message, 'error');
     } finally {

@@ -694,6 +694,23 @@
       }));
     },
 
+    // Veranstalter: ALLE VIP-Reservierungen (event-übergreifend, per RLS auf
+    // die eigenen Events beschränkt). Für die eigene Dashboard-Ansicht.
+    async getAllReservations() {
+      const { data, error } = await sb.from('table_reservations')
+        .select('id,email,guest_name,phone,res_date,min_consumption,drinks,drinks_total,status,created_at,event_tables(name),events(club,name)')
+        .order('res_date', { ascending: true }).order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data || []).map(r => ({
+        id: r.id, email: r.email, guestName: r.guest_name, phone: r.phone,
+        resDate: r.res_date || null, minConsumption: Number(r.min_consumption || 0),
+        drinks: Array.isArray(r.drinks) ? r.drinks : [],
+        drinksTotal: Number(r.drinks_total || 0), status: r.status, createdAt: r.created_at,
+        tableName: r.event_tables ? r.event_tables.name : null,
+        club: r.events ? (r.events.club || null) : null
+      }));
+    },
+
     async cancelReservation(id) {
       // Storniert Reservierung UND die zugehörigen Freitickets (RPC).
       const { error } = await sb.rpc('cancel_table_reservation', { p_id: id });

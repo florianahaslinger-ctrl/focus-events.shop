@@ -404,7 +404,6 @@
       renderFloorplans();
       vipDrinksDraft = []; vipDrinksDirty = false;
       $('vipTableEditor').innerHTML = '';
-      $('vipReservations').innerHTML = '';
       if (ev) {
         S.getTables(ev.id).then(tables => {
           $('vipTableEditor').innerHTML = tables.map(vipTableRowHTML).join('');
@@ -414,7 +413,6 @@
           vipDrinksDraft = drinks.map(d => ({ name: d.name, price: d.price }));
           vipDrinksDirty = false; renderVipDrinksPreview();
         }).catch(() => {});
-        renderVipReservations(ev.id);
       } else {
         renderVipDrinksPreview();
       }
@@ -568,15 +566,20 @@
       reader.readAsArrayBuffer(file);
     });
   }
-  async function renderVipReservations(eventId) {
-    const box = $('vipReservations'); if (!box) return;
-    if (!eventId) { box.innerHTML = ''; return; }
+  // Eigener VIP-Reservierungs-Tab: alle Reservierungen (event-übergreifend),
+  // nach Datum, gefiltert nach Club-Ansicht.
+  async function renderVipReservationsAll() {
+    const box = $('vipResAll'); if (!box) return;
     box.innerHTML = '<p class="hint">Reservierungen werden geladen …</p>';
     let list;
-    try { list = await S.getReservations(eventId); }
+    try { list = await S.getAllReservations(); }
     catch (e) { box.innerHTML = '<p class="hint">' + esc(e.message) + '</p>'; return; }
-    const active = list.filter(r => r.status === 'reserviert');
-    if (!active.length) { box.innerHTML = '<p class="hint">Noch keine VIP-Reservierungen.</p>'; return; }
+    let active = list.filter(r => r.status === 'reserviert');
+    if (clubFilter) active = active.filter(r => (r.club || '') === clubFilter);
+    if (!active.length) {
+      box.innerHTML = '<p class="sub">Noch keine VIP-Reservierungen' + (clubFilter ? ' für ' + clubFilter : '') + '.</p>';
+      return;
+    }
     box.innerHTML = active.map(r => {
       const drinks = (r.drinks || []).map(d => (d.qty + '× ' + d.name)).join(', ');
       const resDate = r.resDate
@@ -584,7 +587,7 @@
         : '(ohne Datum)';
       return '<div class="admin-cat" style="display:block">' +
         '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
-        '<b>' + esc(resDate) + ' · Tisch ' + esc(r.tableName || '?') + '</b>' +
+        '<b>' + esc(resDate) + (r.club ? ' · ' + esc(r.club) : '') + ' · Tisch ' + esc(r.tableName || '?') + '</b>' +
         '<span class="hint">gebucht ' + new Date(r.createdAt).toLocaleDateString('de-AT') + '</span></div>' +
         '<div class="hint" style="margin-top:4px">' + esc(r.email) +
         (r.guestName ? ' · ' + esc(r.guestName) : '') +
@@ -595,8 +598,8 @@
         '</div>';
     }).join('');
     box.querySelectorAll('.vip-res-cancel').forEach(b => b.addEventListener('click', async () => {
-      if (!confirm('Diese Reservierung wirklich stornieren? Der Tisch wird wieder frei.')) return;
-      try { await S.cancelReservation(b.dataset.res); await renderVipReservations(eventId); }
+      if (!confirm('Diese Reservierung wirklich stornieren? Der Tisch wird wieder frei und das VIP-Ticket ungültig.')) return;
+      try { await S.cancelReservation(b.dataset.res); await renderVipReservationsAll(); }
       catch (e) { alert(e.message); }
     }));
   }
@@ -1136,6 +1139,7 @@
     renderAdmins();
     renderClubOwners();
     renderConnect();
+    renderVipReservationsAll();
   }
 
   /* ================= Gesamt-Render ================= */
@@ -1210,6 +1214,7 @@
   });
   $('evSharedOn').addEventListener('change', updateSharedUI);
   if ($('evVatOn')) $('evVatOn').addEventListener('change', updateVatUI);
+  if ($('btnVipReload')) $('btnVipReload').addEventListener('click', renderVipReservationsAll);
   $('btnAddAdmin').addEventListener('click', async () => {
     try {
       await S.addOrganizer($('newAdminEmail').value);

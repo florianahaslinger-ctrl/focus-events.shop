@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260915d">
+<link rel="stylesheet" href="assets/shop.css?v=20260915e">
 <style id="fxDashTheme">
   /* Focus Events – Dashboard im gleichen dunklen Look wie der Shop (Focus-Blau).
      Die geteilten CORE-Variablen werden aufs dunkle Theme umgebogen -> CORE unberührt. */
@@ -116,6 +116,7 @@
     <button data-tab="tabEvents">Events &amp; Tickets</button>
     <button data-tab="tabSeats" style="display:none">Sitzplan</button>
     <button data-tab="tabIssue">Tickets ausstellen</button>
+    <button data-tab="tabVip">VIP-Tische</button>
     <button data-tab="tabOrders">Bestellungen</button>
     <button data-tab="tabCheckin">Check-in</button>
     <button data-tab="tabSettings">Einstellungen</button>
@@ -154,6 +155,16 @@
       <button class="btn btn-gold btn-sm" id="btnNewEvent">+ Neues Event</button>
     </div>
     <div id="adminEvents"></div>
+  </div>
+
+  <!-- VIP-Tische: Reservierungen (event-übergreifend) -->
+  <div class="tabpane" id="tabVip">
+    <div class="toolbar">
+      <p class="sub">Alle VIP-Tisch-Reservierungen nach Datum. Der Club-Filter oben gilt auch hier. Getränke-Vorbestellung und Kontaktdaten je Reservierung. Jede Reservierung enthält ein spezielles VIP-Ticket (QR) für den Gast.</p>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="btnVipReload">Aktualisieren</button>
+    </div>
+    <div id="vipResAll"></div>
   </div>
 
   <!-- Sitzplan (Gäste umsetzen) -->
@@ -419,9 +430,7 @@
         </div>
         <p class="hint" id="evVipDrinksInfo">Noch keine Getränke hinterlegt.</p>
         <div id="vipDrinksPreview" style="max-height:180px;overflow:auto;margin-top:6px"></div>
-
-        <label style="margin-top:14px">VIP-Reservierungen</label>
-        <div id="vipReservations" style="display:flex;flex-direction:column;gap:8px"></div>
+        <p class="hint" style="margin-top:10px">Reservierungen siehst du im eigenen Tab <b>„VIP-Tische"</b> oben.</p>
       </div>
     </div>
 
@@ -505,8 +514,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260915d"></script>
-<script src="assets/store.js?v=20260915d"></script>
-<script src="assets/dashboard.js?v=20260915d"></script>
+<script src="assets/ticket-pdf.js?v=20260915e"></script>
+<script src="assets/store.js?v=20260915e"></script>
+<script src="assets/dashboard.js?v=20260915e"></script>
 </body>
 </html>
