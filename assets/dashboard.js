@@ -579,10 +579,13 @@
     if (!active.length) { box.innerHTML = '<p class="hint">Noch keine VIP-Reservierungen.</p>'; return; }
     box.innerHTML = active.map(r => {
       const drinks = (r.drinks || []).map(d => (d.qty + '× ' + d.name)).join(', ');
+      const resDate = r.resDate
+        ? new Date(r.resDate + 'T00:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })
+        : '(ohne Datum)';
       return '<div class="admin-cat" style="display:block">' +
         '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
-        '<b>Tisch ' + esc(r.tableName || '?') + '</b>' +
-        '<span class="hint">' + new Date(r.createdAt).toLocaleString('de-AT') + '</span></div>' +
+        '<b>' + esc(resDate) + ' · Tisch ' + esc(r.tableName || '?') + '</b>' +
+        '<span class="hint">gebucht ' + new Date(r.createdAt).toLocaleDateString('de-AT') + '</span></div>' +
         '<div class="hint" style="margin-top:4px">' + esc(r.email) +
         (r.guestName ? ' · ' + esc(r.guestName) : '') +
         (r.phone ? ' · ' + esc(r.phone) : '') + '</div>' +

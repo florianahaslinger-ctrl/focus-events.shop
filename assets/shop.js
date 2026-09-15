@@ -730,8 +730,6 @@
     });
   }
 
-  let vipClubEvents = []; // VIP-Events des aktuell gewählten Clubs (für den Kalender)
-
   // VIP-Events eines Clubs (aktiv & VIP aktiviert), nach Datum sortiert.
   function vipEventsForClub(club) {
     return eventsCache
@@ -751,89 +749,77 @@
     return new Date(iso).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
+  function todayStr() {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  function niceDateStr(val) {
+    if (!val) return '';
+    const d = new Date(val + 'T00:00:00');
+    return d.toLocaleDateString('de-AT', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' });
+  }
+
   // Einstieg über den zentralen Button: zuerst Lokal wählen.
   function openVipReserveFlow() {
-    vipEv = null; vipSel = null; vipCart = {};
-    $('vipEventName').textContent = '';
+    vipSel = null; vipCart = {};
     $('vipLocalMsg').textContent = '';
     showVipStep('vipStepLocal');
     openModal('vipModal');
   }
 
-  // Verfügbare Termine als Hinweis (die Tage, an denen es VIP-Events gibt).
-  function renderVipDateHint() {
-    const dates = vipClubEvents.filter(e => e.date).map(e => '<b>' + shortDate(e.date) + '</b>');
-    $('vipDateHint').innerHTML = dates.length
-      ? 'Verfügbare Termine: ' + dates.join(' · ')
-      : '';
-  }
-
-  // Lokal (Club) gewählt -> Kalender aufsetzen und ersten Termin laden.
+  // Lokal (Club) gewählt -> VIP-Vorlage des Clubs laden, freie Terminwahl.
   function chooseVipClub(club) {
     const list = vipEventsForClub(club);
     if (!list.length) {
-      $('vipLocalMsg').textContent = 'Für ' + club + ' sind aktuell keine VIP-Tische verfügbar.';
+      $('vipLocalMsg').textContent = 'Für ' + club + ' ist derzeit kein VIP-Bereich eingerichtet.';
       return;
     }
-    vipClubEvents = list;
-    const dated = list.filter(e => e.date);
-    const inp = $('vipDate');
-    if (dated.length) {
-      inp.min = localDateStr(dated[0].date);
-      inp.max = localDateStr(dated[dated.length - 1].date);
-      inp.value = localDateStr(dated[0].date);
-    } else {
-      inp.removeAttribute('min'); inp.removeAttribute('max'); inp.value = '';
-    }
-    renderVipDateHint();
-    $('vipDateBar').style.display = '';
-    loadVipEvent(list[0]);
-    showVipStep('vipStepTable');
+    startVipFlow(list[0], todayStr());
   }
 
-  // Kalender-Datum gewählt -> passendes VIP-Event laden (oder Hinweis).
-  function pickVipDate() {
-    const val = $('vipDate').value;
-    const ev = vipClubEvents.find(e => localDateStr(e.date) === val);
-    renderVipDateHint();
-    if (ev) { loadVipEvent(ev); }
-    else {
-      vipEv = null;
-      $('vipFloorplan').style.display = 'none';
-      $('vipInfoText').style.display = 'none';
-      $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">An diesem Tag gibt es kein VIP-Event. Bitte einen der verfügbaren Termine wählen.</p>';
-    }
-  }
-
-  // Einstieg direkt für ein bestimmtes Event (aus der Event-Detailansicht).
+  // Einstieg direkt aus der Event-Detailansicht: Vorlage = dieses Event.
   function openVipModal(ev) {
-    $('vipDateBar').style.display = 'none';
     closeModal('eventDetailModal');
     openModal('vipModal');
-    loadVipEvent(ev);
-    showVipStep('vipStepTable');
+    startVipFlow(ev, localDateStr(ev.date) || todayStr());
   }
 
-  // Lädt Grundriss + Tische eines Events (Tisch-Schritt).
-  async function loadVipEvent(ev) {
-    vipEv = ev; vipSel = null; vipCart = {};
-    $('vipEventName').textContent = ev.name + (ev.date ? ' · ' + fmtDate(ev.date) : '');
-    $('vipInfoText').textContent = ev.vipInfo || '';
-    $('vipInfoText').style.display = ev.vipInfo ? '' : 'none';
+  // Setzt Vorlage-Event (Grundriss/Tische/Getränke) + freien Kalender auf.
+  function startVipFlow(templateEv, dateVal) {
+    vipEv = templateEv; vipSel = null; vipCart = {};
+    $('vipInfoText').textContent = templateEv.vipInfo || '';
+    $('vipInfoText').style.display = templateEv.vipInfo ? '' : 'none';
     const fp = $('vipFloorplan');
-    const fpImgs = (ev.vipFloorplans && ev.vipFloorplans.length)
-      ? ev.vipFloorplans
-      : (ev.vipFloorplanUrl ? [ev.vipFloorplanUrl] : []);
+    const fpImgs = (templateEv.vipFloorplans && templateEv.vipFloorplans.length)
+      ? templateEv.vipFloorplans
+      : (templateEv.vipFloorplanUrl ? [templateEv.vipFloorplanUrl] : []);
     fp.innerHTML = fpImgs.map(u =>
       '<img src="' + esc(u) + '" alt="Grundriss" title="Zum Vergrößern klicken" data-fp="' + esc(u) + '">').join('');
     fp.style.display = fpImgs.length ? '' : 'none';
     fp.querySelectorAll('img[data-fp]').forEach(im =>
       im.addEventListener('click', () => openVipLightbox(im.dataset.fp)));
+    const inp = $('vipDate');
+    inp.min = todayStr(); inp.removeAttribute('max');
+    inp.value = (dateVal && dateVal >= todayStr()) ? dateVal : todayStr();
+    $('vipDateBar').style.display = '';
+    showVipStep('vipStepTable');
+    refreshVipTables();
+  }
+
+  // Tische für das gewählte Datum laden (Verfügbarkeit pro Tag).
+  async function refreshVipTables() {
+    if (!vipEv) return;
+    const club = clubOf(vipEv) || '';
+    const dateVal = $('vipDate').value;
+    $('vipEventName').textContent = (club ? club + ' · ' : '') + niceDateStr(dateVal);
+    $('vipDateHint').textContent = 'Freie Terminwahl – wähle deinen Wunschtag.';
     $('vipTables').innerHTML = '<p class="sub">Tische werden geladen …</p>';
-    try { vipTables = await S.tableStatus(ev.id); }
+    try { vipTables = await S.tableStatus(vipEv.id, dateVal); }
     catch (e) { $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">' + esc(e.message) + '</p>'; return; }
     renderVipTables();
   }
+
+  function pickVipDate() { refreshVipTables(); }
 
   function openVipLightbox(url) {
     $('vipLightboxImg').src = url;
@@ -894,13 +880,8 @@
       '<div class="vip-sel-name">' + esc(vipSel.name) + '</div>' +
       '<div class="vip-sel-min">' + (min > 0
         ? 'Mindestkonsum <b>' + S.fmtEUR.format(min) + '</b> – wird vor Ort im Club konsumiert und bezahlt.'
-        : 'Kein Mindestkonsum.') + '</div>';
-    // Eintrittstickets: normale Ticketkategorien des Events (online zu bezahlen).
-    const cats = (vipEv.categories || []).filter(c => c.active);
-    $('vipTickets').innerHTML = cats.length
-      ? cats.map(catRowHTML).join('')
-      : '<p class="sub">Für dieses Event sind aktuell keine Tickets im Verkauf – der Tisch kann trotzdem reserviert werden.</p>';
-    bindQty($('vipTickets'));
+        : 'Kein Mindestkonsum.') + '</div>' +
+      '<div class="vip-sel-min">' + esc($('vipEventName').textContent) + '</div>';
     const items = vipDrinksList ? vipDrinksList.items : [];
     $('vipDrinks').innerHTML = items.length
       ? items.map(d => {
@@ -939,27 +920,21 @@
     const drinks = (vipDrinksList ? vipDrinksList.items : [])
       .filter(d => vipCart[d.id] > 0)
       .map(d => ({ name: d.name, price: d.price, qty: vipCart[d.id] }));
+    const dateVal = $('vipDate').value;
+    if (!dateVal) { msg($('vipMsg'), 'Bitte ein Datum wählen.', 'error'); return; }
     try {
       $('vipConfirm').disabled = true;
       msg($('vipMsg'), 'Reservierung wird gespeichert …', 'info');
-      await S.reserveTable(vipSel.id, { guestName: guestName, phone: phone, drinks });
+      await S.reserveTable(vipSel.id, { date: dateVal, guestName: guestName, phone: phone, drinks });
       const tName = vipSel.name, tMin = vipSel.minConsumption;
-      // Hat der Gast Eintrittstickets dazugebucht? -> normaler Checkout (Stripe)
-      const hasTickets = (vipEv.categories || []).some(c => (cart[c.id] || 0) > 0);
       closeModal('vipModal');
       closeModal('eventDetailModal');
-      renderEvents();
-      if (hasTickets) {
-        // Tisch ist reserviert; jetzt die Tickets wie im normalen Shop bezahlen.
-        openCheckout();
-      } else {
-        $('successSub').textContent = '„' + tName + '" ist für dich reserviert.' +
-          (tMin > 0 ? ' Mindestkonsum ' + S.fmtEUR.format(tMin) + ' wird vor Ort im Club bezahlt.' : '') +
-          (drinks.length ? ' Deine Getränke-Vorbestellung wurde an den Veranstalter übermittelt.' : '') +
-          ' Eintrittstickets kannst du jederzeit im Shop dazubuchen.';
-        $('successTickets').innerHTML = '';
-        openModal('successModal');
-      }
+      $('successSub').textContent = 'Tisch „' + tName + '" ist für ' + niceDateStr(dateVal) + ' reserviert.' +
+        (tMin > 0 ? ' Mindestkonsum ' + S.fmtEUR.format(tMin) + ' wird vor Ort im Club bezahlt.' : '') +
+        (drinks.length ? ' Deine Getränke-Vorbestellung wurde an den Veranstalter übermittelt.' : '') +
+        ' Eintrittstickets kannst du separat im Shop kaufen.';
+      $('successTickets').innerHTML = '';
+      openModal('successModal');
     } catch (e) {
       msg($('vipMsg'), e.message, 'error');
     } finally {

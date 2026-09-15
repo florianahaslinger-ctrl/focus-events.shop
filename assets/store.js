@@ -597,9 +597,9 @@
       return data.publicUrl;
     },
 
-    // Öffentlicher Tischstatus (frei/belegt) – für die Kundenauswahl.
-    async tableStatus(eventId) {
-      const { data, error } = await sb.rpc('table_status', { p_event: eventId });
+    // Öffentlicher Tischstatus (frei/belegt am gewählten Datum) – für die Kundenauswahl.
+    async tableStatus(eventId, dateStr) {
+      const { data, error } = await sb.rpc('table_status', { p_event: eventId, p_date: dateStr || null });
       if (error) throw new Error(error.message);
       return (data || []).map(t => ({
         id: t.id, name: t.name, minConsumption: Number(t.min_consumption || 0),
@@ -665,14 +665,14 @@
       return rows.length;
     },
 
-    // Kunde: Tisch reservieren (atomar, exklusiv). drinks = [{name,price,qty}].
+    // Kunde: Tisch an einem Datum reservieren (atomar, exklusiv pro Tisch & Tag).
     async reserveTable(tableId, opts) {
       opts = opts || {};
       const { data, error } = await sb.rpc('reserve_table', {
         p_table: tableId,
+        p_date: opts.date || null,
         p_guest_name: opts.guestName || null,
         p_phone: opts.phone || null,
-        p_qty: (opts.qty == null || opts.qty === '') ? 1 : parseInt(opts.qty, 10),
         p_drinks: Array.isArray(opts.drinks) ? opts.drinks : []
       });
       if (error) throw new Error(error.message);
@@ -682,12 +682,12 @@
     // Veranstalter: Reservierungen eines Events (inkl. Getränke-Vorbestellung).
     async getReservations(eventId) {
       const { data, error } = await sb.from('table_reservations')
-        .select('id,email,guest_name,phone,party_size,min_consumption,drinks,drinks_total,status,created_at,event_tables(name)')
-        .eq('event_id', eventId).order('created_at', { ascending: false });
+        .select('id,email,guest_name,phone,party_size,res_date,min_consumption,drinks,drinks_total,status,created_at,event_tables(name)')
+        .eq('event_id', eventId).order('res_date', { ascending: true }).order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return (data || []).map(r => ({
         id: r.id, email: r.email, guestName: r.guest_name, phone: r.phone,
-        partySize: r.party_size, minConsumption: Number(r.min_consumption || 0),
+        partySize: r.party_size, resDate: r.res_date || null, minConsumption: Number(r.min_consumption || 0),
         drinks: Array.isArray(r.drinks) ? r.drinks : [],
         drinksTotal: Number(r.drinks_total || 0), status: r.status, createdAt: r.created_at,
         tableName: r.event_tables ? r.event_tables.name : null
