@@ -730,11 +730,25 @@
     });
   }
 
+  let vipClubEvents = []; // VIP-Events des aktuell gewählten Clubs (für den Kalender)
+
   // VIP-Events eines Clubs (aktiv & VIP aktiviert), nach Datum sortiert.
   function vipEventsForClub(club) {
     return eventsCache
       .filter(e => e.vipEnabled && clubOf(e) === club)
       .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+  }
+
+  // ISO-Zeitstempel -> lokales Datum 'YYYY-MM-DD' (fürs Kalender-Feld).
+  function localDateStr(iso) {
+    if (!iso) return '';
+    const d = new Date(iso), p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  // Kurzes Datum 'TT.MM.JJJJ' für den Termin-Hinweis.
+  function shortDate(iso) {
+    if (!iso) return 'ohne Datum';
+    return new Date(iso).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
   // Einstieg über den zentralen Button: zuerst Lokal wählen.
@@ -746,18 +760,49 @@
     openModal('vipModal');
   }
 
-  // Lokal (Club) gewählt -> Datumsliste füllen und erstes Event laden.
+  // Verfügbare Termine als Hinweis (die Tage, an denen es VIP-Events gibt).
+  function renderVipDateHint() {
+    const dates = vipClubEvents.filter(e => e.date).map(e => '<b>' + shortDate(e.date) + '</b>');
+    $('vipDateHint').innerHTML = dates.length
+      ? 'Verfügbare Termine: ' + dates.join(' · ')
+      : '';
+  }
+
+  // Lokal (Club) gewählt -> Kalender aufsetzen und ersten Termin laden.
   function chooseVipClub(club) {
     const list = vipEventsForClub(club);
     if (!list.length) {
       $('vipLocalMsg').textContent = 'Für ' + club + ' sind aktuell keine VIP-Tische verfügbar.';
       return;
     }
-    $('vipEventSelect').innerHTML = list.map(e =>
-      '<option value="' + esc(e.id) + '">' + esc((e.date ? fmtDate(e.date) : 'ohne Datum') + ' · ' + e.name) + '</option>').join('');
-    $('vipDateBar').style.display = ''; // Datum-Feld immer zeigen
+    vipClubEvents = list;
+    const dated = list.filter(e => e.date);
+    const inp = $('vipDate');
+    if (dated.length) {
+      inp.min = localDateStr(dated[0].date);
+      inp.max = localDateStr(dated[dated.length - 1].date);
+      inp.value = localDateStr(dated[0].date);
+    } else {
+      inp.removeAttribute('min'); inp.removeAttribute('max'); inp.value = '';
+    }
+    renderVipDateHint();
+    $('vipDateBar').style.display = '';
     loadVipEvent(list[0]);
     showVipStep('vipStepTable');
+  }
+
+  // Kalender-Datum gewählt -> passendes VIP-Event laden (oder Hinweis).
+  function pickVipDate() {
+    const val = $('vipDate').value;
+    const ev = vipClubEvents.find(e => localDateStr(e.date) === val);
+    renderVipDateHint();
+    if (ev) { loadVipEvent(ev); }
+    else {
+      vipEv = null;
+      $('vipFloorplan').style.display = 'none';
+      $('vipInfoText').style.display = 'none';
+      $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">An diesem Tag gibt es kein VIP-Event. Bitte einen der verfügbaren Termine wählen.</p>';
+    }
   }
 
   // Einstieg direkt für ein bestimmtes Event (aus der Event-Detailansicht).
@@ -940,10 +985,7 @@
     if ($('btnVipReserve')) $('btnVipReserve').addEventListener('click', openVipReserveFlow);
     document.querySelectorAll('#vipStepLocal .vip-local').forEach(b =>
       b.addEventListener('click', () => chooseVipClub(b.dataset.club)));
-    if ($('vipEventSelect')) $('vipEventSelect').addEventListener('change', () => {
-      const ev = eventsCache.find(e => e.id === $('vipEventSelect').value);
-      if (ev) loadVipEvent(ev);
-    });
+    if ($('vipDate')) $('vipDate').addEventListener('change', pickVipDate);
 
     await S.init();          // stellt auch Sessions aus Magic-Link-URLs her
     renderNav();

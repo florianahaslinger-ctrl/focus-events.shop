@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260915b">
+<link rel="stylesheet" href="assets/shop.css?v=20260915c">
 <script src="assets/supabase.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260915b"></script>
+<script src="assets/ticket-pdf.js?v=20260915c"></script>
 <style>
   /* ============================================================
      FOCUS EVENTS – Club-Shop · helles Poster-Design
@@ -213,7 +213,9 @@
   /* Datumsleiste im Tisch-Schritt */
   .vip-datebar{display:flex;gap:12px;align-items:flex-end;margin-bottom:14px;}
   .vip-datebar label{display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;}
-  .vip-datebar select{width:100%;padding:10px 12px;}
+  .vip-datebar select,.vip-datebar input[type=date]{width:100%;padding:10px 12px;color-scheme:dark;}
+  .vip-datehint{font-size:.78rem;color:var(--mut);margin:6px 0 0;}
+  .vip-datehint b{color:var(--accent);}
   .vip-floorplan{display:flex;flex-direction:column;gap:10px;margin-bottom:6px;}
   .vip-floorplan img{width:100%;height:auto;display:block;max-height:52vh;object-fit:contain;background:#0b0b0e;
     border-radius:14px;border:1px solid var(--line);cursor:zoom-in;transition:border-color .15s;}
@@ -326,6 +328,8 @@
     .fx-tabs{grid-template-columns:1fr 1fr;gap:10px;}
     .fx-tab{padding:20px 16px;min-height:118px;}
     #eventList{grid-template-columns:1fr;}
+    /* VIP: Lokal-Auswahl am Handy untereinander */
+    .vip-local-choice{grid-template-columns:1fr;}
   }
 </style>
 </head>
@@ -508,8 +512,9 @@
     <div id="vipStepTable" style="display:none">
       <div class="vip-datebar" id="vipDateBar" style="display:none">
         <div style="flex:1 1 auto">
-          <label for="vipEventSelect">Datum</label>
-          <select id="vipEventSelect"></select>
+          <label for="vipDate">Datum wählen</label>
+          <input type="date" id="vipDate">
+          <p class="vip-datehint" id="vipDateHint"></p>
         </div>
       </div>
       <p class="vip-hint" id="vipInfoText"></p>
@@ -586,7 +591,7 @@
 })();
 </script>
 
-<script src="assets/store.js?v=20260915b"></script>
-<script src="assets/shop.js?v=20260915b"></script>
+<script src="assets/store.js?v=20260915c"></script>
+<script src="assets/shop.js?v=20260915c"></script>
 </body>
 </html>
