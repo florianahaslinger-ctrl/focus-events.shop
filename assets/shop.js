@@ -52,12 +52,15 @@
     return 'Danach ' + when + ': ' + S.fmtEUR.format(n.price);
   }
 
-  // Eine Ticketkategorie-Zeile (identisch in Karte und Detail-Ansicht)
-  function catRowHTML(cat) {
+  // Eine Ticketkategorie-Zeile (identisch in Karte und Detail-Ansicht).
+  // showAvail=false blendet die Rest-Ticketanzahl aus (Ausverkauft bleibt sichtbar).
+  function catRowHTML(cat, showAvail) {
+    if (showAvail === undefined) showAvail = true;
     const rest = cat.remaining;
     const qty = cart[cat.id] || 0;
     const leftCls = rest === 0 ? 'out' : (rest <= 15 ? 'low' : '');
-    const leftTxt = rest === 0 ? 'Ausverkauft' : (rest <= 15 ? 'Nur noch ' + rest + ' verfügbar' : rest + ' verfügbar');
+    const leftTxt = rest === 0 ? 'Ausverkauft'
+      : (!showAvail ? '' : (rest <= 15 ? 'Nur noch ' + rest + ' verfügbar' : rest + ' verfügbar'));
     const maxQty = Math.min(rest, cat.maxPerOrder || 10);
     return '<div class="cat-row">' +
       '<div class="cat-info"><div class="name">' + esc(cat.name) +
@@ -265,7 +268,7 @@
     $('detailDesc').style.display = ev.description ? '' : 'none';
     const cats = ev.categories.filter(c => c.active);
     $('detailCats').innerHTML = cats.length
-      ? cats.map(catRowHTML).join('')
+      ? cats.map(c => catRowHTML(c, ev.showAvailability)).join('')
       : '<p class="sub">Für dieses Event sind aktuell keine Tickets verfügbar.</p>';
     bindQty($('detailCats'));
     $('detailCheckout').style.display = cats.length ? '' : 'none';
@@ -903,7 +906,7 @@
     if (vipDayEvent) {
       const cats = (vipDayEvent.categories || []).filter(c => c.active);
       $('vipTicketsWrap').style.display = cats.length ? '' : 'none';
-      $('vipTickets').innerHTML = cats.map(catRowHTML).join('');
+      $('vipTickets').innerHTML = cats.map(c => catRowHTML(c, vipDayEvent.showAvailability)).join('');
       bindQty($('vipTickets'));
     } else {
       $('vipTicketsWrap').style.display = 'none';
@@ -989,6 +992,12 @@
     $('loginEmail').addEventListener('keydown', e => { if (e.key === 'Enter') sendCode(false); });
     $('btnCheckout').addEventListener('click', openCheckout);
     if ($('btnDetailCheckout')) $('btnDetailCheckout').addEventListener('click', () => { closeModal('eventDetailModal'); openCheckout(); });
+    if ($('btnDetailHome')) $('btnDetailHome').addEventListener('click', () => {
+      closeModal('eventDetailModal');
+      // Bei Direktlink (?event=…) zurück zur vollen Übersicht, sonst nur schließen.
+      if (new URLSearchParams(location.search).get('event')) { location.href = location.pathname; }
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
     $('btnPlaceOrder').addEventListener('click', placeOrder);
     $('navMyTickets').addEventListener('click', () => setTimeout(renderMyTickets, 0));
     // VIP-Tisch-Modal

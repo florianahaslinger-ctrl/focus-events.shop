@@ -346,6 +346,8 @@
     }
     // Gebühren-Modus: false (Standard) = Kunde zahlt Gebühren, true = Veranstalter übernimmt
     $('evFeesOnOrganizer').checked = ev ? !!ev.feesOnOrganizer : false;
+    // Verfügbarkeitsanzeige (Standard: an)
+    if ($('evShowAvail')) $('evShowAvail').checked = ev ? (ev.showAvailability !== false) : true;
     // Veranstalter-Zuweisung (nur Head-Admin)
     if (mySuper) {
       S.getOrganizers().then(list => {
@@ -1445,6 +1447,7 @@
       active: $('evActive').checked,
       sharedQuota: $('evSharedOn').checked ? (parseInt($('evSharedQuota').value, 10) || 0) : null,
       feesOnOrganizer: $('evFeesOnOrganizer').checked,
+      showAvailability: $('evShowAvail') ? $('evShowAvail').checked : undefined,
       vatRate: ($('evVatOn') && $('evVatOn').checked) ? (parseFloat($('evVatRate').value) || 0) : null,
       sponsorLogos: editorSponsors.slice(),
       imageUrl: $('evImageUrl') ? ($('evImageUrl').value || null) : undefined,

@@ -123,7 +123,7 @@
 
     /* --- Events & Verfügbarkeit --- */
     async getEvents(includeInactive) {
-      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_floorplans,vip_info,vat_rate,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
+      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_floorplans,vip_info,vat_rate,show_availability,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
       let res = await sb.from('events').select(evCols + ',image_url').eq('storefront', STOREFRONT).order('date', { ascending: true });
       if (res.error && /image_url/i.test(res.error.message || '')) {
         res = await sb.from('events').select(evCols).eq('storefront', STOREFRONT).order('date', { ascending: true });
@@ -156,6 +156,7 @@
               : (e.vip_floorplan_url ? [e.vip_floorplan_url] : []),
             vipInfo: e.vip_info || null,
             vatRate: (e.vat_rate == null ? null : Number(e.vat_rate)),
+            showAvailability: (e.show_availability !== false),
             ownerEmail: e.owner_email || null,
             // Zusätzliche Veranstalter (Mit-Verwalter, ohne Auszahlung)
             coOwners: Array.isArray(e.event_owners) ? e.event_owners.map(o => o.email).filter(Boolean) : [],
@@ -737,6 +738,7 @@
       }
       // Gebühren-Modus nur setzen, wenn explizit übergeben.
       if (ev.feesOnOrganizer !== undefined) row.fees_on_organizer = !!ev.feesOnOrganizer;
+      if (ev.showAvailability !== undefined) row.show_availability = !!ev.showAvailability;
       // Sponsor-Logos nur setzen, wenn explizit übergeben.
       if (ev.sponsorLogos !== undefined) row.sponsor_logos = Array.isArray(ev.sponsorLogos) ? ev.sponsorLogos : [];
       // Besitzer nur setzen, wenn explizit übergeben (sonst bestehenden nicht überschreiben)
