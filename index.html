@@ -304,7 +304,9 @@
   .fx-footer .fx-foot-links{display:flex;flex-wrap:wrap;}
 
   @media(max-width:620px){
-    .fx-navlinks a:not(.fx-cta){display:none;}
+    /* Dashboard-Link (Verwaltung) auch auf dem Handy zeigen, wenn Admin angemeldet ist */
+    .fx-navlinks a:not(.fx-cta):not(#navDash){display:none;}
+    #navDash{border:1px solid var(--accent);color:var(--accent);border-radius:999px;}
     .fx-tabs{grid-template-columns:1fr 1fr;gap:10px;}
     .fx-tab{padding:20px 16px;min-height:118px;}
     #eventList{grid-template-columns:1fr;}
