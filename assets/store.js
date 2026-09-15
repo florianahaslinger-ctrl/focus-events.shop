@@ -76,7 +76,11 @@
 
     /* --- Initialisierung & Auth --- */
     async init() {
-      sb = supabase.createClient(SUPA_URL, SUPA_ANON);
+      // Session dauerhaft im Browser halten und Token automatisch erneuern,
+      // damit man nicht bei jedem Besuch neu anmelden muss.
+      sb = supabase.createClient(SUPA_URL, SUPA_ANON, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      });
       const { data } = await sb.auth.getSession();
       session = data.session;
       sb.auth.onAuthStateChange((_ev, s) => { session = s; });
@@ -748,6 +752,8 @@
         row.vip_floorplan_url = ev.vipFloorplanUrl || null;
       }
       if (ev.vipInfo !== undefined) row.vip_info = ev.vipInfo || null;
+      // Eigenes Ticket-Design (Bild-Data-URLs {front, back}) – null = Standardvorlage.
+      if (ev.customTicket !== undefined) row.custom_ticket = ev.customTicket || null;
       // MwSt-Satz (%) nur setzen, wenn übergeben. null/'' = keine MwSt ausweisen.
       if (ev.vatRate !== undefined) row.vat_rate = (ev.vatRate === null || ev.vatRate === '') ? null : Math.min(100, Math.max(0, Number(ev.vatRate)));
       if (ev.ownerEmail !== undefined) row.owner_email = ev.ownerEmail ? normEmail(ev.ownerEmail) : null;

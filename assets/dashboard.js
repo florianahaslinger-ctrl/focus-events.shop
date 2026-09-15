@@ -365,6 +365,14 @@
     // Sponsoren-Logos in den Editor laden
     editorSponsors = ev && Array.isArray(ev.sponsorLogos) ? ev.sponsorLogos.slice() : [];
     renderSponsors();
+    // Eigenes Ticket-Design laden (nur bestehende Events)
+    editorCustomTicket = null;
+    if ($('ctFrontFile')) $('ctFrontFile').value = '';
+    if ($('ctBackFile')) $('ctBackFile').value = '';
+    renderCtPreviews();
+    if (ev) {
+      S.eventCustomTicket(ev.id).then(ct => { editorCustomTicket = ct || null; renderCtPreviews(); }).catch(() => {});
+    }
     // Einlass-Scanner: Passwort-Status + Link (nur bestehende Events)
     const ciBox = $('evCheckinBox');
     $('evCheckinPw').value = '';
@@ -497,6 +505,45 @@
   // VIP-Tische: Entwurf im offenen Editor
   let vipDrinksDraft = [];       // [{name, price}]
   let vipDrinksDirty = false;    // true, sobald eine neue Excel-Liste importiert/geleert wurde
+  // Eigenes Ticket-Design im offenen Editor: { front, back } (Bild-Data-URLs) oder null
+  let editorCustomTicket = null;
+
+  // Ticket-Bild auf handliche Größe skalieren (max. ~1400px breit) und als Data-URL liefern.
+  function fileToTicketImage(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Datei konnte nicht gelesen werden.'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Kein gültiges Bild.'));
+        img.onload = () => {
+          const maxW = 1400, maxH = 1400;
+          let w = img.naturalWidth, h = img.naturalHeight;
+          const scale = Math.min(1, maxW / w, maxH / h);
+          w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale));
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          const ctx = cv.getContext('2d');
+          const isPng = /image\/png/i.test(file.type);
+          if (!isPng) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(cv.toDataURL(isPng ? 'image/png' : 'image/jpeg', 0.9));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  function renderCtPreviews() {
+    const ct = editorCustomTicket || {};
+    const setSide = (previewId, btnId, src) => {
+      const p = $(previewId); if (p) p.innerHTML = src
+        ? '<img src="' + src + '" alt="" style="max-height:120px;max-width:100%;border-radius:8px;border:1px solid var(--line);display:block;margin:4px 0">' : '';
+      const b = $(btnId); if (b) b.style.display = src ? '' : 'none';
+    };
+    setSide('ctFrontPreview', 'btnCtFrontRemove', ct.front);
+    setSide('ctBackPreview', 'btnCtBackRemove', ct.back);
+  }
 
   /* ---- VIP-Tische im Event-Editor ---- */
   let editorFloorplans = []; // Liste der Grundriss-Bild-URLs
@@ -1266,6 +1313,27 @@
     renderSponsors();
   });
 
+  /* ---- Eigenes Ticket-Design ---- */
+  async function ctUpload(side, file) {
+    if (!file) return;
+    try {
+      msg($('evMsg'), 'Ticket-Bild wird verarbeitet …', 'info');
+      const url = await fileToTicketImage(file);
+      editorCustomTicket = editorCustomTicket || { front: null, back: null };
+      editorCustomTicket[side] = url;
+      renderCtPreviews();
+      msg($('evMsg'), 'Ticket-Bild übernommen – zum Speichern „Speichern" klicken.', 'ok');
+    } catch (err) { msg($('evMsg'), 'Bild konnte nicht geladen werden: ' + err.message, 'error'); }
+  }
+  if ($('ctFrontFile')) $('ctFrontFile').addEventListener('change', e => { ctUpload('front', e.target.files[0]); e.target.value = ''; });
+  if ($('ctBackFile')) $('ctBackFile').addEventListener('change', e => { ctUpload('back', e.target.files[0]); e.target.value = ''; });
+  if ($('btnCtFrontRemove')) $('btnCtFrontRemove').addEventListener('click', () => {
+    if (editorCustomTicket) editorCustomTicket.front = null; renderCtPreviews();
+  });
+  if ($('btnCtBackRemove')) $('btnCtBackRemove').addEventListener('click', () => {
+    if (editorCustomTicket) editorCustomTicket.back = null; renderCtPreviews();
+  });
+
   /* ---- Einlass-Passwort ---- */
   async function saveCheckinPw(clear) {
     const id = $('evId').value;
@@ -1383,6 +1451,9 @@
       vipEnabled: $('evVipOn') ? $('evVipOn').checked : undefined,
       vipInfo: $('evVipInfo') ? ($('evVipInfo').value.trim() || null) : undefined,
       vipFloorplans: $('evVipOn') ? editorFloorplans.slice() : undefined,
+      // Eigenes Ticket-Design: nur speichern, wenn eine Vorderseite vorhanden ist, sonst Standard.
+      customTicket: (editorCustomTicket && editorCustomTicket.front)
+        ? { front: editorCustomTicket.front, back: editorCustomTicket.back || null } : null,
       categories: cats
     };
     // Besitzer/Veranstalter zuweisen

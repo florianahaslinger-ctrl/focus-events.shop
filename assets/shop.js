@@ -268,6 +268,8 @@
       ? cats.map(catRowHTML).join('')
       : '<p class="sub">Für dieses Event sind aktuell keine Tickets verfügbar.</p>';
     bindQty($('detailCats'));
+    $('detailCheckout').style.display = cats.length ? '' : 'none';
+    updateDetailCheckout();
     // VIP-Tisch-Bereich (nur wenn aktiviert)
     const vipBox = $('detailVip');
     if (ev.vipEnabled) {
@@ -304,6 +306,15 @@
     bar.classList.add('visible');
     $('cartDesc').textContent = lines.map(l => l.qty + '× ' + l.cat.name).join(' · ');
     $('cartSum').textContent = S.fmtEUR.format(total);
+    updateDetailCheckout();
+  }
+
+  // Checkout-Button in der Event-Detailansicht an den Warenkorb anpassen.
+  function updateDetailCheckout() {
+    const btn = $('btnDetailCheckout'); if (!btn) return;
+    const { count, total } = cartDetails();
+    btn.disabled = count === 0;
+    btn.textContent = count > 0 ? 'Zur Kassa · ' + S.fmtEUR.format(total) : 'Tickets wählen';
   }
 
   /* ---------- Login (E-Mail + Verifizierung) ---------- */
@@ -977,6 +988,7 @@
     $('loginCode').addEventListener('keydown', e => { if (e.key === 'Enter') verify(); });
     $('loginEmail').addEventListener('keydown', e => { if (e.key === 'Enter') sendCode(false); });
     $('btnCheckout').addEventListener('click', openCheckout);
+    if ($('btnDetailCheckout')) $('btnDetailCheckout').addEventListener('click', () => { closeModal('eventDetailModal'); openCheckout(); });
     $('btnPlaceOrder').addEventListener('click', placeOrder);
     $('navMyTickets').addEventListener('click', () => setTimeout(renderMyTickets, 0));
     // VIP-Tisch-Modal
