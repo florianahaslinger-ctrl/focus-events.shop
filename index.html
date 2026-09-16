@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260916b">
+<link rel="stylesheet" href="assets/shop.css?v=20260916c">
 <script src="assets/supabase.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260916b"></script>
+<script src="assets/ticket-pdf.js?v=20260916c"></script>
 <style>
   /* ============================================================
      FOCUS EVENTS – Club-Shop · helles Poster-Design
@@ -479,7 +479,6 @@
 <div class="modal-backdrop" id="eventDetailModal">
   <div class="modal modal-wide" style="position:relative">
     <button class="ev-detail-close" onclick="closeModal('eventDetailModal')" aria-label="Schließen">×</button>
-    <button class="btn btn-ghost btn-sm" id="btnDetailHome" type="button" style="margin-bottom:12px">← Zurück zur Übersicht</button>
     <div id="detailBanner" class="ev-detail-banner"></div>
     <h2 id="detailTitle"></h2>
     <div id="detailMeta" class="ev-detail-meta"></div>
@@ -490,6 +489,9 @@
       <button class="btn btn-gold" id="btnDetailCheckout" type="button" style="width:100%">Zur Kassa</button>
     </div>
     <div id="detailVip" style="display:none"></div>
+    <div style="text-align:center;margin-top:26px">
+      <button class="btn btn-ghost btn-sm" id="btnDetailHome" type="button">← Zurück zur Übersicht</button>
+    </div>
   </div>
 </div>
 
@@ -597,7 +599,7 @@
 })();
 </script>
 
-<script src="assets/store.js?v=20260916b"></script>
-<script src="assets/shop.js?v=20260916b"></script>
+<script src="assets/store.js?v=20260916c"></script>
+<script src="assets/shop.js?v=20260916c"></script>
 </body>
 </html>

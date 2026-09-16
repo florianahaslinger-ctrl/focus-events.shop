@@ -10,6 +10,7 @@
   // VIP-Tische
   let vipEv = null, vipTables = [], vipDrinksList = null, vipSel = null, vipCart = {};
   let vipDayEvent = null;   // Event am gewählten Tag (falls vorhanden) -> Eintrittsticket nötig
+  let vipHasEntry = false;  // Gast hat für diesen Tag bereits ein bezahltes Eintrittsticket
   let vipClub = null;       // aktueller Club im VIP-Flow
   let vipStandardEv = null; // Standard-VIP-Event des Clubs (für Tage ohne eigenes Event)
   let eventsCache = [];
@@ -885,6 +886,18 @@
       b.addEventListener('click', () => selectVipTable(b.dataset.table)));
   }
 
+  // Hat der/die angemeldete Gast für dieses Event bereits ein bezahltes
+  // Eintrittsticket? (VIP-Tisch-„Tickets" zählen nicht als Eintritt.)
+  async function checkVipHasEntry() {
+    vipHasEntry = false;
+    if (!vipDayEvent || !S.currentUser()) return;
+    try {
+      const orders = await S.myOrders();
+      vipHasEntry = (orders || []).some(o =>
+        o.eventId === vipDayEvent.id && o.status === 'bezahlt' && o.paidVia !== 'vip-tisch');
+    } catch (_) { vipHasEntry = false; }
+  }
+
   async function selectVipTable(id) {
     vipSel = vipTables.find(t => t.id === id);
     if (!vipSel) return;
@@ -893,6 +906,7 @@
       try { vipDrinksList = { eventId: vipEv.id, items: await S.getDrinks(vipEv.id) }; }
       catch (_) { vipDrinksList = { eventId: vipEv.id, items: [] }; }
     }
+    await checkVipHasEntry();
     renderVipConfirm();
     $('vipStepTable').style.display = 'none';
     $('vipStepConfirm').style.display = '';
@@ -929,7 +943,14 @@
     if (vipDayEvent) {
       const cats = (vipDayEvent.categories || []).filter(c => c.active);
       $('vipTicketsWrap').style.display = cats.length ? '' : 'none';
-      $('vipTickets').innerHTML = cats.map(c => catRowHTML(c, vipDayEvent.showAvailability)).join('');
+      // Hinweistext je nachdem, ob schon ein Ticket vorhanden ist.
+      const hint = $('vipTicketsWrap').querySelector('.fx-sub');
+      if (hint) hint.textContent = vipHasEntry
+        ? 'Du hast für diesen Tag bereits ein Ticket – ein weiterer Kauf ist nicht nötig.'
+        : 'an diesem Tag findet ein Event statt – bitte auch Ticket(s) kaufen';
+      $('vipTickets').innerHTML =
+        (vipHasEntry ? '<p class="vip-ok" style="margin:0 0 10px">✓ Eintrittsticket für diesen Tag bereits vorhanden.</p>' : '') +
+        cats.map(c => catRowHTML(c, vipDayEvent.showAvailability)).join('');
       bindQty($('vipTickets'));
     } else {
       $('vipTicketsWrap').style.display = 'none';
@@ -975,10 +996,15 @@
       .map(d => ({ name: d.name, price: d.price, qty: vipCart[d.id] }));
     const dateVal = $('vipDate').value;
     if (!dateVal) { msg($('vipMsg'), 'Bitte ein Datum wählen.', 'error'); return; }
-    // An Event-Tagen ist ein Eintrittsticket Pflicht.
-    if (vipDayEvent) {
-      const hasEntry = (vipDayEvent.categories || []).some(c => (cart[c.id] || 0) > 0);
-      if (!hasEntry) { msg($('vipMsg'), 'An diesem Event-Tag bitte mindestens ein Eintrittsticket wählen.', 'error'); return; }
+    // Nach (evtl. gerade erfolgtem) Login prüfen, ob schon ein Ticket vorhanden ist.
+    await checkVipHasEntry();
+    // An Event-Tagen ist ein Eintrittsticket Pflicht – außer der Gast hat für
+    // diesen Tag bereits eines gekauft (dann kein Doppelkauf nötig).
+    const selectedEntry = vipDayEvent && (vipDayEvent.categories || []).some(c => (cart[c.id] || 0) > 0);
+    if (vipDayEvent && !vipHasEntry && !selectedEntry) {
+      msg($('vipMsg'), 'An diesem Event-Tag bitte mindestens ein Eintrittsticket wählen.', 'error');
+      renderVipConfirm();
+      return;
     }
     try {
       $('vipConfirm').disabled = true;
@@ -988,8 +1014,8 @@
       closeModal('vipModal');
       closeModal('eventDetailModal');
       renderMyTickets();
-      if (vipDayEvent) {
-        // Reservierung + VIP-Ticket erstellt; jetzt die Eintrittstickets bezahlen.
+      if (vipDayEvent && selectedEntry) {
+        // Reservierung + VIP-Ticket erstellt; jetzt die gewählten Eintrittstickets bezahlen.
         openCheckout();
       } else {
         $('successSub').textContent = 'Tisch „' + tName + '" ist für ' + niceDateStr(dateVal) + ' reserviert.' +
