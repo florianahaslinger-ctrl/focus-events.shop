@@ -412,6 +412,7 @@
       editorFloorplans = ev && Array.isArray(ev.vipFloorplans) ? ev.vipFloorplans.slice() : [];
       if ($('evVipFpFile')) $('evVipFpFile').value = '';
       renderFloorplans();
+      if ($('evVipStandard')) $('evVipStandard').checked = ev ? !!ev.vipStandard : false;
       vipDrinksDraft = []; vipDrinksDirty = false;
       $('vipTableEditor').innerHTML = '';
       if (ev) {
@@ -1454,6 +1455,7 @@
       vipEnabled: $('evVipOn') ? $('evVipOn').checked : undefined,
       vipInfo: $('evVipInfo') ? ($('evVipInfo').value.trim() || null) : undefined,
       vipFloorplans: $('evVipOn') ? editorFloorplans.slice() : undefined,
+      vipStandard: $('evVipOn') ? !!($('evVipStandard') && $('evVipStandard').checked) : undefined,
       // Eigenes Ticket-Design: nur speichern, wenn eine Vorderseite vorhanden ist, sonst Standard.
       customTicket: (editorCustomTicket && editorCustomTicket.front)
         ? { front: editorCustomTicket.front, back: editorCustomTicket.back || null } : null,

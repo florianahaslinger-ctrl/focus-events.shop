@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260915g">
+<link rel="stylesheet" href="assets/shop.css?v=20260916b">
 <style id="fxDashTheme">
   /* Focus Events – Dashboard im gleichen dunklen Look wie der Shop (Focus-Blau).
      Die geteilten CORE-Variablen werden aufs dunkle Theme umgebogen -> CORE unberührt. */
@@ -435,7 +435,11 @@
         </div>
         <p class="hint" id="evVipDrinksInfo">Noch keine Getränke hinterlegt.</p>
         <div id="vipDrinksPreview" style="max-height:180px;overflow:auto;margin-top:6px"></div>
-        <p class="hint" style="margin-top:10px">Reservierungen siehst du im eigenen Tab <b>„VIP-Tische"</b> oben.</p>
+
+        <label class="switch" style="margin:14px 0 0"><input type="checkbox" id="evVipStandard"> Als VIP-Standard des Clubs verwenden</label>
+        <p class="hint" style="margin:6px 0 0">An: Diese Tische gelten als <b>Standard</b> für alle frei gewählten Tage <b>ohne</b> eigenes Event. An Tagen mit einem eigenen Event werden automatisch dessen event-spezifische Tische gezeigt. Markiere je Club genau <b>ein</b> Event als Standard.</p>
+
+        <p class="hint" style="margin-top:12px">Reservierungen siehst du im eigenen Tab <b>„VIP-Tische"</b> oben.</p>
       </div>
     </div>
 
@@ -539,8 +543,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260915g"></script>
-<script src="assets/store.js?v=20260915g"></script>
-<script src="assets/dashboard.js?v=20260915g"></script>
+<script src="assets/ticket-pdf.js?v=20260916b"></script>
+<script src="assets/store.js?v=20260916b"></script>
+<script src="assets/dashboard.js?v=20260916b"></script>
 </body>
 </html>

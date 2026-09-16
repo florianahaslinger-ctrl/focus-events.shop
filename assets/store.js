@@ -123,7 +123,7 @@
 
     /* --- Events & Verfügbarkeit --- */
     async getEvents(includeInactive) {
-      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_floorplans,vip_info,vat_rate,show_availability,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
+      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_floorplans,vip_info,vip_standard,vat_rate,show_availability,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
       let res = await sb.from('events').select(evCols + ',image_url').eq('storefront', STOREFRONT).order('date', { ascending: true });
       if (res.error && /image_url/i.test(res.error.message || '')) {
         res = await sb.from('events').select(evCols).eq('storefront', STOREFRONT).order('date', { ascending: true });
@@ -155,6 +155,7 @@
               ? e.vip_floorplans.filter(Boolean)
               : (e.vip_floorplan_url ? [e.vip_floorplan_url] : []),
             vipInfo: e.vip_info || null,
+            vipStandard: !!e.vip_standard,
             vatRate: (e.vat_rate == null ? null : Number(e.vat_rate)),
             showAvailability: (e.show_availability !== false),
             ownerEmail: e.owner_email || null,
@@ -754,6 +755,7 @@
         row.vip_floorplan_url = ev.vipFloorplanUrl || null;
       }
       if (ev.vipInfo !== undefined) row.vip_info = ev.vipInfo || null;
+      if (ev.vipStandard !== undefined) row.vip_standard = !!ev.vipStandard;
       // Eigenes Ticket-Design (Bild-Data-URLs {front, back}) – null = Standardvorlage.
       if (ev.customTicket !== undefined) row.custom_ticket = ev.customTicket || null;
       // MwSt-Satz (%) nur setzen, wenn übergeben. null/'' = keine MwSt ausweisen.
