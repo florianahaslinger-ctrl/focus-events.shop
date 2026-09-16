@@ -203,22 +203,27 @@
   }
 
   function renderQuota() {
-    let rows = '<tr><th>Event</th><th>Kategorie</th><th>Preis</th><th>Verkauft</th><th>Kontingent</th><th>Auslastung</th></tr>';
+    let rows = '<tr><th>Event</th><th>Kategorie</th><th>Preis</th><th>Verkauft</th><th>Kontingent</th><th>Noch frei</th><th>Auslastung</th></tr>';
     const bar = (pct) => '<td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;max-width:140px;height:6px;background:rgba(255,255,255,.08);border-radius:3px">' +
       '<div style="width:' + Math.min(100, pct) + '%;height:6px;background:' + GOLD + ';border-radius:3px"></div></div>' +
       '<span style="color:#999;font-size:12px">' + pct + ' %</span></div></td>';
+    // „Noch frei" hervorheben – bei 0 rot (ausverkauft), sonst grün.
+    const freeCell = (n) => '<td><strong style="color:' + (n <= 0 ? '#ff6b6b' : '#57d38c') + '">' +
+      (n <= 0 ? 'ausverkauft' : n) + '</strong></td>';
     fEvents().forEach(ev => {
       // Gesamtkontingent: eine Zeile je Event statt je Kategorie.
       if (ev.sharedQuota !== null && ev.sharedQuota !== undefined) {
         const pct = ev.sharedQuota ? Math.round(100 * ev.sharedSold / ev.sharedQuota) : 0;
+        const free = (ev.sharedRemaining != null) ? ev.sharedRemaining : Math.max(0, ev.sharedQuota - ev.sharedSold);
         rows += '<tr><td>' + esc(ev.name) + '</td><td><em>Alle Kategorien (Gesamtkontingent)</em></td>' +
-          '<td>—</td><td>' + ev.sharedSold + '</td><td>' + ev.sharedQuota + '</td>' + bar(pct) + '</tr>';
+          '<td>—</td><td>' + ev.sharedSold + '</td><td>' + ev.sharedQuota + '</td>' + freeCell(free) + bar(pct) + '</tr>';
         return;
       }
       ev.categories.forEach(cat => {
         const pct = cat.quota ? Math.round(100 * cat.sold / cat.quota) : 0;
+        const free = Math.max(0, cat.quota - cat.sold);
         rows += '<tr><td>' + esc(ev.name) + '</td><td>' + esc(cat.name) + '</td>' +
-          '<td>' + S.fmtEUR.format(cat.price) + '</td><td>' + cat.sold + '</td><td>' + cat.quota + '</td>' + bar(pct) + '</tr>';
+          '<td>' + S.fmtEUR.format(cat.price) + '</td><td>' + cat.sold + '</td><td>' + cat.quota + '</td>' + freeCell(free) + bar(pct) + '</tr>';
       });
     });
     $('quotaTable').innerHTML = rows;
@@ -230,10 +235,17 @@
       '<div class="card"><div class="event-head"><h2>' + esc(ev.name) + '</h2>' +
       '<span class="badge ' + (ev.active ? 'bezahlt' : 'storniert') + '">' + (ev.active ? 'aktiv' : 'inaktiv') + '</span>' +
       '<span class="event-meta">' + fmtDT(ev.date) + (ev.location ? ' · ' + esc(ev.location) : '') + '</span></div>' +
-      '<div class="table-scroll"><table class="data"><tr><th>Kategorie</th><th>Preis</th><th>Kontingent</th><th>Verkauft</th><th>Status</th></tr>' +
-      ev.categories.map(c => '<tr><td>' + esc(c.name) + '</td><td>' + S.fmtEUR.format(c.price) + '</td><td>' +
-        ((ev.sharedQuota !== null && ev.sharedQuota !== undefined) ? '<span title="Gesamtkontingent aktiv">—</span>' : c.quota) +
-        '</td><td>' + c.sold + '</td><td>' + (c.active ? 'aktiv' : 'inaktiv') + '</td></tr>').join('') +
+      '<div class="table-scroll"><table class="data"><tr><th>Kategorie</th><th>Preis</th><th>Kontingent</th><th>Verkauft</th><th>Noch frei</th><th>Status</th></tr>' +
+      ev.categories.map(c => {
+        const shared = (ev.sharedQuota !== null && ev.sharedQuota !== undefined);
+        const free = Math.max(0, c.quota - c.sold);
+        return '<tr><td>' + esc(c.name) + '</td><td>' + S.fmtEUR.format(c.price) + '</td><td>' +
+          (shared ? '<span title="Gesamtkontingent aktiv">—</span>' : c.quota) +
+          '</td><td>' + c.sold + '</td><td>' +
+          (shared ? '<span title="Gesamtkontingent – siehe unten">—</span>'
+                  : '<strong style="color:' + (free <= 0 ? '#ff6b6b' : '#57d38c') + '">' + (free <= 0 ? 'ausverkauft' : free) + '</strong>') +
+          '</td><td>' + (c.active ? 'aktiv' : 'inaktiv') + '</td></tr>';
+      }).join('') +
       '</table></div>' +
       ((ev.sharedQuota !== null && ev.sharedQuota !== undefined)
         ? '<div class="hint" style="margin-top:8px">Gesamtkontingent: <strong>' + ev.sharedQuota + '</strong> Tickets · ' + ev.sharedSold + ' verkauft · ' + ev.sharedRemaining + ' frei</div>'
