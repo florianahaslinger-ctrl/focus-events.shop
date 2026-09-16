@@ -1,4 +1,4 @@
-# Focus Events – Ticketshop · Projekt-Übergabe (Stand: 14.09.2026)
+# Focus Events – Ticketshop · Projekt-Übergabe (Stand: 16.09.2026)
 
 > **Kurzfassung:** Eigenständiger Club-Ticketshop der **Focus Events GmbH** (Clubs
 > **LEVEL** & **YPSILON Heidenreichstein**). **Dunkles (schwarzes)** Poster-Design mit Club-Farben
@@ -18,7 +18,7 @@
 * **Hosting:** **Cloudflare Pages**, Projekt `focus-events`, **mit GitHub-Repo verbunden** → **jeder `git push origin master` deployt automatisch**. (Kein manuelles Direct-Upload mehr nötig.)
 * **DNS:** Cloudflare-Zone `focus-events.shop`, SSL-Modus **Full**. CNAMEs `@`/`level`/`ypsilon` → `focus-events.pages.dev`. MX weiter IONOS.
 * **Repos (Quelle der Wahrheit):**
-  * Focus: `florianahaslinger-ctrl/focus-events.shop` – Branch `master`, Stand `a8cf0c9`
+  * Focus: `florianahaslinger-ctrl/focus-events.shop` – Branch `master`, Stand `d0fc972`
   * CORE: `florianahaslinger-ctrl/Core-management.at` – Branch `main`, Stand `c53c4b7`+ (GitHub Pages; promnight-SSO ergänzt)
 * **Lokal:** `C:\Users\pustl\OneDrive\Desktop\Claude\Focus-Events` (CORE daneben: `…\Core-management.at`)
 * **Supabase-Projekt „Ticketsystem", Ref:** `xfdiuhmgkdujbjhdhvcw` · **Cloudflare-Account-ID:** `20fc99620b59a24f532c573355ee9c30`
@@ -48,7 +48,7 @@ Getrennt wird über zwei Spalten auf `events`:
 * Focus-Platzhalterlogo (schwarz) wird per CSS-Filter `brightness(0) invert(1)` **weiß** gerendert; Club-Reiter zeigen die **weißen** Logo-Varianten (`level-logo-white.png`/`ypsilon-logo-white.png`).
 * Zwei **Club-Reiter** LEVEL/YPSILON; **Subdomain-Routing** (`shop.js`, `SUBDOMAINS_LIVE=true`, `clubFromHost()`).
 * **Dashboard** ebenfalls **dunkel** (Override-Block `#fxDashTheme` in `dashboard.html` auf dunkles Palette umgestellt; Admin-Akzent neutral blau). **Club-Ansicht-Dropdown** oben (LEVEL/YPSILON/Beide) filtert das ganze Dashboard – siehe §11.
-* **Cache-Busting:** eigene Assets sind mit `?v=<token>` versioniert (aktuell `20260913e`) in `index.html`/`dashboard.html`. **Bei jeder Änderung an `shop.js`/`store.js`/`dashboard.js`/`shop.css`/`ticket-pdf.js` den Token erhöhen**, sonst laden Browser altes JS (verursachte einen „null"-Fehler).
+* **Cache-Busting:** eigene Assets sind mit `?v=<token>` versioniert (aktuell `20260916b`) in `index.html`/`dashboard.html`. **Bei jeder Änderung an `shop.js`/`store.js`/`dashboard.js`/`shop.css`/`ticket-pdf.js` den Token erhöhen**, sonst laden Browser altes JS (verursachte einen „null"-Fehler).
 
 ---
 
@@ -103,6 +103,19 @@ Remove-Item meta.json
 6. **Dashboard Club-Ansicht-Dropdown** (LEVEL/YPSILON/Beide) – §11.
 7. (CORE-Repo, parallel:) **promnight-SSO-Empfänger** + Rückkanal gebaut – siehe CORE-Handoff/README.
 
+### Session 15.–16.09.2026 (Fortsetzung)
+
+1. **Sitzplan-Feature** aus Focus entfernt (Shop **und** Dashboard-Editor) – nur in Focus, CORE unberührt.
+2. **Getränkeliste-Anzeige** repariert: linker Rand war abgeschnitten (geerbtes `.cat-row{margin:0 -14px}` aus `shop.css`) → in `index.html` für VIP-Modal überschrieben.
+3. **Verwaltungs-/Dashboard-Button jetzt auch mobil** sichtbar.
+4. **MwSt./VAT optional pro Event** ausweisbar, variabler Satz – Event-Editor `evVatOn`/`evVatRate`, Anzeige via `vatBreakdown` (`store.js`). DB `events.vat_rate` (`20260915_event_vat.sql`).
+5. **Verfügbarkeitsanzeige („noch X Tickets") pro Event abschaltbar** – Checkbox `evShowAvail`; „Ausverkauft" bleibt immer sichtbar. DB `events.show_availability` (`20260915_show_availability.sql`).
+6. **Home-/Zurück-Button** in der Event-Detailansicht (`#btnDetailHome`).
+7. **Checkout direkt in der Detailansicht** möglich (`#btnDetailCheckout`), nicht nur im Warenkorb.
+8. **Session-Persistenz** explizit aktiviert (`persistSession/autoRefreshToken/detectSessionInUrl`), damit sich der Veranstalter nicht ständig neu anmelden muss.
+9. **Eigenes Ticket-Design** hochladbar (Vorder-/Rückseite) pro Event – `custom_ticket` (Dashboard `ctFrontFile`/`ctBackFile`).
+10. **VIP stark erweitert** – zentraler Button, freie Terminwahl, QR-Ticket, Datums-Auflösung, eigener Dashboard-Tab – siehe §10.
+
 ---
 
 ## 5. Dynamic Pricing (Preis-Phasen)
@@ -150,36 +163,55 @@ Remove-Item meta.json
 2. **Zahlungsgebühr:** klären, ob die 0,25 €/Ticket für Focus entfallen soll (§7).
 3. Datenschutz-Textreste aus CORE-Kontext bereinigen (Formspree/„Schule/Wunschtermin").
 4. **Favicon** noch Türkis-„F" → aufs neue (dunkle) Design anpassen; `www.`-Subdomain sauber auf Pages.
-5. **Cache-Busting** ist eingebaut (`?v=`-Token, aktuell `20260913e`) – **Token bei jeder Asset-Änderung erhöhen** (in `index.html` **und** `dashboard.html`), sonst laden Browser altes JS. (Erst-Kunden brauchen dann kein Strg+F5 mehr.)
+5. **Cache-Busting** ist eingebaut (`?v=`-Token, aktuell `20260916b`) – **Token bei jeder Asset-Änderung erhöhen** (in `index.html` **und** `dashboard.html`), sonst laden Browser altes JS. (Erst-Kunden brauchen dann kein Strg+F5 mehr.)
 6. Getränke-Excel-Format mit den Veranstaltern final abstimmen (aktuell Spalte A=Name, B=Preis); optional Kategorie-Spalte.
+7. **VIP-Standard für LEVEL setzen** (Checkbox „Als VIP-Standard des Clubs verwenden" bei einem LEVEL-Event) – aktuell nur YPSILON (Black Circus, 26.09.) markiert. Bitte prüfen, ob das der gewünschte Standard ist.
+8. **Veranstalter-Dauer-Login:** Session-Persistenz ist im Code aktiv. Falls weiterhin ständiges Neu-Anmelden: Gerät + Öffnungsweg (App-Browser? welcher Link/Subdomain?) melden, dann weiter eingrenzen (Verdacht: Cross-Subdomain-Session).
 
 ---
 
-## 10. VIP-Tische (Reservierung + Online-Tickets)
+## 10. VIP-Tische (Reservierung an JEDEM Datum + Online-Tickets)
 
-Pro Event optional aktivierbar. **Modell:** der **Tisch** ist eine **kostenlose Reservierung**
-(exklusiv, ein Tisch = eine aktive Reservierung); der **Mindestkonsum** wird **vor Ort** im Club
-bezahlt. Der Tisch enthält **keine** Tickets – **Eintrittstickets kauft der Gast separat online**
-über den **normalen Checkout** (Stripe), aus den normalen Ticketkategorien des Events.
+**Modell:** der **Tisch** ist eine **kostenlose, exklusive Reservierung** pro **(Tisch, Datum)**;
+der **Mindestkonsum** wird **vor Ort** bezahlt. Der Tisch enthält **keine** Eintrittstickets.
+Reservieren erzeugt zusätzlich ein **spezielles VIP-QR-Ticket** (unter „Meine Tickets").
 
-**Kunden-Flow (Shop):** Event-Detail → „VIP-Tisch reservieren" → Tisch wählen (Grundriss-Bilder,
-frei/belegt, Mindestkonsum) → **Name + Telefon (Pflicht)** + **Eintrittstickets** (normale
-Kategorien, Preis+Stepper) + **unverbindliche Getränke-Vorbestellung** → „Reservierung bestätigen":
-Tisch wird reserviert (`reserve_table`), bei gewählten Tickets folgt der normale Stripe-Checkout.
+**Zentraler Einstieg (Shop):** Button **„VIP-Tisch reservieren"** mittig unter den beiden Club-Buttons
+(LEVEL/YPSILON). Danach **Lokal wählen** → Standard-Maske des Clubs mit **Datumsfeld**.
+Alternativ aus der Event-Detailansicht.
+
+**Datum bestimmt die Tische** (Kern der letzten Session):
+* **Freier Termin** (kein Event an dem Tag) → **Standard-Tische** des Clubs.
+* **Tag mit eigenem Event** → dessen **event-spezifische** Tische; Grundriss + Getränkeliste folgen der
+  Quelle automatisch mit.
+* Welches Event der **Standard** ist, legt die Checkbox **„Als VIP-Standard des Clubs verwenden"**
+  (`events.vip_standard`) fest. Fallback ohne Markierung: frühestes VIP-Event des Clubs.
+* **Aktuell markiert:** Black Circus (26.09.) = YPSILON-Standard. **LEVEL hat noch keinen Standard**
+  → dort bei einem passenden Event die Checkbox setzen.
+
+**Ticketpflicht:** An einem Tag **mit** Event ist beim VIP-Tisch weiterhin ein **Eintrittsticket**
+zu kaufen (normaler Stripe-Checkout, normale Kategorien). An **freien** Tagen kein Ticket nötig.
+
+**Flow:** Datum → Tisch wählen (Grundriss-Bilder frei/belegt, Mindestkonsum) → **Name + Telefon (Pflicht,
+keine Personenanzahl)** → an Event-Tagen **Eintrittstickets** (Stepper) → **unverbindliche
+Getränke-Vorbestellung** → „Reservierung bestätigen" → `reserve_table` (+ VIP-QR-Ticket),
+bei gewählten Tickets folgt der Stripe-Checkout.
 
 * **Grundriss:** mehrere Bilder je Event (`vip_floorplans` = JSON-Array; Alt-Spalte `vip_floorplan_url`
-  führt das erste Bild). Im Shop **Klick = Lightbox/Vollbild**.
-* **Getränke-Liste:** Veranstalter importiert Excel/CSV (Spalte A = Name, B = Preis) → `event_drinks`.
-  Parser via **SheetJS** (CDN in `dashboard.html`).
-* **Reservierungen** sieht der Veranstalter im Event-Editor (inkl. Getränke-Vorbestellung), Storno per
-  `cancel_table_reservation` (RPC).
+  führt das erste Bild). Klick = Lightbox/Vollbild.
+* **Getränke-Liste:** Excel/CSV-Import (Spalte A = Name, B = Preis) → `event_drinks`. Parser via **SheetJS** (CDN).
+* **Reservierungen im Dashboard:** eigener **VIP-Tab** (`#vipResAll`, `renderVipReservationsAll()`) –
+  **event-übergreifend** und über das Club-Dropdown gefiltert; **nicht** in einem fremden Event vergraben.
+  Storno per `cancel_table_reservation` (RPC).
 * **DB (alle eingespielt):** `event_tables` (Name + `min_consumption`), `event_drinks`,
-  `table_reservations` (exklusiver Partial-Index auf aktive Reservierung), RPCs `table_status`,
-  `reserve_table`, `cancel_table_reservation`. Migrationen `20260913_vip_tables.sql`,
-  `20260913_vip_reservation_only.sql`, `20260913_vip_floorplans.sql`.
-  (Die Zwischenstufe `20260913_vip_tickets.sql` = Gratis-Tickets wurde bewusst wieder zurückgenommen.)
-* **Kein Edge-Function-Deploy nötig** – Tickets laufen über den bestehenden `create-checkout`/`stripe-webhook`.
-* Verkaufszählung: VIP-Tickets sind normale Tickets → zählen bei Gesamtkontingent normal mit.
+  `table_reservations` (exklusiver Partial-Index je aktiver Reservierung **pro Datum**, `res_date`),
+  RPCs `table_status {p_event,p_date}`, `reserve_table {p_table,p_date,…}`, `cancel_table_reservation`.
+  Migrationen: `20260913_vip_tables.sql`, `_vip_reservation_only.sql`, `_vip_floorplans.sql`,
+  `20260915_vip_free_date.sql`, `20260915_vip_pass_ticket.sql`, `20260916_vip_standard.sql`.
+  (`20260913_vip_tickets.sql` = Gratis-Tickets zurückgenommen; `20260916_vip_blackout.sql` = Spalte
+  angelegt, aber **ungenutzt** – der Sperrtermin-Ansatz wurde zugunsten der Standard-Auflösung verworfen.)
+* **Kein Edge-Function-Deploy nötig** – Eintrittstickets laufen über bestehendes `create-checkout`/`stripe-webhook`.
+* Verkaufszählung: gekaufte Eintrittstickets zählen normal mit; das VIP-QR-Ticket ist eine Reservierung.
 
 ---
 
@@ -192,7 +224,22 @@ Beim Wechsel wird der Event-Filter der Übersicht zurückgesetzt.
 
 ---
 
-## 12. Zugänge (nicht im Klartext)
+## 12. Weitere Event-Optionen (pro Event im Editor)
+
+* **MwSt./VAT ausweisen (optional, variabler Satz):** Checkbox `evVatOn` + Feld `evVatRate` (%).
+  Bei aktiviert wird im Shop der enthaltene Steueranteil ausgewiesen (`store.js` `vatBreakdown`).
+  DB `events.vat_rate` (`20260915_event_vat.sql`).
+* **Verfügbarkeit anzeigen an/aus:** Checkbox `evShowAvail`. Aus = „noch X Tickets" wird ausgeblendet
+  (Kategorie zeigt nur Preis/Stepper); „Ausverkauft" erscheint trotzdem. DB `events.show_availability`
+  (`20260915_show_availability.sql`), Shop `catRowHTML(cat, showAvail)`.
+* **Eigenes Ticket-Design:** Vorder-/Rückseite als Bild hochladbar (`ctFrontFile`/`ctBackFile`),
+  gespeichert in `custom_ticket`; überschreibt das Standard-Ticket-Layout für dieses Event.
+* **Home-Button** in der Detailansicht (`#btnDetailHome`) → zurück zur Übersicht;
+  **Checkout direkt aus der Detailansicht** (`#btnDetailCheckout`).
+
+---
+
+## 13. Zugänge (nicht im Klartext)
 
 | Zugang | Wo |
 |---|---|
