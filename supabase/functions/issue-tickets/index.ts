@@ -60,10 +60,19 @@ Deno.serve(async (req) => {
 
     const { data: cat } = await admin
       .from("categories")
-      .select("id,name,price,quota,seating,event_id,events(name,date,location)")
+      .select("id,name,price,quota,seating,event_id,events(name,date,location,storefront,club)")
       .eq("id", body.category_id).maybeSingle();
     if (!cat) return json({ error: "Ticketkategorie nicht gefunden." }, 400);
-    const ev = cat.events as { name: string; date: string; location: string };
+    const ev = cat.events as { name: string; date: string; location: string; storefront: string | null; club: string | null };
+
+    // Storefront-abhängige Domain & Branding (CORE vs. Focus Events).
+    const isFocus = ev.storefront === "focus";
+    const shopUrl = isFocus ? (Deno.env.get("FOCUS_SHOP_URL") ?? "https://focus-events.shop") : SHOP_URL;
+    const brandName = isFocus ? "FOCUS EVENTS" : "CORE MANAGEMENT";
+    const brandTag = isFocus ? "Club Events" : "Events &amp; Entertainment Austria";
+    const senderName = isFocus ? "Focus Events" : SENDER_NAME;
+    const accent = isFocus ? (ev.club === "LEVEL" ? "#e11d2a" : ev.club === "YPSILON" ? "#2b38f5" : "#5a66ff") : "#C9A84C";
+    const accent2 = isFocus ? accent : "#E8C97A";
 
     // Kontingent prüfen
     const { data: soldRow } = await admin.from("category_sold").select("sold").eq("category_id", cat.id).maybeSingle();
@@ -109,38 +118,38 @@ Deno.serve(async (req) => {
     // E-Mail an den/die Empfänger:in
     const note = (body.note || "").trim();
     const rows = codes.map((c) =>
-      `<div style="margin:10px 0;padding:12px 14px;background:#0d0d0c;border:1px solid rgba(201,168,76,.3);border-radius:6px">
-        <div style="font-family:Arial;font-size:20px;letter-spacing:3px;color:#E8C97A;font-weight:bold">${esc(c)}</div>
-        <a href="${SHOP_URL}/ticket.html?c=${encodeURIComponent(c)}" style="color:#C9A84C;font-size:13px">Ticket anzeigen &amp; QR-Code</a>
+      `<div style="margin:10px 0;padding:12px 14px;background:#0d0d0c;border:1px solid ${accent}55;border-radius:6px">
+        <div style="font-family:Arial;font-size:20px;letter-spacing:3px;color:${accent2};font-weight:bold">${esc(c)}</div>
+        <a href="${shopUrl}/ticket.html?c=${encodeURIComponent(c)}" style="color:${accent};font-size:13px">Ticket anzeigen &amp; QR-Code</a>
       </div>`).join("");
     const html =
 `<!DOCTYPE html><html><body style="margin:0;background:#080808;font-family:Arial,Helvetica,sans-serif;color:#F5F0EB;padding:28px">
-  <div style="max-width:520px;margin:0 auto;background:#101010;border:1px solid rgba(201,168,76,0.25);border-radius:8px;padding:32px">
-    <div style="font-size:22px;letter-spacing:3px;color:#C9A84C;font-weight:bold">CORE MANAGEMENT</div>
-    <div style="color:#999;font-size:13px;margin-bottom:20px">Events &amp; Entertainment Austria</div>
+  <div style="max-width:520px;margin:0 auto;background:#101010;border:1px solid ${accent}44;border-radius:8px;padding:32px">
+    <div style="font-size:22px;letter-spacing:3px;color:${accent};font-weight:bold">${brandName}</div>
+    <div style="color:#999;font-size:13px;margin-bottom:20px">${brandTag}</div>
     <p style="font-size:16px">Du hast ${qty} Ticket${qty > 1 ? "s" : ""} erhalten:</p>
-    <p style="font-size:15px;color:#E8C97A;margin:2px 0 2px">${esc(cat.name)} – ${esc(ev.name)}</p>
+    <p style="font-size:15px;color:${accent2};margin:2px 0 2px">${esc(cat.name)} – ${esc(ev.name)}</p>
     <p style="font-size:13px;color:#999;margin:0 0 4px">${esc(fmtDate(ev.date))}${ev.location ? " · " + esc(ev.location) : ""}</p>
-    ${note ? `<p style="font-size:14px;color:#ccc;background:rgba(201,168,76,.08);border-left:3px solid #C9A84C;padding:10px 12px;border-radius:4px">${esc(note)}</p>` : ""}
+    ${note ? `<p style="font-size:14px;color:#ccc;background:${accent}14;border-left:3px solid ${accent};padding:10px 12px;border-radius:4px">${esc(note)}</p>` : ""}
     ${rows}
     <p style="font-size:13px;color:#999;line-height:1.6;margin-top:18px">
       Zeig den QR-Code beim Einlass (Link oben) oder nenne den Ticketcode.
       Alle Tickets ansehen und als <b>PDF</b> herunterladen: melde dich unter
-      <a href="${SHOP_URL}/tickets.html" style="color:#C9A84C">${SHOP_URL.replace("https://", "")}/tickets.html</a>
+      <a href="${shopUrl}/tickets.html" style="color:${accent}">${shopUrl.replace("https://", "")}/tickets.html</a>
       mit dieser E-Mail-Adresse an.
     </p>
   </div>
 </body></html>`;
     const text = `Du hast ${qty} Ticket(s) erhalten: ${cat.name} – ${ev.name}\n${fmtDate(ev.date)}` +
       (note ? `\n\n${note}` : "") + `\n\nTicketcodes:\n` +
-      codes.map((c) => `  ${c}  ->  ${SHOP_URL}/ticket.html?c=${c}`).join("\n") +
-      `\n\nAlle Tickets & PDF: ${SHOP_URL}/tickets.html (Anmeldung mit dieser E-Mail).`;
+      codes.map((c) => `  ${c}  ->  ${shopUrl}/ticket.html?c=${c}`).join("\n") +
+      `\n\nAlle Tickets & PDF: ${shopUrl}/tickets.html (Anmeldung mit dieser E-Mail).`;
 
     const resp = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: { "api-key": BREVO_KEY, "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({
-        sender: { name: SENDER_NAME, email: SENDER_EMAIL }, to: [{ email: recipient }],
+        sender: { name: senderName, email: SENDER_EMAIL }, to: [{ email: recipient }],
         subject: `Deine Tickets – ${ev.name}`, htmlContent: html, textContent: text,
       }),
     });
