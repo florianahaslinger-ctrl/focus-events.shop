@@ -941,8 +941,26 @@
         (res.emailed ? ' erstellt und per E-Mail gesendet.' : ' erstellt – E-Mail-Versand fehlgeschlagen, bitte Codes manuell weitergeben.'), res.emailed ? 'ok' : 'error');
       $('issueResult').style.display = '';
       $('issueCodes').innerHTML = '<p class="sub">Bestellung ' + esc(res.order_id) + ' · Empfänger ' + esc(email) + '</p>' +
-        res.codes.map(c => '<div class="ticket"><div class="tinfo"><div class="tcode">' + esc(c) + '</div>' +
+        '<div style="margin:8px 0 14px"><button class="btn btn-gold btn-sm" id="btnIssuePdf">Tickets als PDF (mit QR) herunterladen</button></div>' +
+        res.codes.map(c => '<div class="ticket">' +
+          '<div class="qr" data-code="' + esc(c) + '"></div>' +
+          '<div class="tinfo"><div class="tcode">' + esc(c) + '</div>' +
           '<div class="tmeta">focus-events.shop/ticket.html?c=' + esc(c) + '</div></div></div>').join('');
+      // QR-Codes in die ausgestellten Tickets zeichnen (wie im Shop / PDF).
+      $('issueCodes').querySelectorAll('.qr[data-code]').forEach(el => {
+        try {
+          const cv = window.CMTicketPDF.qrCanvas(window.CMTicketPDF.ticketUrl(el.dataset.code), 128);
+          cv.style.width = cv.style.height = '100%';
+          el.appendChild(cv);
+        } catch (e) {
+          el.innerHTML = '<div style="color:#000;font-size:11px;word-break:break-all;padding:4px">' + esc(el.dataset.code) + '</div>';
+        }
+      });
+      const pdfBtn = $('btnIssuePdf');
+      if (pdfBtn) pdfBtn.addEventListener('click', async () => {
+        try { const order = await S.getOrder(res.order_id); if (order) window.CMTicketPDF.download(order); }
+        catch (e) { alert(e.message); }
+      });
       $('issueNote').value = '';
       await renderAll();
     } catch (e) {
