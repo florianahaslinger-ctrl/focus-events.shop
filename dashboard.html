@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260920b">
+<link rel="stylesheet" href="assets/shop.css?v=20260920c">
 <style id="fxDashTheme">
   /* Focus Events – Dashboard im gleichen dunklen Look wie der Shop (Focus-Blau).
      Die geteilten CORE-Variablen werden aufs dunkle Theme umgebogen -> CORE unberührt. */
@@ -550,12 +550,20 @@
   <div><a href="index.html">Zum Shop</a> · <a href="index.html">Hauptseite</a></div>
 </footer>
 
+<!-- Vollbild-Rückmeldung beim Scan/Check-in (unübersehbar) -->
+<div id="scanFlash" aria-live="assertive" style="position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:#fff;cursor:pointer">
+  <div id="scanFlashIcon" style="font-size:min(38vw,150px);line-height:1;font-weight:700"></div>
+  <div id="scanFlashTitle" style="font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,9vw,3.4rem);letter-spacing:.06em;margin-top:6px"></div>
+  <div id="scanFlashInfo" style="font-size:clamp(1rem,4.5vw,1.35rem);margin-top:10px;max-width:620px;opacity:.95;word-break:break-word;white-space:pre-line;line-height:1.5"></div>
+  <div style="font-size:.8rem;letter-spacing:.15em;text-transform:uppercase;margin-top:26px;opacity:.7">Tippen zum Fortfahren</div>
+</div>
+
 <script src="assets/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260920b"></script>
-<script src="assets/store.js?v=20260920b"></script>
-<script src="assets/dashboard.js?v=20260920b"></script>
+<script src="assets/ticket-pdf.js?v=20260920c"></script>
+<script src="assets/store.js?v=20260920c"></script>
+<script src="assets/dashboard.js?v=20260920c"></script>
 </body>
 </html>

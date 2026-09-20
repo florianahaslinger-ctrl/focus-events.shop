@@ -1021,13 +1021,61 @@
   }
 
   async function doCheckin() {
+    const code = $('checkinCode').value;
     try {
-      const res = await S.checkIn($('checkinCode').value);
+      const res = await S.checkIn(code);
       msg($('checkinMsg'), '✓ Eingecheckt: ' + res.code + ' – ' + res.category + (res.seat ? ' · ' + res.seat : '') + ' (' + res.email + ')', 'ok');
+      showFlash('ok', 'Eingecheckt', res.category + (res.seat ? ' · ' + res.seat : '') + '\n' + res.email);
       $('checkinCode').value = '';
       await renderAll();
-    } catch (e) { msg($('checkinMsg'), e.message, 'error'); }
+    } catch (e) {
+      msg($('checkinMsg'), e.message, 'error');
+      const already = /bereits|schon/i.test(e.message);
+      showFlash(already ? 'warn' : 'err', already ? 'Bereits eingecheckt' : 'Ungültig', e.message);
+    }
     $('checkinCode').focus();
+  }
+
+  /* ---- Vollbild-Rückmeldung beim Check-in/Scan ---- */
+  let flashTimer = null, audioCtx = null;
+  const FLASH_STYLE = {
+    ok:   { bg: 'rgba(20,120,52,.97)', icon: '✓' },
+    warn: { bg: 'rgba(190,120,10,.97)', icon: '!' },
+    err:  { bg: 'rgba(170,26,32,.97)',  icon: '✕' }
+  };
+  function beep(kind) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const seq = kind === 'ok' ? [[880, 0]] : kind === 'warn' ? [[440, 0], [440, 0.16]] : [[220, 0], [180, 0.18]];
+      seq.forEach(([f, t]) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'square'; o.frequency.value = f;
+        o.connect(g); g.connect(audioCtx.destination);
+        const t0 = audioCtx.currentTime + t;
+        g.gain.setValueAtTime(0.001, t0);
+        g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+        o.start(t0); o.stop(t0 + 0.15);
+      });
+    } catch (e) {}
+  }
+  function showFlash(kind, title, info) {
+    const box = $('scanFlash'); if (!box) return;
+    const s = FLASH_STYLE[kind] || FLASH_STYLE.ok;
+    box.style.background = s.bg;
+    $('scanFlashIcon').textContent = s.icon;
+    $('scanFlashTitle').textContent = title || '';
+    $('scanFlashInfo').textContent = info || '';
+    box.style.display = 'flex';
+    try { if (navigator.vibrate) navigator.vibrate(kind === 'ok' ? 90 : [70, 60, 70]); } catch (e) {}
+    beep(kind);
+    if (flashTimer) clearTimeout(flashTimer);
+    flashTimer = setTimeout(hideFlash, kind === 'ok' ? 1400 : 2400);
+  }
+  function hideFlash() {
+    if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
+    const box = $('scanFlash'); if (box) box.style.display = 'none';
   }
 
   /* ---- Kamera-QR-Scanner ---- */
@@ -1117,11 +1165,12 @@
     try {
       const res = await S.checkIn(code);
       msg($('scanMsg'), '✓ Eingecheckt: ' + res.code + ' – ' + res.category + (res.seat ? ' · ' + res.seat : '') + ' (' + res.email + ')', 'ok');
-      if (navigator.vibrate) navigator.vibrate(120);
+      showFlash('ok', 'Eingecheckt', res.category + (res.seat ? ' · ' + res.seat : '') + '\n' + res.email);
       renderAll();
     } catch (e) {
       msg($('scanMsg'), code + ': ' + e.message, 'error');
-      if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+      const already = /bereits|schon/i.test(e.message);
+      showFlash(already ? 'warn' : 'err', already ? 'Bereits eingecheckt' : 'Ungültig', e.message);
     }
   }
 
@@ -1371,6 +1420,7 @@
   $('btnScanStop').addEventListener('click', scanStop);
   $('btnScanPhoto').addEventListener('click', () => $('scanPhoto').click());
   $('scanPhoto').addEventListener('change', e => { scanPhoto(e.target.files[0]); e.target.value = ''; });
+  if ($('scanFlash')) $('scanFlash').addEventListener('click', hideFlash);
   $('btnNewEvent').addEventListener('click', () => openEventEditor(null));
   $('btnAddCat').addEventListener('click', () => {
     $('catEditor').insertAdjacentHTML('beforeend', catRowHTML(null));
