@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260916d">
+<link rel="stylesheet" href="assets/shop.css?v=20260920a">
 <style id="fxDashTheme">
   /* Focus Events – Dashboard im gleichen dunklen Look wie der Shop (Focus-Blau).
      Die geteilten CORE-Variablen werden aufs dunkle Theme umgebogen -> CORE unberührt. */
@@ -117,6 +117,7 @@
     <button data-tab="tabSeats" style="display:none">Sitzplan</button>
     <button data-tab="tabIssue">Tickets ausstellen</button>
     <button data-tab="tabVip">VIP-Tische</button>
+    <button data-tab="tabArchive">Archiv</button>
     <button data-tab="tabOrders">Bestellungen</button>
     <button data-tab="tabCheckin">Check-in</button>
     <button data-tab="tabSettings">Einstellungen</button>
@@ -165,6 +166,16 @@
       <button class="btn btn-ghost btn-sm" id="btnVipReload">Aktualisieren</button>
     </div>
     <div id="vipResAll"></div>
+  </div>
+
+  <!-- Event-Archiv: vergangene Events mit Kennzahlen -->
+  <div class="tabpane" id="tabArchive">
+    <div class="toolbar">
+      <p class="sub">Vergangene Events mit ihren Kennzahlen (Umsatz, verkaufte Tickets, Auslastung, Check-ins). Vergangene Live-Events erscheinen automatisch; gelöschte Events bleiben als gespeicherter Eintrag erhalten. Der Club-Filter oben gilt auch hier.</p>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="btnArchiveReload">Aktualisieren</button>
+    </div>
+    <div id="archiveList"></div>
   </div>
 
   <!-- Sitzplan (Gäste umsetzen) -->
@@ -543,8 +554,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260916d"></script>
-<script src="assets/store.js?v=20260916d"></script>
-<script src="assets/dashboard.js?v=20260916d"></script>
+<script src="assets/ticket-pdf.js?v=20260920a"></script>
+<script src="assets/store.js?v=20260920a"></script>
+<script src="assets/dashboard.js?v=20260920a"></script>
 </body>
 </html>

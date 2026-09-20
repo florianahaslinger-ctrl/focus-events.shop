@@ -14,6 +14,7 @@
   let mySuper = false;
   let statFilter = ''; // Übersicht: '' = alle Events, sonst event.id
   let clubFilter = ''; // Club-Ansicht: '' = beide, sonst 'LEVEL' | 'YPSILON'
+  let archiveRows = []; // gespeicherte Archiveinträge (z. B. gelöschte Events)
 
   // Gefilterte Sicht für die Übersicht (nach gewähltem Event)
   function fOrders() { return statFilter ? orders.filter(o => o.eventId === statFilter) : orders; }
@@ -665,6 +666,85 @@
       catch (e) { alert(e.message); }
     }));
   }
+  /* ================= Event-Archiv ================= */
+  // Kennzahlen eines Live-Events aus den Bestellungen berechnen.
+  function liveEventStats(ev) {
+    const shared = (ev.sharedQuota !== null && ev.sharedQuota !== undefined);
+    const capacity = shared ? ev.sharedQuota : ev.categories.reduce((s, c) => s + (c.quota || 0), 0);
+    const sold = shared ? ev.sharedSold : ev.categories.reduce((s, c) => s + (c.sold || 0), 0);
+    let revenue = 0, checkins = 0;
+    orders.forEach(o => {
+      if (o.eventId !== ev.id || o.status !== 'bezahlt') return;
+      revenue += (o.total || 0);
+      checkins += (o.tickets || []).filter(t => t.checkedIn).length;
+    });
+    return { capacity, sold, revenue, checkins };
+  }
+
+  function renderArchive() {
+    const box = $('archiveList'); if (!box) return;
+    const now = Date.now();
+    // 1) Vergangene Live-Events (Datum in der Vergangenheit) – Zahlen live berechnet.
+    const livePast = events
+      .filter(ev => ev.date && new Date(ev.date).getTime() < now)
+      .map(ev => {
+        const st = liveEventStats(ev);
+        return {
+          key: 'ev-' + ev.id, source: 'live', name: ev.name, club: ev.club || null,
+          date: new Date(ev.date), capacity: st.capacity, sold: st.sold,
+          revenue: st.revenue, checkins: st.checkins, vip: null, notes: ''
+        };
+      });
+    // 2) Gespeicherte Archiveinträge (z. B. gelöschte Events), nach Club gefiltert.
+    const stored = archiveRows
+      .filter(r => !clubFilter || (r.club || '') === clubFilter)
+      .map(r => ({
+        key: 'ar-' + r.id, source: 'archive', id: r.id, name: r.name, club: r.club || null,
+        date: r.date ? new Date(r.date + 'T00:00:00') : null, capacity: r.capacity,
+        sold: r.ticketsSold, revenue: r.revenue, checkins: r.checkins, vip: r.vipCount, notes: r.notes
+      }));
+    const all = livePast.concat(stored).sort((a, b) =>
+      (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0));
+    if (!all.length) {
+      box.innerHTML = '<p class="sub">Noch keine vergangenen Events' + (clubFilter ? ' für ' + clubFilter : '') + '.</p>';
+      return;
+    }
+    const tile = (k, v, s) => '<div class="stat-tile" style="padding:12px 14px"><div class="k">' + k +
+      '</div><div class="v" style="font-size:1.35rem">' + v + '</div>' +
+      (s ? '<div class="s">' + s + '</div>' : '') + '</div>';
+    box.innerHTML = all.map(a => {
+      const dateStr = a.date
+        ? a.date.toLocaleDateString('de-AT', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })
+        : '(ohne Datum)';
+      const pct = a.capacity ? Math.round(100 * a.sold / a.capacity) : null;
+      const tiles = [
+        tile('Umsatz (bezahlt)', S.fmtEUR.format(a.revenue || 0), ''),
+        tile('Verkaufte Tickets', (a.sold != null ? a.sold : '–'),
+          (a.capacity ? 'von ' + a.capacity + (pct != null ? ' · ' + pct + ' %' : '') : 'Kontingent unbekannt')),
+        tile('Check-ins', (a.checkins != null ? a.checkins : '–'),
+          (a.checkins != null && a.sold ? Math.round(100 * a.checkins / a.sold) + ' % eingecheckt' : ''))
+      ];
+      if (a.vip != null) tiles.push(tile('VIP-Reservierungen', a.vip, ''));
+      return '<div class="card" style="margin-bottom:16px"><div class="event-head">' +
+        '<h2>' + esc(a.name) + '</h2>' +
+        '<span class="badge ' + (a.source === 'archive' ? 'storniert' : 'bezahlt') + '">' +
+        (a.source === 'archive' ? 'Archiviert' : 'Vergangen') + '</span>' +
+        '<span class="event-meta">' + esc(dateStr) + (a.club ? ' · ' + esc(a.club) : '') + '</span></div>' +
+        '<div class="stat-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px">' +
+        tiles.join('') + '</div>' +
+        (a.notes ? '<p class="hint" style="margin-top:10px">' + esc(a.notes) + '</p>' : '') +
+        (a.source === 'archive'
+          ? '<div style="margin-top:12px"><button type="button" class="btn btn-ghost btn-sm arch-del" data-arch="' + esc(a.id) + '">Aus Archiv entfernen</button></div>'
+          : '') +
+        '</div>';
+    }).join('');
+    box.querySelectorAll('.arch-del').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('Diesen Archiveintrag endgültig entfernen?')) return;
+      try { await S.deleteArchiveEntry(b.dataset.arch); archiveRows = await S.getArchive(); renderArchive(); }
+      catch (e) { alert(e.message); }
+    }));
+  }
+
   function updateVipUI() {
     const on = $('evVipOn') && $('evVipOn').checked;
     if ($('evVipBox')) $('evVipBox').style.display = on ? '' : 'none';
@@ -1202,11 +1282,13 @@
     renderClubOwners();
     renderConnect();
     renderVipReservationsAll();
+    renderArchive();
   }
 
   /* ================= Gesamt-Render ================= */
   async function renderAll() {
     [allOrders, allEvents] = await Promise.all([S.allOrders(), S.getManagedEvents(true)]);
+    try { archiveRows = await S.getArchive(); } catch (e) { archiveRows = []; }
     applyClubFilter();
     renderDashboard();
   }
@@ -1231,6 +1313,10 @@
   });
   $('orderSearch').addEventListener('input', renderOrders);
   $('orderFilter').addEventListener('change', renderOrders);
+  if ($('btnArchiveReload')) $('btnArchiveReload').addEventListener('click', async () => {
+    try { archiveRows = await S.getArchive(); } catch (e) {}
+    renderArchive();
+  });
   $('btnCheckin').addEventListener('click', doCheckin);
   $('checkinCode').addEventListener('keydown', e => { if (e.key === 'Enter') doCheckin(); });
   if ($('btnGenSeats')) $('btnGenSeats').addEventListener('click', async () => {

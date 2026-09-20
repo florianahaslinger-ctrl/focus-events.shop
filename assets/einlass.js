@@ -66,12 +66,59 @@
       const info = r.code + ' – ' + r.category + (r.seat ? ' · ' + r.seat : '') + ' (' + r.email + ')';
       msg(targetMsg, '✓ Eingecheckt: ' + info, 'ok');
       pushLog(true, info);
+      showFlash('ok', 'Eingecheckt', r.category + (r.seat ? ' · ' + r.seat : '') + '\n' + r.email);
       return true;
     } catch (e) {
       msg(targetMsg, (code ? code + ': ' : '') + e.message, 'error');
       pushLog(false, (code || '') + ' – ' + e.message);
+      // „Bereits eingecheckt" gelb (kein echter Fehler), sonst rot.
+      const already = /bereits|schon/i.test(e.message);
+      showFlash(already ? 'warn' : 'err', already ? 'Bereits eingecheckt' : 'Ungültig', e.message);
       return false;
     }
+  }
+
+  /* ---------------- Vollbild-Rückmeldung ---------------- */
+  let flashTimer = null, audioCtx = null;
+  const FLASH_STYLE = {
+    ok:   { bg: 'rgba(20,120,52,.97)',  icon: '✓' },
+    warn: { bg: 'rgba(190,120,10,.97)',  icon: '!' },
+    err:  { bg: 'rgba(170,26,32,.97)',   icon: '✕' }
+  };
+  function beep(kind) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const seq = kind === 'ok' ? [[880, 0]] : kind === 'warn' ? [[440, 0], [440, 0.16]] : [[220, 0], [180, 0.18]];
+      seq.forEach(([f, t]) => {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'square'; o.frequency.value = f;
+        o.connect(g); g.connect(audioCtx.destination);
+        const t0 = audioCtx.currentTime + t;
+        g.gain.setValueAtTime(0.001, t0);
+        g.gain.exponentialRampToValueAtTime(0.28, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+        o.start(t0); o.stop(t0 + 0.15);
+      });
+    } catch (e) {}
+  }
+  function showFlash(kind, title, info) {
+    const box = $('scanFlash'); if (!box) return;
+    const s = FLASH_STYLE[kind] || FLASH_STYLE.ok;
+    box.style.background = s.bg;
+    $('scanFlashIcon').textContent = s.icon;
+    $('scanFlashTitle').textContent = title || '';
+    $('scanFlashInfo').textContent = info || '';
+    box.style.display = 'flex';
+    try { if (navigator.vibrate) navigator.vibrate(kind === 'ok' ? 90 : [70, 60, 70]); } catch (e) {}
+    beep(kind);
+    if (flashTimer) clearTimeout(flashTimer);
+    // Erfolg kurz, Fehler etwas länger stehen lassen.
+    flashTimer = setTimeout(hideFlash, kind === 'ok' ? 1400 : 2400);
+  }
+  function hideFlash() {
+    if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
+    const box = $('scanFlash'); if (box) box.style.display = 'none';
   }
 
   /* ---------------- QR-Scanner (Kamera + Foto) ---------------- */
@@ -202,6 +249,7 @@
       if (ok) $('ciCode').value = '';
     });
     $('ciCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnCiCheck').click(); });
+    if ($('scanFlash')) $('scanFlash').addEventListener('click', hideFlash);
   }
 
   boot().catch(e => { msg($('ciGateErr'), 'Fehler beim Laden: ' + e.message, 'error'); });

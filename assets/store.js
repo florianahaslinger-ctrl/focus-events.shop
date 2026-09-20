@@ -430,6 +430,41 @@
       return data ? mapOrder(data) : null;
     },
 
+    /* --- Event-Archiv (dauerhaft gespeicherte Kennzahlen, auch für gelöschte Events) --- */
+    async getArchive() {
+      const { data, error } = await sb.from('event_archive')
+        .select('id,storefront,name,club,event_date,capacity,tickets_sold,revenue,checkins,vip_count,notes,created_at')
+        .eq('storefront', STOREFRONT)
+        .order('event_date', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data || []).map(r => ({
+        id: r.id, name: r.name, club: r.club || null, date: r.event_date || null,
+        capacity: (r.capacity != null ? Number(r.capacity) : null),
+        ticketsSold: Number(r.tickets_sold || 0), revenue: Number(r.revenue || 0),
+        checkins: (r.checkins != null ? Number(r.checkins) : null),
+        vipCount: (r.vip_count != null ? Number(r.vip_count) : null),
+        notes: r.notes || '', createdAt: r.created_at
+      }));
+    },
+    async addArchiveEntry(e) {
+      e = e || {};
+      const row = {
+        storefront: STOREFRONT, name: e.name, club: e.club || null,
+        event_date: e.date || null, capacity: (e.capacity != null ? e.capacity : null),
+        tickets_sold: e.ticketsSold || 0, revenue: e.revenue || 0,
+        checkins: (e.checkins != null ? e.checkins : null),
+        vip_count: (e.vipCount != null ? e.vipCount : null), notes: e.notes || null
+      };
+      const { data, error } = await sb.from('event_archive').insert(row).select('id').single();
+      if (error) throw new Error(error.message);
+      return data ? data.id : null;
+    },
+    async deleteArchiveEntry(id) {
+      const { error } = await sb.from('event_archive').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+      return true;
+    },
+
     // Wartet nach Rückkehr von Stripe, bis der Webhook die Bestellung bestätigt hat
     async waitForPayment(orderId, timeoutMs) {
       const until = Date.now() + (timeoutMs || 25000);
