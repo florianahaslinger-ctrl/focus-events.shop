@@ -16,6 +16,7 @@
   let eventsCache = [];
   let activeClub = 'LEVEL'; // aktiver Reiter: 'LEVEL' | 'YPSILON'
   let pendingEmail = '';
+  let pendingName = '';
   let afterLogin = null;
 
   const CLUBS = ['LEVEL', 'YPSILON'];
@@ -329,8 +330,10 @@
     $('loginStep1').style.display = '';
     $('loginStep2').style.display = 'none';
     msg($('loginMsg1'), ''); msg($('loginMsg2'), '');
+    // Namen vorbefüllen (letzte Eingabe), falls vorhanden.
+    try { if ($('loginName') && !$('loginName').value) $('loginName').value = localStorage.getItem('fx_name') || ''; } catch (e) {}
     openModal('loginModal');
-    $('loginEmail').focus();
+    if ($('loginName')) $('loginName').focus(); else $('loginEmail').focus();
   };
 
   window.backToStep1 = function () {
@@ -342,10 +345,17 @@
     const email = isResend ? pendingEmail : $('loginEmail').value;
     const m1 = isResend ? $('loginMsg2') : $('loginMsg1');
     const btn = isResend ? $('btnResend') : $('btnSendCode');
+    // Name ist im Focus-Shop Pflicht (nur beim ersten Schritt geprüft).
+    if (!isResend) {
+      const nm = ($('loginName') ? $('loginName').value : '').trim();
+      if (!nm) { msg(m1, 'Bitte gib deinen Namen an.', 'error'); if ($('loginName')) $('loginName').focus(); return; }
+      pendingName = nm;
+      try { localStorage.setItem('fx_name', nm); } catch (e) {}
+    }
     try {
       btn.disabled = true;
       msg(m1, 'E-Mail wird gesendet …', 'info');
-      await S.requestCode(email);
+      await S.requestCode(email, pendingName);
       pendingEmail = S.normEmail(email);
       $('loginStep1').style.display = 'none';
       $('loginStep2').style.display = '';
@@ -364,7 +374,7 @@
   async function verify() {
     try {
       $('btnVerify').disabled = true;
-      await S.verifyCode(pendingEmail, $('loginCode').value);
+      await S.verifyCode(pendingEmail, $('loginCode').value, pendingName);
       closeModal('loginModal');
       renderNav();
       renderMyTickets();
@@ -716,7 +726,8 @@
     try { orders = await S.myOrders(); }
     catch (e) { box.innerHTML = '<p class="sub">Fehler beim Laden: ' + esc(e.message) + '</p>'; return; }
     if (!orders.length) {
-      box.innerHTML = '<p class="sub">Angemeldet als <b style="color:var(--gold)">' + esc(user) +
+      const who = (S.currentUserName ? S.currentUserName() : null);
+      box.innerHTML = '<p class="sub">Angemeldet als <b style="color:var(--gold)">' + esc(who ? who + ' · ' + user : user) +
         '</b> – noch keine Bestellungen vorhanden.</p>';
       return;
     }
@@ -933,6 +944,11 @@
 
   function renderVipConfirm() {
     const min = vipSel.minConsumption;
+    // Namen aus dem angemeldeten Profil vorbefüllen, falls Feld noch leer.
+    try {
+      const nm = (S.currentUserName ? S.currentUserName() : null) || (localStorage.getItem('fx_name') || '');
+      if (nm && $('vipName') && !$('vipName').value) $('vipName').value = nm;
+    } catch (e) {}
     $('vipSelected').innerHTML =
       '<div class="vip-sel-name">' + esc(vipSel.name) + '</div>' +
       '<div class="vip-sel-min">' + (min > 0
@@ -1039,6 +1055,7 @@
     $('btnVerify').addEventListener('click', verify);
     $('loginCode').addEventListener('keydown', e => { if (e.key === 'Enter') verify(); });
     $('loginEmail').addEventListener('keydown', e => { if (e.key === 'Enter') sendCode(false); });
+    if ($('loginName')) $('loginName').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginEmail').focus(); });
     $('btnCheckout').addEventListener('click', openCheckout);
     if ($('btnDetailCheckout')) $('btnDetailCheckout').addEventListener('click', () => { closeModal('eventDetailModal'); openCheckout(); });
     if ($('btnDetailHome')) $('btnDetailHome').addEventListener('click', () => {

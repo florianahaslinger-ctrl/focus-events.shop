@@ -96,19 +96,24 @@
     },
     client() { return sb; },
     currentUser() { return session && session.user ? normEmail(session.user.email) : null; },
+    // Angezeigter Name des angemeldeten Nutzers (aus user_metadata), falls gesetzt.
+    currentUserName() {
+      const m = session && session.user ? (session.user.user_metadata || {}) : {};
+      return (m.full_name || m.name || '').trim() || null;
+    },
 
-    async requestCode(email) {
+    async requestCode(email, name) {
       email = normEmail(email);
       if (!validEmail(email)) throw new Error('Bitte eine gültige E-Mail-Adresse eingeben.');
-      const { error } = await sb.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname }
-      });
+      const options = { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname };
+      name = (name || '').trim();
+      if (name) options.data = { full_name: name };  // beim Erstellen als Metadaten setzen
+      const { error } = await sb.auth.signInWithOtp({ email, options });
       if (error) throw new Error(niceAuthError(error));
       return { demo: false };
     },
 
-    async verifyCode(email, code) {
+    async verifyCode(email, code, name) {
       const token = String(code).replace(/\D/g, '');
       if (token.length < 6) throw new Error('Bitte gib den 6-stelligen Code aus der E-Mail ein.');
       const { data, error } = await sb.auth.verifyOtp({
@@ -116,6 +121,11 @@
       });
       if (error) throw new Error(niceAuthError(error));
       session = data.session;
+      // Name auch für bestehende Konten aktualisieren (nicht-fatal bei Fehler).
+      name = (name || '').trim();
+      if (name && (!this.currentUserName() || this.currentUserName() !== name)) {
+        try { await sb.auth.updateUser({ data: { full_name: name } }); } catch (_) {}
+      }
       return data.user;
     },
 
