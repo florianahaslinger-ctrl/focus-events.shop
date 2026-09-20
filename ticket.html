@@ -17,6 +17,9 @@
 .status-title.bad{color:var(--bad)}
 .status-code{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.16em;color:var(--gold);margin:14px 0 4px}
 .status-meta{color:var(--gray);font-size:15px}
+.tk-qr{width:220px;max-width:70vw;aspect-ratio:1;margin:4px auto 20px;background:#fff;border-radius:10px;padding:12px}
+.tk-qr canvas{width:100%;height:100%;display:block}
+.tk-qr-cap{color:var(--gray);font-size:13px;margin:-8px 0 18px}
 </style>
 </head>
 <body>
@@ -43,7 +46,9 @@
 </footer>
 
 <script src="assets/supabase.js"></script>
-<script src="assets/store.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/ticket-pdf.js?v=20260920e"></script>
+<script src="assets/store.js?v=20260920e"></script>
 <script>
 (async function () {
   const S = window.CMStore;
@@ -102,6 +107,21 @@
       fmtDate(st.event_date) + (st.event_location ? ' · ' + esc(st.event_location) : '') + '</div>' +
       '<p class="sub" style="margin-top:10px">' + note + '</p>' +
       '<div id="adminAction" style="margin-top:16px"></div>';
+
+    // QR-Code zum Vorzeigen am Einlass – bei gültigen (bezahlten) Tickets.
+    if (st.order_status === 'bezahlt') {
+      try {
+        const qb = document.createElement('div');
+        qb.className = 'tk-qr';
+        const cv = window.CMTicketPDF.qrCanvas(window.CMTicketPDF.ticketUrl(st.code), 220);
+        qb.appendChild(cv);
+        const cap = document.createElement('div');
+        cap.className = 'tk-qr-cap';
+        cap.textContent = 'Diesen QR-Code beim Einlass vorzeigen';
+        card.insertBefore(cap, card.firstChild);
+        card.insertBefore(qb, card.firstChild);
+      } catch (e) {}
+    }
 
     // Angemeldete Admins können direkt von hier einchecken (z. B. nach Kamera-Scan am Handy)
     if (cls === 'ok' && await S.isAdmin()) {
