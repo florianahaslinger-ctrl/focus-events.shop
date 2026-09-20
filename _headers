@@ -1,0 +1,10 @@
+# Cloudflare Pages – Cache-Steuerung
+# HTML-Seiten immer beim Server revalidieren, damit neue JS/CSS-Versionen (?v=…)
+# sofort geladen werden und nicht ein alter Stand aus dem Browser-Cache kommt.
+/*
+  Cache-Control: no-cache, must-revalidate
+
+# Versionierte Assets dürfen lange gecacht werden – die URL (?v=Token) ändert
+# sich bei jeder Änderung, daher lädt der Browser dann automatisch neu.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
