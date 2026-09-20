@@ -929,6 +929,7 @@
     const categoryId = $('issueCat').value;
     const qty = parseInt($('issueQty').value, 10) || 0;
     const email = $('issueEmail').value.trim();
+    const name = ($('issueName') ? $('issueName').value : '').trim();
     const mode = $('issueMode').value;
     const note = $('issueNote').value.trim();
     if (!categoryId) { msg($('issueMsg'), 'Bitte eine Ticketkategorie wählen.', 'error'); return; }
@@ -936,7 +937,7 @@
     try {
       $('btnIssue').disabled = true;
       msg($('issueMsg'), 'Tickets werden erstellt und gesendet …', 'info');
-      const res = await S.issueTickets({ categoryId, qty, email, mode, note });
+      const res = await S.issueTickets({ categoryId, qty, email, mode, note, name });
       msg($('issueMsg'), '✓ ' + res.codes.length + ' Ticket(s) für ' + email +
         (res.emailed ? ' erstellt und per E-Mail gesendet.' : ' erstellt – E-Mail-Versand fehlgeschlagen, bitte Codes manuell weitergeben.'), res.emailed ? 'ok' : 'error');
       $('issueResult').style.display = '';
@@ -962,6 +963,7 @@
         catch (e) { alert(e.message); }
       });
       $('issueNote').value = '';
+      if ($('issueName')) $('issueName').value = '';
       await renderAll();
     } catch (e) {
       msg($('issueMsg'), e.message, 'error');
@@ -978,12 +980,14 @@
     if (f) list = list.filter(o => o.status === f);
     if (q) list = list.filter(o =>
       o.id.toLowerCase().includes(q) || o.email.includes(q) ||
+      (o.customerName && o.customerName.toLowerCase().includes(q)) ||
       o.tickets.some(t => t.code.toLowerCase().includes(q)));
 
-    let rows = '<tr><th>Bestellung</th><th>Datum</th><th>E-Mail</th><th>Tickets</th><th>Summe</th><th>Status</th><th></th></tr>';
-    if (!list.length) rows += '<tr><td colspan="7" style="color:#6f6f6f">Keine Bestellungen gefunden.</td></tr>';
+    let rows = '<tr><th>Bestellung</th><th>Datum</th><th>Name</th><th>E-Mail</th><th>Tickets</th><th>Summe</th><th>Status</th><th></th></tr>';
+    if (!list.length) rows += '<tr><td colspan="8" style="color:#6f6f6f">Keine Bestellungen gefunden.</td></tr>';
     list.forEach(o => {
       rows += '<tr><td><b>' + esc(o.id) + '</b></td><td>' + fmtDT(o.createdAt) + '</td>' +
+        '<td>' + (o.customerName ? esc(o.customerName) : '<span class="hint">—</span>') + '</td>' +
         '<td>' + esc(o.email) + '</td>' +
         '<td>' + o.items.map(i => i.qty + '× ' + esc(i.categoryName)).join('<br>') + '</td>' +
         '<td>' + S.fmtEUR.format(o.total) + '</td>' +

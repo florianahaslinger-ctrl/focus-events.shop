@@ -50,8 +50,9 @@ Deno.serve(async (req) => {
     if (!adm) return json({ error: "Keine Admin-Berechtigung." }, 403);
 
     const body = await req.json() as {
-      category_id: string; qty: number; email: string; mode?: string; note?: string;
+      category_id: string; qty: number; email: string; mode?: string; note?: string; name?: string;
     };
+    const customerName = String(body.name ?? "").trim() || null;
     const qty = Math.floor(Number(body.qty));
     const recipient = String(body.email || "").trim().toLowerCase();
     const mode = body.mode === "bar" ? "bar" : "gast";
@@ -95,7 +96,7 @@ Deno.serve(async (req) => {
     const orderId = "G" + Date.now().toString().slice(-8);
 
     const { error: oErr } = await admin.from("orders").insert({
-      id: orderId, email: recipient, status: "bezahlt", total, paid_via: mode, paid_at: new Date().toISOString(),
+      id: orderId, email: recipient, customer_name: customerName, status: "bezahlt", total, paid_via: mode, paid_at: new Date().toISOString(),
     });
     if (oErr) throw oErr;
     await admin.from("order_items").insert({

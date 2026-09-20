@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260920d">
+<link rel="stylesheet" href="assets/shop.css?v=20260920e">
 <style id="fxDashTheme">
   /* Focus Events – Dashboard im gleichen dunklen Look wie der Shop (Focus-Blau).
      Die geteilten CORE-Variablen werden aufs dunkle Theme umgebogen -> CORE unberührt. */
@@ -225,6 +225,10 @@
           <label for="issueEmail">Empfänger-E-Mail</label>
           <input type="email" id="issueEmail" placeholder="gast@example.at" autocomplete="off">
         </div>
+        <div style="flex:1 1 180px">
+          <label for="issueName">Name (optional)</label>
+          <input type="text" id="issueName" placeholder="Vor- und Nachname" autocomplete="off">
+        </div>
         <div>
           <label for="issueMode">Art</label>
           <select id="issueMode">
@@ -248,7 +252,7 @@
   <!-- Bestellungen -->
   <div class="tabpane" id="tabOrders">
     <div class="toolbar">
-      <input type="text" id="orderSearch" placeholder="Suche: Bestellnr., E-Mail oder Ticketcode …" style="max-width:340px">
+      <input type="text" id="orderSearch" placeholder="Suche: Name, E-Mail, Bestellnr. oder Ticketcode …" style="max-width:360px">
       <select id="orderFilter" style="max-width:180px">
         <option value="">Alle Status</option>
         <option value="offen">offen</option>
@@ -562,8 +566,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20260920d"></script>
-<script src="assets/store.js?v=20260920d"></script>
-<script src="assets/dashboard.js?v=20260920d"></script>
+<script src="assets/ticket-pdf.js?v=20260920e"></script>
+<script src="assets/store.js?v=20260920e"></script>
+<script src="assets/dashboard.js?v=20260920e"></script>
 </body>
 </html>

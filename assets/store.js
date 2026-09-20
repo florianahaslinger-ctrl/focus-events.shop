@@ -52,7 +52,7 @@
 
   function mapOrder(o) {
     return {
-      id: o.id, email: o.email, status: o.status, total: Number(o.total),
+      id: o.id, email: o.email, customerName: o.customer_name || null, status: o.status, total: Number(o.total),
       paidVia: o.paid_via, paidAt: o.paid_at, createdAt: o.created_at, eventId: o.event_id || null,
       items: (o.order_items || []).map(i => ({
         categoryId: i.category_id, categoryName: i.category_name,
@@ -67,7 +67,7 @@
     };
   }
 
-  const ORDER_SELECT = 'id,email,status,total,paid_via,paid_at,created_at,event_id,' +
+  const ORDER_SELECT = 'id,email,customer_name,status,total,paid_via,paid_at,created_at,event_id,' +
     'order_items(category_id,category_name,event_name,price,qty),' +
     'tickets(code,category_id,category_name,event_name,event_date,event_location,price,checked_in,checked_in_at,seats(row_no,table_no,seat_no))';
 
@@ -597,9 +597,9 @@
     },
 
     // Admin: Tickets ausstellen und per E-Mail versenden
-    async issueTickets({ categoryId, qty, email, mode, note }) {
+    async issueTickets({ categoryId, qty, email, mode, note, name }) {
       const { data, error } = await sb.functions.invoke('issue-tickets', {
-        body: { category_id: categoryId, qty, email, mode, note }
+        body: { category_id: categoryId, qty, email, mode, note, name }
       });
       if (error) {
         let msg = 'Tickets konnten nicht ausgestellt werden.';
@@ -932,13 +932,14 @@
     },
 
     exportOrdersCSV(orders) {
-      const rows = [['Bestellung', 'Datum', 'E-Mail', 'Status', 'Zahlart', 'Ticketcode', 'Event', 'Kategorie', 'Preis', 'Check-in']];
+      const rows = [['Bestellung', 'Datum', 'Name', 'E-Mail', 'Status', 'Zahlart', 'Ticketcode', 'Event', 'Kategorie', 'Preis', 'Check-in']];
       orders.forEach(o => {
+        const nm = o.customerName || '';
         if (o.tickets.length) {
-          o.tickets.forEach(t => rows.push([o.id, o.createdAt, o.email, o.status, o.paidVia || '', t.code,
+          o.tickets.forEach(t => rows.push([o.id, o.createdAt, nm, o.email, o.status, o.paidVia || '', t.code,
             t.eventName, t.categoryName, String(t.price).replace('.', ','), t.checkedIn ? t.checkedInAt : '']));
         } else {
-          o.items.forEach(i => rows.push([o.id, o.createdAt, o.email, o.status, o.paidVia || '', '',
+          o.items.forEach(i => rows.push([o.id, o.createdAt, nm, o.email, o.status, o.paidVia || '', '',
             i.eventName, i.qty + '× ' + i.categoryName, String(i.price * i.qty).replace('.', ','), '']));
         }
       });

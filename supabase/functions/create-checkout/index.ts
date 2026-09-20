@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
       return json({ error: "Bitte zuerst mit E-Mail anmelden." }, 401);
     }
     const email = userData.user.email.toLowerCase();
+    const meta = (userData.user.user_metadata ?? {}) as Record<string, unknown>;
+    const customerName = String(meta.full_name ?? meta.name ?? "").trim() || null;
 
     const { items, return_path, origin } = await req.json() as {
       items: { category_id: string; qty: number; seat_ids?: string[] }[];
@@ -204,7 +206,7 @@ Deno.serve(async (req) => {
     // Bestellung anlegen (offen)
     const orderId = "B" + Date.now().toString().slice(-8);
     const { error: oErr } = await admin.from("orders").insert({
-      id: orderId, email, subtotal, service_fee: serviceFee, payment_fee: paymentFee, total,
+      id: orderId, email, customer_name: customerName, subtotal, service_fee: serviceFee, payment_fee: paymentFee, total,
       status: "offen", event_id: eventId,
     });
     if (oErr) throw oErr;
