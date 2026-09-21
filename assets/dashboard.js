@@ -257,6 +257,8 @@
       '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">' +
       '<button class="btn btn-ghost btn-sm" data-edit="' + ev.id + '">Bearbeiten</button>' +
       '<button class="btn btn-ghost btn-sm" data-toggle="' + ev.id + '">' + (ev.active ? 'Deaktivieren' : 'Aktivieren') + '</button>' +
+      '<button class="btn btn-ghost btn-sm" data-archive="' + ev.id + '"' +
+        (archiveRows.some(a => a.eventId === ev.id) ? ' disabled title="Bereits archiviert"' : '') + '>Archivieren</button>' +
       '<button class="btn btn-danger btn-sm" data-del="' + ev.id + '">Löschen</button>' +
       '</div></div>').join('')
       : '<div class="card"><p class="sub">Noch keine Events angelegt.</p></div>';
@@ -274,6 +276,31 @@
         catch (e) { alert('Löschen nicht möglich: ' + e.message + '\nTipp: Events mit Bestellungen besser deaktivieren.'); }
       }
     }));
+    $('adminEvents').querySelectorAll('[data-archive]').forEach(b => b.addEventListener('click', () => archiveEvent(b.dataset.archive)));
+  }
+
+  // Event manuell ins Archiv legen: aktuelle Kennzahlen einfrieren + deaktivieren.
+  async function archiveEvent(eventId) {
+    const ev = events.find(x => x.id === eventId);
+    if (!ev) return;
+    if (archiveRows.some(a => a.eventId === eventId)) { alert('Dieses Event ist bereits archiviert.'); return; }
+    if (!confirm('Event „' + ev.name + '“ ins Archiv legen?\n\nDie aktuellen Kennzahlen (Umsatz, Tickets, Check-ins, VIP) werden eingefroren und das Event wird deaktiviert (aus dem Shop genommen). Die Bestellungen bleiben erhalten.')) return;
+    try {
+      const st = liveEventStats(ev);
+      let vip = null;
+      try { vip = (await S.getReservations(eventId)).filter(r => r.status === 'reserviert').length; } catch (_) {}
+      await S.addArchiveEntry({
+        eventId: eventId, name: ev.name, club: ev.club || null,
+        date: ev.date ? String(ev.date).slice(0, 10) : null,
+        capacity: (st.capacity || null), ticketsSold: st.sold, revenue: st.revenue,
+        checkins: st.checkins, vipCount: vip,
+        notes: 'Manuell archiviert am ' + new Date().toLocaleDateString('de-AT') + '.'
+      });
+      if (ev.active) { try { await S.setEventActive(eventId, false); } catch (_) {} }
+      archiveRows = await S.getArchive();
+      await renderAll();
+      alert('„' + ev.name + '“ wurde ins Archiv gelegt.');
+    } catch (e) { alert('Archivieren nicht möglich: ' + e.message); }
   }
 
   function phaseRowHTML(p) {
@@ -684,9 +711,11 @@
   function renderArchive() {
     const box = $('archiveList'); if (!box) return;
     const now = Date.now();
+    // Bereits (manuell) archivierte Events nicht doppelt zeigen.
+    const archivedIds = new Set(archiveRows.map(r => r.eventId).filter(Boolean));
     // 1) Vergangene Live-Events (Datum in der Vergangenheit) – Zahlen live berechnet.
     const livePast = events
-      .filter(ev => ev.date && new Date(ev.date).getTime() < now)
+      .filter(ev => ev.date && new Date(ev.date).getTime() < now && !archivedIds.has(ev.id))
       .map(ev => {
         const st = liveEventStats(ev);
         return {
