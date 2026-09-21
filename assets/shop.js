@@ -725,10 +725,30 @@
     let orders;
     try { orders = await S.myOrders(); }
     catch (e) { box.innerHTML = '<p class="sub">Fehler beim Laden: ' + esc(e.message) + '</p>'; return; }
+    const hadOrders = orders.length > 0;
+    // Tickets vergangener Events 24 h nach dem Event ausblenden.
+    const CUTOFF = Date.now() - 24 * 3600 * 1000;
+    const orderEventTime = (o) => {
+      let t = null;
+      (o.tickets || []).forEach(k => {
+        if (!k.eventDate) return;
+        const d = new Date(k.eventDate).getTime();
+        if (!isNaN(d) && (t === null || d > t)) t = d;
+      });
+      return t;
+    };
+    orders = orders.filter(o => {
+      const et = orderEventTime(o);
+      return et === null ? true : et >= CUTOFF; // ohne Event-Zeit (z. B. offene Bestellung) sichtbar lassen
+    });
     if (!orders.length) {
       const who = (S.currentUserName ? S.currentUserName() : null);
-      box.innerHTML = '<p class="sub">Angemeldet als <b style="color:var(--gold)">' + esc(who ? who + ' · ' + user : user) +
-        '</b> – noch keine Bestellungen vorhanden.</p>';
+      const whoTxt = esc(who ? who + ' · ' + user : user);
+      box.innerHTML = hadOrders
+        ? '<p class="sub">Angemeldet als <b style="color:var(--gold)">' + whoTxt +
+          '</b> – aktuell keine Tickets. Tickets vergangener Events werden 24&nbsp;Stunden nach dem Event nicht mehr angezeigt.</p>'
+        : '<p class="sub">Angemeldet als <b style="color:var(--gold)">' + whoTxt +
+          '</b> – noch keine Bestellungen vorhanden.</p>';
       return;
     }
     box.innerHTML = orders.map(o =>
