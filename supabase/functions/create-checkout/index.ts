@@ -81,6 +81,8 @@ Deno.serve(async (req) => {
       "https://focus-events.shop",
       "https://level.focus-events.shop",
       "https://ypsilon.focus-events.shop",
+      "https://litecball.at",
+      "https://www.litecball.at",
     ]);
     const cleanOrigin = (origin ?? "").replace(/\/+$/, "");
     const base = ALLOWED_ORIGINS.has(cleanOrigin) ? cleanOrigin : SHOP_URL;
@@ -167,7 +169,9 @@ Deno.serve(async (req) => {
     // Event einmalig laden (Gesamtkontingent + Auszahlungskonto + Storefront).
     const { data: evRow } = await admin.from("events")
       .select("owner_email,shared_quota,fees_on_organizer,storefront").eq("id", eventId).maybeSingle();
-    const isFocus = evRow?.storefront === "focus";
+    const storefront = evRow?.storefront ?? null;
+    const isFocus = storefront === "focus";
+    const isLitec = storefront === "litec";
     // Gebühren-Modus: true = Veranstalter trägt die Gebühren, Kunde zahlt exakt den Ticketpreis.
     const feesOnOrganizer = evRow?.fees_on_organizer === true;
 
@@ -181,12 +185,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Gebühren: Servicegebühr (CORE) · Zahlungsgebühr (Stripe) 1,5 % + 0,25 €/Ticket
-    // Focus-Events: Servicegebühr nur 0,1 % (kein Fixbetrag/Ticket). CORE-Bälle: 3,5 % + 0,25 €/Ticket.
+    // Servicegebühr je Storefront · Zahlungsgebühr (Stripe) immer 1,5 % + 0,25 €/Ticket
+    //   CORE-Bälle : 3,5 % + 0,25 €/Ticket
+    //   Focus      : 0,1 % (kein Fixbetrag/Ticket)
+    //   Litec      : 0 – im Vorfeld bezahlt, es werden nur die Stripe-Kosten gedeckt
     const serviceFee = subtotal > 0
-      ? (isFocus
-          ? Math.round(0.001 * subtotal * 100) / 100
-          : Math.round((0.035 * subtotal + 0.25 * totalTickets) * 100) / 100)
+      ? (isLitec
+          ? 0
+          : isFocus
+            ? Math.round(0.001 * subtotal * 100) / 100
+            : Math.round((0.035 * subtotal + 0.25 * totalTickets) * 100) / 100)
       : 0;
     const paymentFee = subtotal > 0 ? Math.round((0.015 * subtotal + 0.25 * totalTickets) * 100) / 100 : 0;
     // Kunde zahlt: bei feesOnOrganizer nur den Ticketpreis, sonst zzgl. Gebühren.

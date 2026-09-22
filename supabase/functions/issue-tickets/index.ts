@@ -66,14 +66,23 @@ Deno.serve(async (req) => {
     if (!cat) return json({ error: "Ticketkategorie nicht gefunden." }, 400);
     const ev = cat.events as { name: string; date: string; location: string; storefront: string | null; club: string | null };
 
-    // Storefront-abhängige Domain & Branding (CORE vs. Focus Events).
+    // Storefront-abhängige Domain & Branding (CORE · Focus Events · Litec Ball).
     const isFocus = ev.storefront === "focus";
-    const shopUrl = isFocus ? (Deno.env.get("FOCUS_SHOP_URL") ?? "https://focus-events.shop") : SHOP_URL;
-    const brandName = isFocus ? "FOCUS EVENTS" : "CORE MANAGEMENT";
-    const brandTag = isFocus ? "Club Events" : "Events &amp; Entertainment Austria";
-    const senderName = isFocus ? "Focus Events" : SENDER_NAME;
-    const accent = isFocus ? (ev.club === "LEVEL" ? "#e11d2a" : ev.club === "YPSILON" ? "#2b38f5" : "#5a66ff") : "#C9A84C";
-    const accent2 = isFocus ? accent : "#E8C97A";
+    const isLitec = ev.storefront === "litec";
+    const shopUrl = isFocus
+      ? (Deno.env.get("FOCUS_SHOP_URL") ?? "https://focus-events.shop")
+      : isLitec
+        ? (Deno.env.get("LITEC_SHOP_URL") ?? "https://litecball.at")
+        : SHOP_URL;
+    const brandName = isFocus ? "FOCUS EVENTS" : isLitec ? "LITEC BALL" : "CORE MANAGEMENT";
+    const brandTag = isFocus ? "Club Events"
+      : isLitec ? "The Wolf of Paul Hahn Street · 06.02.2027"
+      : "Events &amp; Entertainment Austria";
+    const senderName = isFocus ? "Focus Events" : isLitec ? "Litec Ball" : SENDER_NAME;
+    const accent = isFocus
+      ? (ev.club === "LEVEL" ? "#e11d2a" : ev.club === "YPSILON" ? "#2b38f5" : "#5a66ff")
+      : isLitec ? "#12a05f" : "#C9A84C";
+    const accent2 = isFocus ? accent : isLitec ? "#19c074" : "#E8C97A";
 
     // Kontingent prüfen
     const { data: soldRow } = await admin.from("category_sold").select("sold").eq("category_id", cat.id).maybeSingle();
