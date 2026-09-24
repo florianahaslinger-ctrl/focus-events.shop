@@ -25,6 +25,13 @@
   // Nach dem Cloudflare-Setup + DNS auf true setzen, dann klickt ein Club auf seine Subdomain.
   const SUBDOMAINS_LIVE = true;
   const CLUB_HOSTS = { LEVEL: 'level.focus-events.shop', YPSILON: 'ypsilon.focus-events.shop' };
+  // Club-Umleitung NUR, wenn wir tatsaechlich auf focus-events.shop sind.
+  // Auf Ausweichadressen (focus-events.pages.dev, focus.core-management.at)
+  // oder lokal wird der Club stattdessen in der Seite gewechselt - sonst
+  // landet man bei einem DNS-Ausfall der Hauptdomain auf einer toten Subdomain.
+  function subdomainRoutingUsable() {
+    return /(^|\.)focus-events\.shop$/.test(location.hostname.toLowerCase());
+  }
   function clubFromHost() {
     const h = location.hostname.toLowerCase();
     if (h === CLUB_HOSTS.LEVEL || h.startsWith('level.')) return 'LEVEL';
@@ -159,7 +166,7 @@
       const select = () => {
         if (!t.dataset.club) return;
         const club = t.dataset.club;
-        if (SUBDOMAINS_LIVE && CLUB_HOSTS[club] && location.hostname.toLowerCase() !== CLUB_HOSTS[club]) {
+        if (SUBDOMAINS_LIVE && subdomainRoutingUsable() && CLUB_HOSTS[club] && location.hostname.toLowerCase() !== CLUB_HOSTS[club]) {
           location.href = location.protocol + '//' + CLUB_HOSTS[club] + '/';
           return;
         }
