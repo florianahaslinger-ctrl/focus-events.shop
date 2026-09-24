@@ -83,6 +83,12 @@ Deno.serve(async (req) => {
       "https://ypsilon.focus-events.shop",
       "https://litecball.at",
       "https://www.litecball.at",
+      // Ausweichadressen: funktionieren unabhaengig von der Domain-Delegation.
+      // Wichtig bei DNS-Ausfaellen der Hauptdomain - sonst kehrt der Kunde
+      // nach der Zahlung faelschlich zu CORE zurueck.
+      "https://focus-events.pages.dev",
+      "https://focus.core-management.at",
+      "https://shop.core-management.at",
     ]);
     const cleanOrigin = (origin ?? "").replace(/\/+$/, "");
     const base = ALLOWED_ORIGINS.has(cleanOrigin) ? cleanOrigin : SHOP_URL;
