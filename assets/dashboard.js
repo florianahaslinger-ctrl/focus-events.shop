@@ -4,6 +4,12 @@
   'use strict';
   const S = window.CMStore;
   const $ = id => document.getElementById(id);
+
+  /* Einlass-Scanner-Link: bewusst FEST auf die Cloudflare-Adresse.
+     Die Domain focus-events.shop ist bereits mehrfach per DNS ausgefallen -
+     der Link fuer das Tuerpersonal darf davon nicht abhaengen. Er wird daher
+     nicht aus location.origin gebaut, sondern immer von hier genommen. */
+  const CHECKIN_BASE = 'https://focus-events.pages.dev';
   const GOLD = '#067c75'; // validierte Diagrammfarbe auf dunklem Grund
 
   let allOrders = []; // ungefilterter Cache aller Bestellungen
@@ -421,7 +427,7 @@
     msg($('evCheckinMsg'), '');
     if (ev) {
       ciBox.style.display = '';
-      const curl = location.origin + '/einlass.html?event=' + ev.id;
+      const curl = CHECKIN_BASE + '/einlass.html?event=' + ev.id;
       $('evCheckinUrl').value = curl; $('btnOpenCheckin').href = curl;
       $('evCheckinStatus').textContent = 'Status wird geladen …';
       $('evCheckinLinkBox').style.display = 'none';
