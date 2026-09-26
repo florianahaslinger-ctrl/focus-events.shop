@@ -38,6 +38,7 @@
     $('ciEventName').style.display = '';
     $('ciLogout').style.display = '';
     if (!silent) msg($('scanMsg'), 'Angemeldet. Scanner bereit.', 'ok');
+    loadGuests();
   }
 
   function logout() {
@@ -119,6 +120,80 @@
   function hideFlash() {
     if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
     const box = $('scanFlash'); if (box) box.style.display = 'none';
+  }
+
+  /* ---------------- Gästeliste (Suche + manueller Check-in) ---------------- */
+  let guests = [];
+
+  function esc(x) {
+    return String(x == null ? '' : x).replace(/[&<>"']/g,
+      c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  async function loadGuests() {
+    if (!pw) return;
+    msg($('glMsg'), 'Gästeliste wird geladen …', 'info');
+    try {
+      guests = await S.guestListWithPassword(eventId, pw);
+      msg($('glMsg'), '');
+      renderGuests();
+    } catch (e) {
+      msg($('glMsg'), e.message, 'error');
+    }
+  }
+
+  function renderGuests() {
+    const box = $('glList');
+    const q = ($('glSearch').value || '').trim().toLowerCase();
+    let list = guests;
+    if (q) {
+      list = guests.filter(g =>
+        (g.customer_name || '').toLowerCase().includes(q) ||
+        (g.email || '').toLowerCase().includes(q) ||
+        (g.order_id || '').toLowerCase().includes(q) ||
+        (g.tickets || []).some(t => (t.code || '').toLowerCase().includes(q)));
+    }
+    const totT = guests.reduce((n, g) => n + (g.tickets_total || 0), 0);
+    const totC = guests.reduce((n, g) => n + (g.tickets_checked || 0), 0);
+    $('glCount').textContent = guests.length
+      ? totC + ' von ' + totT + ' Tickets eingecheckt · ' + list.length + ' von ' + guests.length + ' Bestellungen angezeigt'
+      : '';
+    if (!guests.length) { box.innerHTML = '<p class="sub">Noch keine bezahlten Bestellungen.</p>'; return; }
+    if (!list.length) { box.innerHTML = '<p class="sub">Kein Treffer für „' + esc(q) + '“.</p>'; return; }
+    // Bei leerer Suche nur die ersten 25 zeigen - sonst wird die Liste unbrauchbar lang.
+    const shown = q ? list : list.slice(0, 25);
+    box.innerHTML = shown.map(g => {
+      const done = g.tickets_checked >= g.tickets_total;
+      return '<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)">' +
+        '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">' +
+          '<b style="font-size:1.05rem">' + esc(g.customer_name || '(kein Name)') + '</b>' +
+          '<span class="hint">' + esc(g.email) + '</span>' +
+          '<span style="margin-left:auto;color:' + (done ? 'var(--ok)' : 'var(--gold-light)') + '">' +
+            g.tickets_checked + '/' + g.tickets_total + '</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' +
+        (g.tickets || []).map(t => t.checked_in
+          ? '<span style="padding:5px 9px;border:1px solid rgba(255,255,255,.14);opacity:.55;font-size:.78rem">✓ ' +
+            esc(t.code) + ' · ' + esc(t.category) + '</span>'
+          : '<button type="button" class="btn btn-ghost btn-sm gl-in" data-code="' + esc(t.code) + '" ' +
+            'style="padding:5px 9px;font-size:.78rem">' + esc(t.code) + ' · ' + esc(t.category) + ' → einchecken</button>'
+        ).join('') +
+        '</div></div>';
+    }).join('') +
+    (!q && list.length > 25 ? '<p class="hint" style="margin-top:10px">… ' + (list.length - 25) +
+      ' weitere. Bitte oben nach dem Namen suchen.</p>' : '');
+
+    box.querySelectorAll('.gl-in').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      const ok = await doCheckin(b.dataset.code, $('glMsg'));
+      if (ok) {
+        // Lokal als eingecheckt markieren, damit die Liste sofort stimmt.
+        guests.forEach(g => (g.tickets || []).forEach(t => {
+          if (t.code === b.dataset.code && !t.checked_in) { t.checked_in = true; g.tickets_checked++; }
+        }));
+        renderGuests();
+      } else { b.disabled = false; }
+    }));
   }
 
   /* ---------------- QR-Scanner (Kamera + Foto) ---------------- */
@@ -250,6 +325,8 @@
     });
     $('ciCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnCiCheck').click(); });
     if ($('scanFlash')) $('scanFlash').addEventListener('click', hideFlash);
+    if ($('glSearch')) $('glSearch').addEventListener('input', renderGuests);
+    if ($('btnGlReload')) $('btnGlReload').addEventListener('click', loadGuests);
   }
 
   boot().catch(e => { msg($('ciGateErr'), 'Fehler beim Laden: ' + e.message, 'error'); });

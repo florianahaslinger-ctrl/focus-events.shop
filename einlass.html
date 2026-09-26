@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20260926b">
+<link rel="stylesheet" href="assets/shop.css?v=20260926c">
 </head>
 <body>
 
@@ -68,6 +68,19 @@
     <div class="msg" id="ciCodeMsg"></div>
   </div>
 
+  <!-- Gästeliste: Gast nach Namen suchen und manuell einchecken -->
+  <div class="card" style="margin-top:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="margin:0">Gästeliste</h2>
+      <button class="btn btn-ghost btn-sm" id="btnGlReload">Aktualisieren</button>
+    </div>
+    <p class="sub" style="margin-top:6px">Name, E-Mail oder Ticketcode eingeben – z.&nbsp;B. wenn der QR-Code nicht lesbar ist.</p>
+    <input type="text" id="glSearch" placeholder="Nach Name suchen …" autocomplete="off" style="margin-top:10px">
+    <div class="msg" id="glMsg"></div>
+    <div id="glCount" class="hint" style="margin:8px 0"></div>
+    <div id="glList"></div>
+  </div>
+
   <div class="card" style="margin-top:18px">
     <h2>Letzte Check-ins</h2>
     <div id="ciLog"><p class="sub">Noch keine Check-ins in dieser Sitzung.</p></div>
@@ -84,7 +97,7 @@
 
 <script src="assets/supabase.js"></script>
 <script src="assets/jsqr.js"></script>
-<script src="assets/store.js?v=20260926b"></script>
-<script src="assets/einlass.js?v=20260926b"></script>
+<script src="assets/store.js?v=20260926c"></script>
+<script src="assets/einlass.js?v=20260926c"></script>
 </body>
 </html>

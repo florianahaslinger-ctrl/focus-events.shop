@@ -404,6 +404,15 @@
       return data; // { ok, event, date, location } | { ok:false, reason? }
     },
     // Check-in per Passwort (anon), streng auf das Event begrenzt.
+    // Gästeliste für den Einlass-Scanner (nur mit Event-Passwort, ohne Admin-Login).
+    async guestListWithPassword(eventId, password) {
+      const { data, error } = await sb.rpc('guest_list_with_password', {
+        p_event: eventId, p_password: password
+      });
+      if (error) throw new Error(error.message.replace(/^.*?: /, ''));
+      return Array.isArray(data) ? data : [];
+    },
+
     async checkInWithPassword(eventId, password, code) {
       const { data, error } = await sb.rpc('check_in_with_password', {
         p_event: eventId, p_password: password, p_code: this.extractCode(code)
