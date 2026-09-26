@@ -612,7 +612,10 @@
 
     // Ticketcode aus beliebigem Scan-/Eingabetext ziehen (auch aus QR-URLs)
     extractCode(text) {
-      const m = String(text || '').toUpperCase().match(/CM-[A-Z0-9]{4}-[A-Z0-9]{4}/);
+      // Zieht den Ticketcode aus dem QR-Inhalt (i. d. R. eine ticket.html-URL).
+      // CM- = regulaere Tickets, FX- = VIP-Tisch-Tickets. Fehlt das Praefix,
+      // wird der Text unveraendert genommen (manuelle Eingabe).
+      const m = String(text || '').toUpperCase().match(/(?:CM|FX)-[A-Z0-9]{4}-[A-Z0-9]{4}/);
       return m ? m[0] : String(text || '').trim().toUpperCase();
     },
 
