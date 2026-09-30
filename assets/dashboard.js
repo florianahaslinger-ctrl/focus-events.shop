@@ -706,22 +706,33 @@
   function vatRows() {
     const r2 = n => Math.round(n * 100) / 100;
     return fEvents().map(ev => {
-      let gross = 0, fees = 0, tickets = 0, orderCount = 0;
+      let gross = 0, service = 0, payment = 0, fees = 0, customerPaid = 0, tickets = 0, orderCount = 0;
       orders.forEach(o => {
         if (o.eventId !== ev.id || o.status !== 'bezahlt') return;
         const sub = Number(o.subtotal || 0);
         if (sub <= 0) return;                       // Gast-/Gratis-/VIP-Tickets: kein Umsatz
         gross += sub;
+        service += Number(o.serviceFee || 0);
+        payment += Number(o.paymentFee || 0);
         fees += Number(o.serviceFee || 0) + Number(o.paymentFee || 0);
+        customerPaid += Number(o.total || 0);
         tickets += (o.tickets || []).length;
         orderCount++;
       });
       const rate = Number(ev.vatRate || 0);
       const vat = rate > 0 ? r2(gross - gross / (1 + rate / 100)) : 0;
+      // Destination Charge: application_fee (Service+Zahlung) bleibt bei CORE,
+      // der Rest geht an das Stripe-Konto des Veranstalters.
+      // Auszahlung = Kundenbetrag - Gebuehren. Stripes eigene Bearbeitungs-
+      // gebuehr traegt das Plattformkonto und mindert die Auszahlung NICHT.
+      const payout = r2(customerPaid - fees);
       return {
         id: ev.id, name: ev.name, club: ev.club || null, date: ev.date,
+        feesOnOrganizer: !!ev.feesOnOrganizer,
         rate, gross: r2(gross), vat, net: r2(gross - vat),
-        fees: r2(fees), tickets, orderCount
+        service: r2(service), payment: r2(payment), fees: r2(fees),
+        customerPaid: r2(customerPaid), payout,
+        tickets, orderCount
       };
     }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   }
@@ -730,66 +741,101 @@
     const box = $('vatList'); if (!box) return;
     const rows = vatRows();
     if (!rows.length) { box.innerHTML = '<p class="sub">Keine Events vorhanden.</p>'; return; }
+    const eur = n => S.fmtEUR.format(n);
+    const pct = r => String(r).replace('.', ',') + ' %';
+    const sum = k => rows.reduce((n, r) => n + r[k], 0);
 
-    const sumGross = rows.reduce((n, r) => n + r.gross, 0);
-    const sumVat = rows.reduce((n, r) => n + r.vat, 0);
-    const sumNet = rows.reduce((n, r) => n + r.net, 0);
+    const tile = (k, v, s2, hi) => '<div class="stat-tile" style="padding:14px 16px">' +
+      '<div class="k">' + k + '</div><div class="v" style="font-size:' +
+      (hi ? '1.9rem;color:var(--accent-lt)' : '1.35rem') + '">' + v + '</div>' +
+      (s2 ? '<div class="s">' + s2 + '</div>' : '') + '</div>';
 
-    const tile = (k, v, s, big) => '<div class="stat-tile" style="padding:14px 16px">' +
-      '<div class="k">' + k + '</div>' +
-      '<div class="v" style="font-size:' + (big ? '1.9rem' : '1.35rem') + (big ? ';color:var(--accent-lt)' : '') + '">' + v + '</div>' +
-      (s ? '<div class="s">' + s + '</div>' : '') + '</div>';
+    const line = (label, value, o) => {
+      o = o || {};
+      return '<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0' +
+        (o.top ? ';border-top:1px solid var(--line);margin-top:6px;font-weight:700' : '') + '">' +
+        '<span' + (o.dim ? ' class="hint"' : '') + '>' + label + '</span>' +
+        '<b style="white-space:nowrap' + (o.neg ? ';color:#ff6b6b' : '') +
+        (o.good ? ';color:#57d38c' : '') + '">' + value + '</b></div>';
+    };
 
     box.innerHTML =
-      // Gesamtsumme oben
       '<div class="card" style="margin-bottom:18px">' +
         '<h2 style="margin-top:0">Alle angezeigten Events zusammen</h2>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px">' +
-          tile('Ticketumsatz (brutto)', S.fmtEUR.format(sumGross), '') +
-          tile('davon Umsatzsteuer', S.fmtEUR.format(sumVat), 'abzuführen', true) +
-          tile('Netto', S.fmtEUR.format(sumNet), '') +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-top:10px">' +
+          tile('Ticketumsatz (brutto)', eur(sum('gross')), '') +
+          tile('davon Umsatzsteuer', eur(sum('vat')), 'abzufuehren'.replace('ue', '\u00fc'), true) +
+          tile('Gebuehren CORE'.replace('ue', '\u00fc'), eur(sum('fees')), 'Service + Zahlung') +
+          tile('Auszahlung an dich', eur(sum('payout')), 'ueber Stripe'.replace('ue', '\u00fc'), true) +
         '</div>' +
-        '<p class="hint" style="margin-top:10px">Summe über alle unten gelisteten Events. Bei unterschiedlichen Steuersätzen bitte die Einzelwerte je Event verwenden.</p>' +
+        '<p class="hint" style="margin-top:10px">Bei unterschiedlichen Steuersaetzen bitte die Einzelwerte je Event verwenden.</p>' +
       '</div>' +
-      // Eine eigene Übersicht je Event
       rows.map(r => {
         const noRate = r.rate <= 0;
-        const dateStr = r.date ? new Date(r.date).toLocaleDateString('de-AT',
+        const d = r.date ? new Date(r.date).toLocaleDateString('de-AT',
           { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' }) : '';
         return '<div class="card" style="margin-bottom:16px">' +
           '<div class="event-head"><h2>' + esc(r.name) + '</h2>' +
           '<span class="badge ' + (noRate ? 'offen' : 'bezahlt') + '">' +
-            (noRate ? 'kein MwSt.-Satz gesetzt' : r.rate.toString().replace('.', ',') + ' % MwSt.') + '</span>' +
-          '<span class="event-meta">' + esc(dateStr) + (r.club ? ' · ' + esc(r.club) : '') + '</span></div>' +
-          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:12px">' +
-            tile('Ticketumsatz (brutto)', S.fmtEUR.format(r.gross),
-                 r.tickets + ' Tickets · ' + r.orderCount + ' Bestellungen') +
-            tile('Steuersatz', noRate ? '–' : r.rate.toString().replace('.', ',') + ' %', '') +
-            tile('enthaltene Umsatzsteuer', noRate ? '–' : S.fmtEUR.format(r.vat),
-                 noRate ? '' : 'abzuführen', !noRate) +
-            tile('Netto (ohne MwSt.)', noRate ? S.fmtEUR.format(r.gross) : S.fmtEUR.format(r.net), '') +
+            (noRate ? 'kein MwSt.-Satz' : pct(r.rate) + ' MwSt.') + '</span>' +
+          '<span class="event-meta">' + esc(d) + (r.club ? ' \u00b7 ' + esc(r.club) : '') + '</span></div>' +
+
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;margin-top:14px">' +
+
+            '<div>' +
+              '<div class="k" style="margin-bottom:6px">Geldfluss</div>' +
+              line('Ticketumsatz (brutto)', eur(r.gross)) +
+              (r.feesOnOrganizer
+                ? line('Kunde zahlt', eur(r.customerPaid), { top: true })
+                : line('Servicegeb\u00fchr (Kunde)', eur(r.service), { dim: true }) +
+                  line('Zahlungsgeb\u00fchr (Kunde)', eur(r.payment), { dim: true }) +
+                  line('Kunde zahlt gesamt', eur(r.customerPaid), { top: true })) +
+              line('Servicegeb\u00fchr CORE', '\u2212 ' + eur(r.service), { neg: true }) +
+              line('Zahlungsgeb\u00fchr (deckt Stripe)', '\u2212 ' + eur(r.payment), { neg: true }) +
+              line('Auszahlung an deine GmbH', eur(r.payout), { top: true, good: true }) +
+              '<p class="hint" style="margin-top:8px">' +
+                (r.feesOnOrganizer
+                  ? 'Geb\u00fchren tr\u00e4gst <b>du</b> \u2013 der Kunde zahlt nur den Ticketpreis, die ' +
+                    eur(r.fees) + ' werden von deiner Auszahlung abgezogen.'
+                  : 'Geb\u00fchren zahlt der <b>Kunde</b> zus\u00e4tzlich \u2013 dein Ticketumsatz bleibt ungek\u00fcrzt.') +
+                ' Stripes eigene Bearbeitungsgeb\u00fchr tr\u00e4gt das Plattformkonto und mindert deine Auszahlung nicht.' +
+              '</p>' +
+            '</div>' +
+
+            '<div>' +
+              '<div class="k" style="margin-bottom:6px">Umsatzsteuer auf deinen Ticketumsatz</div>' +
+              (noRate
+                ? '<p class="hint">F\u00fcr dieses Event ist kein MwSt.-Satz hinterlegt \u2013 es wird keine Steuer ausgewiesen. Einstellbar unter \u201eEvents &amp; Tickets \u2192 Bearbeiten\u201c.</p>'
+                : line('Bruttoumsatz', eur(r.gross)) +
+                  line('Steuersatz', pct(r.rate), { dim: true }) +
+                  line('enthaltene Umsatzsteuer', eur(r.vat), { top: true }) +
+                  line('Netto (ohne MwSt.)', eur(r.net)) +
+                  '<p class="hint" style="margin-top:8px">Rechenweg: ' + eur(r.gross) + ' \u2212 ' + eur(r.gross) +
+                  ' \u00f7 ' + (1 + r.rate / 100).toFixed(2).replace('.', ',') + ' = <b>' + eur(r.vat) +
+                  '</b>. Ticketpreise sind Bruttopreise.</p>') +
+              '<div class="k" style="margin:14px 0 6px">Umsatzsteuer auf die Geb\u00fchren</div>' +
+              '<p class="hint">Auf die ' + eur(r.fees) + ' Geb\u00fchren wird hier <b>keine</b> Steuer ausgewiesen. ' +
+              'Ob und mit welchem Satz darauf Umsatzsteuer anf\u00e4llt, h\u00e4ngt vom Steuerstatus von CORE Management ab \u2013 ' +
+              'bitte die Rechnung von CORE bzw. deinen Steuerberater heranziehen. Hier steht bewusst keine geratene Zahl.</p>' +
+            '</div>' +
+
           '</div>' +
-          (noRate
-            ? '<p class="hint" style="margin-top:10px">Für dieses Event ist kein MwSt.-Satz hinterlegt – es wird keine Steuer ausgewiesen. Der Satz lässt sich unter „Events &amp; Tickets → Bearbeiten“ setzen.</p>'
-            : '<p class="hint" style="margin-top:10px">Rechenweg: ' + S.fmtEUR.format(r.gross) + ' − ' +
-              S.fmtEUR.format(r.gross) + ' ÷ ' + (1 + r.rate / 100).toFixed(2).replace('.', ',') +
-              ' = <b>' + S.fmtEUR.format(r.vat) + '</b>. Ticketpreise sind Bruttopreise, die Steuer ist herausgerechnet.</p>') +
-          (r.fees > 0
-            ? '<p class="hint">Nicht enthalten: ' + S.fmtEUR.format(r.fees) +
-              ' Service- und Zahlungsgebühr – diese gehören der Plattform, nicht deinem Umsatz.</p>'
-            : '') +
+          '<p class="hint" style="margin-top:10px">Grundlage: ' + r.orderCount + ' bezahlte Bestellungen \u00b7 ' +
+          r.tickets + ' Tickets. Gratis-, Gast- und VIP-Tickets sind nicht enthalten.</p>' +
           '</div>';
       }).join('');
   }
 
   function vatCsv() {
     const rows = vatRows();
-    const head = ['Event', 'Datum', 'Club', 'Tickets', 'Bestellungen', 'Brutto', 'Satz_Prozent', 'MwSt', 'Netto'];
+    const head = ['Event', 'Datum', 'Club', 'Tickets', 'Bestellungen', 'Ticketumsatz_brutto', 'Satz_Prozent', 'MwSt', 'Netto', 'Servicegebuehr', 'Zahlungsgebuehr', 'Kunde_zahlt', 'Auszahlung_GmbH'];
     const lines = [head].concat(rows.map(r => [
       r.name, r.date ? new Date(r.date).toLocaleDateString('de-AT') : '', r.club || '',
       r.tickets, r.orderCount,
       String(r.gross).replace('.', ','), String(r.rate).replace('.', ','),
-      String(r.vat).replace('.', ','), String(r.net).replace('.', ',')
+      String(r.vat).replace('.', ','), String(r.net).replace('.', ','),
+      String(r.service).replace('.', ','), String(r.payment).replace('.', ','),
+      String(r.customerPaid).replace('.', ','), String(r.payout).replace('.', ',')
     ]));
     return lines.map(l => l.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(';')).join(String.fromCharCode(13, 10));
   }
