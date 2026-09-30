@@ -699,6 +699,101 @@
       catch (e) { alert(e.message); }
     }));
   }
+  /* ================= Umsatzsteuer je Event ================= */
+  // Steuerbasis ist der TICKETUMSATZ (subtotal), nicht der Gesamtbetrag:
+  // Service- und Zahlungsgebuehr gehoeren der Plattform, nicht dem Veranstalter.
+  // Ticketpreise sind Bruttopreise -> die MwSt wird herausgerechnet.
+  function vatRows() {
+    const r2 = n => Math.round(n * 100) / 100;
+    return fEvents().map(ev => {
+      let gross = 0, fees = 0, tickets = 0, orderCount = 0;
+      orders.forEach(o => {
+        if (o.eventId !== ev.id || o.status !== 'bezahlt') return;
+        const sub = Number(o.subtotal || 0);
+        if (sub <= 0) return;                       // Gast-/Gratis-/VIP-Tickets: kein Umsatz
+        gross += sub;
+        fees += Number(o.serviceFee || 0) + Number(o.paymentFee || 0);
+        tickets += (o.tickets || []).length;
+        orderCount++;
+      });
+      const rate = Number(ev.vatRate || 0);
+      const vat = rate > 0 ? r2(gross - gross / (1 + rate / 100)) : 0;
+      return {
+        id: ev.id, name: ev.name, club: ev.club || null, date: ev.date,
+        rate, gross: r2(gross), vat, net: r2(gross - vat),
+        fees: r2(fees), tickets, orderCount
+      };
+    }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  }
+
+  function renderVat() {
+    const box = $('vatList'); if (!box) return;
+    const rows = vatRows();
+    if (!rows.length) { box.innerHTML = '<p class="sub">Keine Events vorhanden.</p>'; return; }
+
+    const sumGross = rows.reduce((n, r) => n + r.gross, 0);
+    const sumVat = rows.reduce((n, r) => n + r.vat, 0);
+    const sumNet = rows.reduce((n, r) => n + r.net, 0);
+
+    const tile = (k, v, s, big) => '<div class="stat-tile" style="padding:14px 16px">' +
+      '<div class="k">' + k + '</div>' +
+      '<div class="v" style="font-size:' + (big ? '1.9rem' : '1.35rem') + (big ? ';color:var(--accent-lt)' : '') + '">' + v + '</div>' +
+      (s ? '<div class="s">' + s + '</div>' : '') + '</div>';
+
+    box.innerHTML =
+      // Gesamtsumme oben
+      '<div class="card" style="margin-bottom:18px">' +
+        '<h2 style="margin-top:0">Alle angezeigten Events zusammen</h2>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px">' +
+          tile('Ticketumsatz (brutto)', S.fmtEUR.format(sumGross), '') +
+          tile('davon Umsatzsteuer', S.fmtEUR.format(sumVat), 'abzuführen', true) +
+          tile('Netto', S.fmtEUR.format(sumNet), '') +
+        '</div>' +
+        '<p class="hint" style="margin-top:10px">Summe über alle unten gelisteten Events. Bei unterschiedlichen Steuersätzen bitte die Einzelwerte je Event verwenden.</p>' +
+      '</div>' +
+      // Eine eigene Übersicht je Event
+      rows.map(r => {
+        const noRate = r.rate <= 0;
+        const dateStr = r.date ? new Date(r.date).toLocaleDateString('de-AT',
+          { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' }) : '';
+        return '<div class="card" style="margin-bottom:16px">' +
+          '<div class="event-head"><h2>' + esc(r.name) + '</h2>' +
+          '<span class="badge ' + (noRate ? 'offen' : 'bezahlt') + '">' +
+            (noRate ? 'kein MwSt.-Satz gesetzt' : r.rate.toString().replace('.', ',') + ' % MwSt.') + '</span>' +
+          '<span class="event-meta">' + esc(dateStr) + (r.club ? ' · ' + esc(r.club) : '') + '</span></div>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:12px">' +
+            tile('Ticketumsatz (brutto)', S.fmtEUR.format(r.gross),
+                 r.tickets + ' Tickets · ' + r.orderCount + ' Bestellungen') +
+            tile('Steuersatz', noRate ? '–' : r.rate.toString().replace('.', ',') + ' %', '') +
+            tile('enthaltene Umsatzsteuer', noRate ? '–' : S.fmtEUR.format(r.vat),
+                 noRate ? '' : 'abzuführen', !noRate) +
+            tile('Netto (ohne MwSt.)', noRate ? S.fmtEUR.format(r.gross) : S.fmtEUR.format(r.net), '') +
+          '</div>' +
+          (noRate
+            ? '<p class="hint" style="margin-top:10px">Für dieses Event ist kein MwSt.-Satz hinterlegt – es wird keine Steuer ausgewiesen. Der Satz lässt sich unter „Events &amp; Tickets → Bearbeiten“ setzen.</p>'
+            : '<p class="hint" style="margin-top:10px">Rechenweg: ' + S.fmtEUR.format(r.gross) + ' − ' +
+              S.fmtEUR.format(r.gross) + ' ÷ ' + (1 + r.rate / 100).toFixed(2).replace('.', ',') +
+              ' = <b>' + S.fmtEUR.format(r.vat) + '</b>. Ticketpreise sind Bruttopreise, die Steuer ist herausgerechnet.</p>') +
+          (r.fees > 0
+            ? '<p class="hint">Nicht enthalten: ' + S.fmtEUR.format(r.fees) +
+              ' Service- und Zahlungsgebühr – diese gehören der Plattform, nicht deinem Umsatz.</p>'
+            : '') +
+          '</div>';
+      }).join('');
+  }
+
+  function vatCsv() {
+    const rows = vatRows();
+    const head = ['Event', 'Datum', 'Club', 'Tickets', 'Bestellungen', 'Brutto', 'Satz_Prozent', 'MwSt', 'Netto'];
+    const lines = [head].concat(rows.map(r => [
+      r.name, r.date ? new Date(r.date).toLocaleDateString('de-AT') : '', r.club || '',
+      r.tickets, r.orderCount,
+      String(r.gross).replace('.', ','), String(r.rate).replace('.', ','),
+      String(r.vat).replace('.', ','), String(r.net).replace('.', ',')
+    ]));
+    return lines.map(l => l.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(';')).join(String.fromCharCode(13, 10));
+  }
+
   /* ================= Event-Archiv ================= */
   // Kennzahlen eines Live-Events aus den Bestellungen berechnen.
   function liveEventStats(ev) {
@@ -1389,6 +1484,7 @@
     renderConnect();
     renderVipReservationsAll();
     renderArchive();
+    renderVat();
   }
 
   /* ================= Gesamt-Render ================= */
@@ -1419,6 +1515,13 @@
   });
   $('orderSearch').addEventListener('input', renderOrders);
   $('orderFilter').addEventListener('change', renderOrders);
+  if ($('btnVatCsv')) $('btnVatCsv').addEventListener('click', () => {
+    const blob = new Blob(['﻿' + vatCsv()], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mwst-uebersicht.csv';
+    a.click(); URL.revokeObjectURL(a.href);
+  });
   if ($('btnArchiveReload')) $('btnArchiveReload').addEventListener('click', async () => {
     try { archiveRows = await S.getArchive(); } catch (e) {}
     renderArchive();
