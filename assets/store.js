@@ -460,12 +460,16 @@
     // Veranstalter nur das eigene Konto). Grundlage der Auszahlungsübersicht.
     async getStripeBalance() {
       const { data, error } = await sb.from('stripe_balance_txns')
-        .select('balance_transaction_id,connected_account,created_at,gross,fee,net,payout_id,payout_at,order_id')
+        .select('balance_transaction_id,connected_account,created_at,gross,fee,net,service_fee,payment_fee,stripe_fee,split_source,payout_id,payout_at,order_id')
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return (data || []).map(r => ({
         id: r.balance_transaction_id, account: r.connected_account, createdAt: r.created_at,
         gross: Number(r.gross || 0), fee: Number(r.fee || 0), net: Number(r.net || 0),
+        // Aufteilung der Plattformgebuehr: Zahlungsgebuehr deckt Stripe, Servicegebuehr bleibt bei CORE.
+        serviceFee: r.service_fee === null ? null : Number(r.service_fee),
+        paymentFee: r.payment_fee === null ? null : Number(r.payment_fee),
+        stripeFee: r.stripe_fee === null ? null : Number(r.stripe_fee),
         payoutId: r.payout_id || null, payoutAt: r.payout_at || null, orderId: r.order_id || null
       }));
     },

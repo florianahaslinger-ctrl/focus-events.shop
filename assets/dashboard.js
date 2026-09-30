@@ -749,15 +749,22 @@
     const groups = {};
     balanceRows.forEach(b => {
       const k = b.payoutId || '';
-      const g = groups[k] || (groups[k] = { id: b.payoutId, at: b.payoutAt, n: 0, gross: 0, fee: 0, net: 0 });
+      const g = groups[k] || (groups[k] = { id: b.payoutId, at: b.payoutAt, n: 0, gross: 0, fee: 0, net: 0, pay: 0, svc: 0, open: 0 });
       g.n++; g.gross += b.gross; g.fee += b.fee; g.net += b.net;
+      if (b.paymentFee === null || b.serviceFee === null) g.open += b.fee;   // noch nicht aufgeteilt
+      else { g.pay += b.paymentFee; g.svc += b.serviceFee; }
     });
     const list = Object.values(groups).sort((a, b) => {
       if (!a.id) return -1; if (!b.id) return 1;          // Ausstehendes zuerst
       return new Date(b.at) - new Date(a.at);
     });
-    const tot = list.reduce((t, g) => ({ n: t.n + g.n, gross: t.gross + g.gross, fee: t.fee + g.fee, net: t.net + g.net }),
-      { n: 0, gross: 0, fee: 0, net: 0 });
+    const tot = list.reduce((t, g) => ({ n: t.n + g.n, gross: t.gross + g.gross, fee: t.fee + g.fee, net: t.net + g.net,
+      pay: t.pay + g.pay, svc: t.svc + g.svc, open: t.open + g.open }),
+      { n: 0, gross: 0, fee: 0, net: 0, pay: 0, svc: 0, open: 0 });
+    // Echte Stripe-Gebuehr - nur fuer live per Webhook erfasste Zahlungen bekannt.
+    const real = balanceRows.filter(b => b.stripeFee !== null);
+    const realFee = real.reduce((n, b) => n + b.stripeFee, 0);
+    const realPay = real.reduce((n, b) => n + (b.paymentFee || 0), 0);
     const paid = list.filter(g => g.id).reduce((n, g) => n + g.net, 0);
     const open = list.filter(g => !g.id).reduce((n, g) => n + g.net, 0);
     const dt = iso => iso ? new Date(iso).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
@@ -768,22 +775,33 @@
       'daher auch für gelöschte Events vollständig. Stand: letzter Import.</p>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0">' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Kunden bezahlt</div><div class="v" style="font-size:1.3rem">' + eur(tot.gross) + '</div><div class="s">' + tot.n + ' Buchungen</div></div>' +
-        '<div class="stat-tile" style="padding:12px 14px"><div class="k">Gebühren an CORE</div><div class="v" style="font-size:1.3rem">' + eur(tot.fee) + '</div></div>' +
+        '<div class="stat-tile" style="padding:12px 14px"><div class="k">Zahlungsgebühr → Stripe</div><div class="v" style="font-size:1.3rem">' + eur(tot.pay) + '</div><div class="s">1,5 % + 0,25 €/Ticket</div></div>' +
+        '<div class="stat-tile" style="padding:12px 14px"><div class="k">Servicegebühr → CORE</div><div class="v" style="font-size:1.3rem">' + eur(tot.svc) + '</div><div class="s">0,1 %</div></div>' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Bereits ausgezahlt</div><div class="v" style="font-size:1.3rem;color:#57d38c">' + eur(paid) + '</div></div>' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Noch ausstehend</div><div class="v" style="font-size:1.3rem">' + eur(open) + '</div><div class="s">kommt mit nächster Auszahlung</div></div>' +
       '</div>' +
       '<div class="table-scroll"><table class="data" style="width:100%">' +
-        '<tr><th style="text-align:left">Auszahlung</th><th>Datum</th><th>Buchungen</th><th>Brutto</th><th>Gebühr CORE</th><th>Netto an dich</th></tr>' +
+        '<tr><th style="text-align:left">Auszahlung</th><th>Datum</th><th>Buchungen</th><th>Brutto</th><th>an Stripe</th><th>an CORE</th><th>Netto an dich</th></tr>' +
         list.map(g => '<tr>' +
           '<td style="padding:7px 10px;font-family:monospace;font-size:.82rem">' + (g.id ? esc(g.id) : '<b>noch nicht ausgezahlt</b>') + '</td>' +
           '<td ' + td + '>' + dt(g.at) + '</td><td ' + td + '>' + g.n + '</td>' +
-          '<td ' + td + '>' + eur(g.gross) + '</td><td ' + td + '>' + eur(g.fee) + '</td>' +
+          '<td ' + td + '>' + eur(g.gross) + '</td><td ' + td + '>' + eur(g.pay) + (g.open ? '*' : '') + '</td>' +
+          '<td ' + td + '>' + eur(g.svc) + '</td>' +
           '<td ' + td + '><b>' + eur(g.net) + '</b></td></tr>').join('') +
         '<tr style="border-top:2px solid var(--line)"><td style="padding:7px 10px"><b>Summe</b></td><td></td>' +
           '<td ' + td + '><b>' + tot.n + '</b></td><td ' + td + '><b>' + eur(tot.gross) + '</b></td>' +
-          '<td ' + td + '><b>' + eur(tot.fee) + '</b></td><td ' + td + '><b>' + eur(tot.net) + '</b></td></tr>' +
+          '<td ' + td + '><b>' + eur(tot.pay) + '</b></td><td ' + td + '><b>' + eur(tot.svc) + '</b></td>' +
+          '<td ' + td + '><b>' + eur(tot.net) + '</b></td></tr>' +
       '</table></div>' +
-      '<p class="hint" style="margin-top:8px">Stripes eigene Bearbeitungsgebühr ist hier nicht enthalten – sie fällt auf dem Plattformkonto an, nicht bei dir.</p>' +
+      '<p class="hint" style="margin-top:8px">Die Zahlungsgebühr wird eingehoben, um Stripes Bearbeitungsgebühr zu bezahlen – ' +
+        'sie geht an Stripe, nicht an CORE. Bei CORE verbleibt nur die Servicegebühr.</p>' +
+      (real.length
+        ? '<p class="hint">Tatsächlich von Stripe berechnet (' + real.length + ' live erfasste Zahlungen): <b>' + eur(realFee) +
+          '</b> bei ' + eur(realPay) + ' eingehobener Zahlungsgebühr.</p>'
+        : '<p class="hint">Die tatsächliche Stripe-Gebühr wird ab jetzt bei jeder neuen Zahlung automatisch erfasst.</p>') +
+      (tot.open
+        ? '<p class="hint">* ' + eur(tot.open) + ' Gebühren noch nicht nach Stripe/CORE aufgeteilt (nachträglich erfasste Buchungen).</p>'
+        : '') +
     '</div>';
   }
 
@@ -815,7 +833,8 @@
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-top:10px">' +
           tile('Ticketumsatz (brutto)', eur(sum('gross')), '') +
           tile('davon Umsatzsteuer', eur(sum('vat')), 'abzufuehren'.replace('ue', '\u00fc'), true) +
-          tile('Gebuehren CORE'.replace('ue', '\u00fc'), eur(sum('fees')), 'Service + Zahlung') +
+          tile('Zahlungsgeb\u00fchr \u2192 Stripe', eur(sum('payment')), '') +
+          tile('Servicegeb\u00fchr \u2192 CORE', eur(sum('service')), '') +
           tile('Auszahlung an dich', eur(sum('payout')), 'ueber Stripe'.replace('ue', '\u00fc'), true) +
         '</div>' +
         '<p class="hint" style="margin-top:10px">Bei unterschiedlichen Steuersaetzen bitte die Einzelwerte je Event verwenden.</p>' +
