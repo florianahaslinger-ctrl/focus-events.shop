@@ -456,6 +456,20 @@
     },
 
     /* --- Event-Archiv (dauerhaft gespeicherte Kennzahlen, auch für gelöschte Events) --- */
+    // Stripe-Buchungen des Veranstalterkontos (RLS: Head-Admin alles,
+    // Veranstalter nur das eigene Konto). Grundlage der Auszahlungsübersicht.
+    async getStripeBalance() {
+      const { data, error } = await sb.from('stripe_balance_txns')
+        .select('balance_transaction_id,connected_account,created_at,gross,fee,net,payout_id,payout_at,order_id')
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data || []).map(r => ({
+        id: r.balance_transaction_id, account: r.connected_account, createdAt: r.created_at,
+        gross: Number(r.gross || 0), fee: Number(r.fee || 0), net: Number(r.net || 0),
+        payoutId: r.payout_id || null, payoutAt: r.payout_at || null, orderId: r.order_id || null
+      }));
+    },
+
     async getArchive() {
       const { data, error } = await sb.from('event_archive')
         .select('id,storefront,name,club,event_date,capacity,tickets_sold,revenue,checkins,vip_count,notes,event_id,created_at')

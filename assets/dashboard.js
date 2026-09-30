@@ -21,6 +21,7 @@
   let statFilter = ''; // Übersicht: '' = alle Events, sonst event.id
   let clubFilter = ''; // Club-Ansicht: '' = beide, sonst 'LEVEL' | 'YPSILON'
   let archiveRows = []; // gespeicherte Archiveinträge (z. B. gelöschte Events)
+  let balanceRows = []; // Stripe-Buchungen (Auszahlungsübersicht)
 
   // Gefilterte Sicht für die Übersicht (nach gewähltem Event)
   function fOrders() { return statFilter ? orders.filter(o => o.eventId === statFilter) : orders; }
@@ -740,6 +741,52 @@
     }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   }
 
+  // Auszahlungsübersicht aus den importierten Stripe-Buchungen.
+  // Unabhängig von Bestellungen -> zeigt auch Geld gelöschter Events.
+  function payoutsHtml() {
+    if (!balanceRows.length) return '';
+    const eur = n => S.fmtEUR.format(n);
+    const groups = {};
+    balanceRows.forEach(b => {
+      const k = b.payoutId || '';
+      const g = groups[k] || (groups[k] = { id: b.payoutId, at: b.payoutAt, n: 0, gross: 0, fee: 0, net: 0 });
+      g.n++; g.gross += b.gross; g.fee += b.fee; g.net += b.net;
+    });
+    const list = Object.values(groups).sort((a, b) => {
+      if (!a.id) return -1; if (!b.id) return 1;          // Ausstehendes zuerst
+      return new Date(b.at) - new Date(a.at);
+    });
+    const tot = list.reduce((t, g) => ({ n: t.n + g.n, gross: t.gross + g.gross, fee: t.fee + g.fee, net: t.net + g.net }),
+      { n: 0, gross: 0, fee: 0, net: 0 });
+    const paid = list.filter(g => g.id).reduce((n, g) => n + g.net, 0);
+    const open = list.filter(g => !g.id).reduce((n, g) => n + g.net, 0);
+    const dt = iso => iso ? new Date(iso).toLocaleDateString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+    const td = 'style="padding:7px 10px;text-align:right;white-space:nowrap"';
+    return '<div class="card" style="margin-bottom:18px">' +
+      '<h2 style="margin-top:0">Auszahlungen von Stripe</h2>' +
+      '<p class="hint">Tatsächliche Geldflüsse aus dem Stripe-Bericht – unabhängig von Bestellungen, ' +
+      'daher auch für gelöschte Events vollständig. Stand: letzter Import.</p>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0">' +
+        '<div class="stat-tile" style="padding:12px 14px"><div class="k">Kunden bezahlt</div><div class="v" style="font-size:1.3rem">' + eur(tot.gross) + '</div><div class="s">' + tot.n + ' Buchungen</div></div>' +
+        '<div class="stat-tile" style="padding:12px 14px"><div class="k">Gebühren an CORE</div><div class="v" style="font-size:1.3rem">' + eur(tot.fee) + '</div></div>' +
+        '<div class="stat-tile" style="padding:12px 14px"><div class="k">Bereits ausgezahlt</div><div class="v" style="font-size:1.3rem;color:#57d38c">' + eur(paid) + '</div></div>' +
+        '<div class="stat-tile" style="padding:12px 14px"><div class="k">Noch ausstehend</div><div class="v" style="font-size:1.3rem">' + eur(open) + '</div><div class="s">kommt mit nächster Auszahlung</div></div>' +
+      '</div>' +
+      '<div class="table-scroll"><table class="data" style="width:100%">' +
+        '<tr><th style="text-align:left">Auszahlung</th><th>Datum</th><th>Buchungen</th><th>Brutto</th><th>Gebühr CORE</th><th>Netto an dich</th></tr>' +
+        list.map(g => '<tr>' +
+          '<td style="padding:7px 10px;font-family:monospace;font-size:.82rem">' + (g.id ? esc(g.id) : '<b>noch nicht ausgezahlt</b>') + '</td>' +
+          '<td ' + td + '>' + dt(g.at) + '</td><td ' + td + '>' + g.n + '</td>' +
+          '<td ' + td + '>' + eur(g.gross) + '</td><td ' + td + '>' + eur(g.fee) + '</td>' +
+          '<td ' + td + '><b>' + eur(g.net) + '</b></td></tr>').join('') +
+        '<tr style="border-top:2px solid var(--line)"><td style="padding:7px 10px"><b>Summe</b></td><td></td>' +
+          '<td ' + td + '><b>' + tot.n + '</b></td><td ' + td + '><b>' + eur(tot.gross) + '</b></td>' +
+          '<td ' + td + '><b>' + eur(tot.fee) + '</b></td><td ' + td + '><b>' + eur(tot.net) + '</b></td></tr>' +
+      '</table></div>' +
+      '<p class="hint" style="margin-top:8px">Stripes eigene Bearbeitungsgebühr ist hier nicht enthalten – sie fällt auf dem Plattformkonto an, nicht bei dir.</p>' +
+    '</div>';
+  }
+
   function renderVat() {
     const box = $('vatList'); if (!box) return;
     const rows = vatRows();
@@ -762,7 +809,7 @@
         (o.good ? ';color:#57d38c' : '') + '">' + value + '</b></div>';
     };
 
-    box.innerHTML =
+    box.innerHTML = payoutsHtml() +
       '<div class="card" style="margin-bottom:18px">' +
         '<h2 style="margin-top:0">Alle angezeigten Events zusammen</h2>' +
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px;margin-top:10px">' +
@@ -1548,6 +1595,7 @@
   async function renderAll() {
     [allOrders, allEvents] = await Promise.all([S.allOrders(), S.getManagedEvents(true)]);
     try { archiveRows = await S.getArchive(); } catch (e) { archiveRows = []; }
+    try { balanceRows = await S.getStripeBalance(); } catch (e) { balanceRows = []; }
     applyClubFilter();
     renderDashboard();
   }
