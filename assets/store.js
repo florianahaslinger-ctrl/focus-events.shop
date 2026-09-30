@@ -56,6 +56,9 @@
       // Ticketumsatz OHNE Plattformgebuehren - das ist die Steuerbasis des Veranstalters.
       subtotal: Number(o.subtotal || 0),
       serviceFee: Number(o.service_fee || 0), paymentFee: Number(o.payment_fee || 0),
+      // Tatsaechliche Stripe-Kosten (nur fuer Zahlungen ab der Webhook-Erweiterung).
+      stripeFee: (o.stripe_fee === null || o.stripe_fee === undefined) ? null : Number(o.stripe_fee),
+      stripePayout: (o.stripe_payout === null || o.stripe_payout === undefined) ? null : Number(o.stripe_payout),
       paidVia: o.paid_via, paidAt: o.paid_at, createdAt: o.created_at, eventId: o.event_id || null,
       items: (o.order_items || []).map(i => ({
         categoryId: i.category_id, categoryName: i.category_name,
@@ -70,7 +73,7 @@
     };
   }
 
-  const ORDER_SELECT = 'id,email,customer_name,status,total,subtotal,service_fee,payment_fee,paid_via,paid_at,created_at,event_id,' +
+  const ORDER_SELECT = 'id,email,customer_name,status,total,subtotal,service_fee,payment_fee,stripe_fee,stripe_net,stripe_payout,paid_via,paid_at,created_at,event_id,' +
     'order_items(category_id,category_name,event_name,price,qty),' +
     'tickets(code,category_id,category_name,event_name,event_date,event_location,price,checked_in,checked_in_at,seats(row_no,table_no,seat_no))';
 

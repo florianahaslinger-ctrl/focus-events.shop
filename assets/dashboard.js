@@ -707,6 +707,7 @@
     const r2 = n => Math.round(n * 100) / 100;
     return fEvents().map(ev => {
       let gross = 0, service = 0, payment = 0, fees = 0, customerPaid = 0, tickets = 0, orderCount = 0;
+      let stripeFee = 0, stripeKnown = 0;
       orders.forEach(o => {
         if (o.eventId !== ev.id || o.status !== 'bezahlt') return;
         const sub = Number(o.subtotal || 0);
@@ -716,6 +717,7 @@
         payment += Number(o.paymentFee || 0);
         fees += Number(o.serviceFee || 0) + Number(o.paymentFee || 0);
         customerPaid += Number(o.total || 0);
+        if (o.stripeFee !== null && o.stripeFee !== undefined) { stripeFee += Number(o.stripeFee); stripeKnown++; }
         tickets += (o.tickets || []).length;
         orderCount++;
       });
@@ -731,6 +733,7 @@
         feesOnOrganizer: !!ev.feesOnOrganizer,
         rate, gross: r2(gross), vat, net: r2(gross - vat),
         service: r2(service), payment: r2(payment), fees: r2(fees),
+        stripeFee: r2(stripeFee), stripeKnown,
         customerPaid: r2(customerPaid), payout,
         tickets, orderCount
       };
@@ -793,6 +796,14 @@
               line('Servicegeb\u00fchr CORE', '\u2212 ' + eur(r.service), { neg: true }) +
               line('Zahlungsgeb\u00fchr (deckt Stripe)', '\u2212 ' + eur(r.payment), { neg: true }) +
               line('Auszahlung an deine GmbH', eur(r.payout), { top: true, good: true }) +
+              (r.stripeKnown > 0
+                ? '<div class="hint" style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)">' +
+                  'Tats\u00e4chliche Stripe-Geb\u00fchr: <b>' + eur(r.stripeFee) + '</b>' +
+                  (r.stripeKnown < r.orderCount
+                    ? ' (nur f\u00fcr ' + r.stripeKnown + ' von ' + r.orderCount + ' Bestellungen erfasst)'
+                    : '') +
+                  ' \u2013 getragen vom Plattformkonto, nicht von dir.</div>'
+                : '') +
               '<p class="hint" style="margin-top:8px">' +
                 (r.feesOnOrganizer
                   ? 'Geb\u00fchren tr\u00e4gst <b>du</b> \u2013 der Kunde zahlt nur den Ticketpreis, die ' +

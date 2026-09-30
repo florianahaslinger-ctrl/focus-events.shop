@@ -6,6 +6,41 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
+// Fuer das Nachschlagen der tatsaechlichen Stripe-Kosten (optional -
+// fehlt der Schluessel, laeuft alles Uebrige unveraendert weiter).
+const STRIPE_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+
+/* Holt die realen Kosten einer Zahlung aus Stripe.
+   Destination Charge: die Bearbeitungsgebuehr faellt auf dem Plattformkonto
+   an, der Betrag abzueglich application_fee geht an den Veranstalter.
+   Schlaegt der Aufruf fehl, wird null geliefert - die Zahlungsbestaetigung
+   darf davon NIE abhaengen. */
+async function stripeCosts(paymentIntentId: string) {
+  if (!STRIPE_KEY || !paymentIntentId) return null;
+  try {
+    const url = "https://api.stripe.com/v1/payment_intents/" +
+      encodeURIComponent(paymentIntentId) +
+      "?expand[]=latest_charge.balance_transaction";
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${STRIPE_KEY}` } });
+    if (!r.ok) return null;
+    const pi = await r.json();
+    const ch = pi?.latest_charge;
+    if (!ch) return null;
+    const bt = ch.balance_transaction;
+    const c2 = (v: unknown) => (typeof v === "number" ? Math.round(v) / 100 : null);
+    const amount = typeof ch.amount === "number" ? ch.amount : null;
+    const appFee = typeof ch.application_fee_amount === "number" ? ch.application_fee_amount : 0;
+    return {
+      fee: bt ? c2(bt.fee) : null,
+      net: bt ? c2(bt.net) : null,
+      // An den Veranstalter ueberwiesen (Destination Charge).
+      payout: amount !== null ? c2(amount - appFee) : null,
+      paymentIntent: pi.id ?? paymentIntentId,
+    };
+  } catch (_) {
+    return null;
+  }
+}
 
 function ticketCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -96,10 +131,23 @@ Deno.serve(async (req) => {
     await admin.from("seat_holds").delete().eq("order_id", orderId);
   }
 
-  await admin.from("orders").update({
+  // Tatsaechliche Stripe-Kosten nachschlagen (best effort, nie blockierend).
+  const piId = typeof session.payment_intent === "string"
+    ? session.payment_intent
+    : session.payment_intent?.id ?? "";
+  const costs = await stripeCosts(piId);
+
+  const upd: Record<string, unknown> = {
     status: "bezahlt", paid_via: "stripe", paid_at: new Date().toISOString(),
     stripe_session_id: session.id,
-  }).eq("id", orderId);
+  };
+  if (piId) upd.stripe_payment_intent = piId;
+  if (costs) {
+    if (costs.fee !== null) upd.stripe_fee = costs.fee;
+    if (costs.net !== null) upd.stripe_net = costs.net;
+    if (costs.payout !== null) upd.stripe_payout = costs.payout;
+  }
+  await admin.from("orders").update(upd).eq("id", orderId);
 
   return new Response(JSON.stringify({ received: true, order: orderId, tickets: tickets.length }), { status: 200 });
 });
