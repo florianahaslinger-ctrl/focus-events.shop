@@ -278,7 +278,13 @@
     }));
     $('adminEvents').querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
       const ev = events.find(x => x.id === b.dataset.del);
-      if (confirm('Event „' + ev.name + '“ wirklich löschen?')) {
+      // VIP-Tische hängen am Event: Löschen entfernt sie endgültig, Deaktivieren/Archivieren nicht.
+      const vipWarn = ev.vipEnabled
+        ? '\n\nAchtung: Dieses Event hat einen VIP-Bereich. Beim Löschen gehen seine VIP-Tische, ' +
+          'der Tischplan und die Getränkekarte verloren – Tischreservierungen sind dann darüber nicht mehr möglich.' +
+          '\n\nTipp: Stattdessen „Deaktivieren“ oder „Archivieren“ – dann bleibt die Tischreservierung erhalten.'
+        : '';
+      if (confirm('Event „' + ev.name + '“ wirklich löschen?' + vipWarn)) {
         try { await S.deleteEvent(ev.id); await renderAll(); }
         catch (e) { alert('Löschen nicht möglich: ' + e.message + '\nTipp: Events mit Bestellungen besser deaktivieren.'); }
       }

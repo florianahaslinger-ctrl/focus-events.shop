@@ -13,6 +13,7 @@
   let vipHasEntry = false;  // Gast hat für diesen Tag bereits ein bezahltes Eintrittsticket
   let vipClub = null;       // aktueller Club im VIP-Flow
   let vipStandardEv = null; // Standard-VIP-Event des Clubs (für Tage ohne eigenes Event)
+  let vipSources = [];      // VIP-Quellen inkl. deaktivierter Events (Server-Reihenfolge)
   let eventsCache = [];
   let activeClub = 'LEVEL'; // aktiver Reiter: 'LEVEL' | 'YPSILON'
   let pendingEmail = '';
@@ -190,6 +191,9 @@
     let evParam = null;
     try {
       eventsCache = await S.getEvents();
+      // VIP-Quellen separat: bleiben verfügbar, auch wenn kein Event online ist.
+      try { vipSources = await S.getVipSources(); }
+      catch (_) { vipSources = eventsCache.filter(ev => ev.vipEnabled); }
       // Direktlink auf ein einzelnes Event: ?event=ID (übersteuert die Reiter)
       evParam = new URLSearchParams(location.search).get('event');
     } catch (e) {
@@ -203,9 +207,10 @@
       if (el) el.textContent = eventsCache.filter(ev => clubOf(ev) === c).length;
     });
 
-    // Zentralen VIP-Button nur zeigen, wenn es VIP-Events gibt
+    // Zentralen VIP-Button zeigen, sobald ein VIP-Bereich eingerichtet ist –
+    // unabhängig davon, ob gerade ein Event online ist.
     const vipCta = document.querySelector('.fx-vip-cta');
-    if (vipCta) vipCta.style.display = eventsCache.some(ev => ev.vipEnabled) ? 'flex' : 'none';
+    if (vipCta) vipCta.style.display = vipSources.length ? 'flex' : 'none';
 
     // Welche Events zeigen? Direktlink > aktiver Reiter
     const list = evParam
@@ -786,11 +791,11 @@
     });
   }
 
-  // VIP-Events eines Clubs (aktiv & VIP aktiviert), nach Datum sortiert.
+  // VIP-Quellen eines Clubs – auch deaktivierte Events, damit Reservierungen
+  // ohne laufendes Event möglich bleiben. Reihenfolge vom Server:
+  // Standard-markiert > aktiv (frühestes zuerst) > zuletzt deaktiviert.
   function vipEventsForClub(club) {
-    return eventsCache
-      .filter(e => e.vipEnabled && clubOf(e) === club)
-      .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+    return vipSources.filter(e => clubOf(e) === club);
   }
 
   // ISO-Zeitstempel -> lokales Datum 'YYYY-MM-DD' (fürs Kalender-Feld).
@@ -824,7 +829,7 @@
   }
 
   // Standard-VIP-Event eines Clubs (Tische für Tage ohne eigenes Event):
-  // markiertes vip_standard, sonst frühestes VIP-Event als Fallback.
+  // markiertes vip_standard, sonst die erste Quelle laut Server-Reihenfolge.
   function vipStandardForClub(club, list) {
     list = list || vipEventsForClub(club);
     return list.find(e => e.vipStandard) || list[0] || null;

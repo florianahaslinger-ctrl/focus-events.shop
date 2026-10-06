@@ -685,6 +685,23 @@
       return data.publicUrl;
     },
 
+    // VIP-Quellen des Shops: alle Events mit VIP-Bereich und Tischen – auch
+    // deaktivierte, damit Reservierungen ohne laufendes Event möglich bleiben.
+    // Reihenfolge kommt vom Server (Standard > aktiv > zuletzt deaktiviert).
+    async getVipSources() {
+      const { data, error } = await sb.rpc('vip_sources', { p_storefront: STOREFRONT });
+      if (error) throw new Error(error.message);
+      return (data || []).map(e => ({
+        id: e.id, club: e.club || null, location: e.location || null,
+        active: !!e.active, vipEnabled: true, vipStandard: !!e.vip_standard,
+        vipInfo: e.vip_info || null,
+        vipFloorplanUrl: e.vip_floorplan_url || null,
+        vipFloorplans: (Array.isArray(e.vip_floorplans) && e.vip_floorplans.length)
+          ? e.vip_floorplans.filter(Boolean)
+          : (e.vip_floorplan_url ? [e.vip_floorplan_url] : [])
+      }));
+    },
+
     // Öffentlicher Tischstatus (frei/belegt am gewählten Datum) – für die Kundenauswahl.
     async tableStatus(eventId, dateStr) {
       const { data, error } = await sb.rpc('table_status', { p_event: eventId, p_date: dateStr || null });
