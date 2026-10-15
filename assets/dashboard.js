@@ -744,7 +744,30 @@
         customerPaid: r2(customerPaid), payout,
         tickets, orderCount
       };
-    }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    }).concat(archivedVatRows()).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  }
+
+  // Gelöschte Events, deren Abrechnung im Archiv eingefroren ist (z. B. aus den
+  // Stripe-Buchungen rekonstruiert). Nur in der Gesamtansicht, nicht bei Event-Filter.
+  function archivedVatRows() {
+    if (statFilter) return [];
+    const r2 = n => Math.round(n * 100) / 100;
+    const live = new Set(events.map(e => e.id));
+    return archiveRows.filter(a => a.finance && !(a.eventId && live.has(a.eventId))).map(a => {
+      const f = a.finance, rate = f.vatRate || 0;
+      const vat = rate > 0 ? r2(f.gross - f.gross / (1 + rate / 100)) : 0;
+      return {
+        id: 'archiv-' + a.id, archived: true, source: f.source,
+        name: a.name, club: a.club || null, date: a.date,
+        feesOnOrganizer: f.feesOnOrganizer,
+        rate, gross: r2(f.gross), vat, net: r2(f.gross - vat),
+        service: r2(f.service), payment: r2(f.payment), fees: r2(f.service + f.payment),
+        stripeFee: 0, stripeKnown: 0,
+        customerPaid: r2(f.customerPaid != null ? f.customerPaid : f.gross),
+        payout: r2(f.payout != null ? f.payout : f.gross - f.service - f.payment),
+        tickets: f.tickets, orderCount: f.orders
+      };
+    });
   }
 
   // Auszahlungsübersicht aus den importierten Stripe-Buchungen.
@@ -853,6 +876,7 @@
           '<div class="event-head"><h2>' + esc(r.name) + '</h2>' +
           '<span class="badge ' + (noRate ? 'offen' : 'bezahlt') + '">' +
             (noRate ? 'kein MwSt.-Satz' : pct(r.rate) + ' MwSt.') + '</span>' +
+          (r.archived ? '<span class="badge">archiviert</span>' : '') +
           '<span class="event-meta">' + esc(d) + (r.club ? ' \u00b7 ' + esc(r.club) : '') + '</span></div>' +
 
           '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;margin-top:14px">' +
@@ -903,22 +927,26 @@
             '</div>' +
 
           '</div>' +
-          '<p class="hint" style="margin-top:10px">Grundlage: ' + r.orderCount + ' bezahlte Bestellungen \u00b7 ' +
-          r.tickets + ' Tickets. Gratis-, Gast- und VIP-Tickets sind nicht enthalten.</p>' +
+          '<p class="hint" style="margin-top:10px">' + (r.archived
+            ? 'Event gel\u00f6scht \u2013 ' + esc(r.source) + ' \u00b7 ' + r.tickets + ' bezahlte Tickets. ' +
+              'Gratis-, Gast- und VIP-Tickets sind nicht enthalten. Steuersatz wie bei den \u00fcbrigen Focus-Events angenommen.'
+            : 'Grundlage: ' + r.orderCount + ' bezahlte Bestellungen \u00b7 ' +
+              r.tickets + ' Tickets. Gratis-, Gast- und VIP-Tickets sind nicht enthalten.') + '</p>' +
           '</div>';
       }).join('');
   }
 
   function vatCsv() {
     const rows = vatRows();
-    const head = ['Event', 'Datum', 'Club', 'Tickets', 'Bestellungen', 'Ticketumsatz_brutto', 'Satz_Prozent', 'MwSt', 'Netto', 'Servicegebuehr', 'Zahlungsgebuehr', 'Kunde_zahlt', 'Auszahlung_GmbH'];
+    const head = ['Event', 'Datum', 'Club', 'Tickets', 'Bestellungen', 'Ticketumsatz_brutto', 'Satz_Prozent', 'MwSt', 'Netto', 'Servicegebuehr', 'Zahlungsgebuehr', 'Kunde_zahlt', 'Auszahlung_GmbH', 'Quelle'];
     const lines = [head].concat(rows.map(r => [
       r.name, r.date ? new Date(r.date).toLocaleDateString('de-AT') : '', r.club || '',
       r.tickets, r.orderCount,
       String(r.gross).replace('.', ','), String(r.rate).replace('.', ','),
       String(r.vat).replace('.', ','), String(r.net).replace('.', ','),
       String(r.service).replace('.', ','), String(r.payment).replace('.', ','),
-      String(r.customerPaid).replace('.', ','), String(r.payout).replace('.', ',')
+      String(r.customerPaid).replace('.', ','), String(r.payout).replace('.', ','),
+      r.archived ? 'Archiv: ' + r.source : 'Bestellungen'
     ]));
     return lines.map(l => l.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(';')).join(String.fromCharCode(13, 10));
   }

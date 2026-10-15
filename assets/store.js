@@ -476,17 +476,26 @@
 
     async getArchive() {
       const { data, error } = await sb.from('event_archive')
-        .select('id,storefront,name,club,event_date,capacity,tickets_sold,revenue,checkins,vip_count,notes,event_id,created_at')
+        .select('id,storefront,name,club,event_date,capacity,tickets_sold,revenue,checkins,vip_count,notes,event_id,created_at,' +
+                'vat_rate,orders_count,paid_tickets,gross,service_fee,payment_fee,customer_paid,payout,fees_on_organizer,finance_source')
         .eq('storefront', STOREFRONT)
         .order('event_date', { ascending: false });
       if (error) throw new Error(error.message);
+      const num = v => (v == null ? null : Number(v));
       return (data || []).map(r => ({
         id: r.id, eventId: r.event_id || null, name: r.name, club: r.club || null, date: r.event_date || null,
         capacity: (r.capacity != null ? Number(r.capacity) : null),
         ticketsSold: Number(r.tickets_sold || 0), revenue: Number(r.revenue || 0),
         checkins: (r.checkins != null ? Number(r.checkins) : null),
         vipCount: (r.vip_count != null ? Number(r.vip_count) : null),
-        notes: r.notes || '', createdAt: r.created_at
+        notes: r.notes || '', createdAt: r.created_at,
+        // Abrechnung eingefroren (z. B. aus Stripe-Buchungen rekonstruiert) – null, wenn nicht vorhanden
+        finance: r.gross == null ? null : {
+          vatRate: num(r.vat_rate) || 0, orders: num(r.orders_count) || 0, tickets: num(r.paid_tickets) || 0,
+          gross: num(r.gross), service: num(r.service_fee) || 0, payment: num(r.payment_fee) || 0,
+          customerPaid: num(r.customer_paid), payout: num(r.payout),
+          feesOnOrganizer: !!r.fees_on_organizer, source: r.finance_source || ''
+        }
       }));
     },
     async addArchiveEntry(e) {
