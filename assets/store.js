@@ -459,8 +459,15 @@
     // Stripe-Buchungen des Veranstalterkontos (RLS: Head-Admin alles,
     // Veranstalter nur das eigene Konto). Grundlage der Auszahlungsübersicht.
     async getStripeBalance() {
+      // Nur die Stripe-Konten dieses Shops – der Head-Admin dürfte per RLS
+      // sonst auch die Buchungen anderer Veranstalter (z. B. CORE-Bälle) sehen.
+      const acc = await sb.rpc('storefront_stripe_accounts', { p_storefront: STOREFRONT });
+      if (acc.error) throw new Error(acc.error.message);
+      const accounts = (acc.data || []).map(a => (typeof a === 'string' ? a : a.storefront_stripe_accounts)).filter(Boolean);
+      if (!accounts.length) return [];
       const { data, error } = await sb.from('stripe_balance_txns')
-        .select('balance_transaction_id,connected_account,created_at,gross,fee,net,service_fee,payment_fee,stripe_fee,split_source,payout_id,payout_at,order_id')
+        .select('balance_transaction_id,connected_account,created_at,gross,fee,net,service_fee,payment_fee,stripe_fee,split_source,payout_id,payout_at,order_id,archive_id')
+        .in('connected_account', accounts)
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return (data || []).map(r => ({
@@ -470,7 +477,8 @@
         serviceFee: r.service_fee === null ? null : Number(r.service_fee),
         paymentFee: r.payment_fee === null ? null : Number(r.payment_fee),
         stripeFee: r.stripe_fee === null ? null : Number(r.stripe_fee),
-        payoutId: r.payout_id || null, payoutAt: r.payout_at || null, orderId: r.order_id || null
+        payoutId: r.payout_id || null, payoutAt: r.payout_at || null, orderId: r.order_id || null,
+        archiveId: r.archive_id || null
       }));
     },
 

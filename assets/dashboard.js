@@ -776,13 +776,31 @@
     if (!balanceRows.length) return '';
     const eur = n => S.fmtEUR.format(n);
     const groups = {};
+    const grp = k => groups[k] || (groups[k] = { id: k || null, at: null, n: 0, gross: 0, fee: 0, net: 0, pay: 0, svc: 0, open: 0 });
     balanceRows.forEach(b => {
-      const k = b.payoutId || '';
-      const g = groups[k] || (groups[k] = { id: b.payoutId, at: b.payoutAt, n: 0, gross: 0, fee: 0, net: 0, pay: 0, svc: 0, open: 0 });
+      const g = grp(b.payoutId || ''); g.at = b.payoutAt;
       g.n++; g.gross += b.gross; g.fee += b.fee; g.net += b.net;
       if (b.paymentFee === null || b.serviceFee === null) g.open += b.fee;   // noch nicht aufgeteilt
       else { g.pay += b.paymentFee; g.svc += b.serviceFee; }
     });
+    // Bezahlte Bestellungen, die Stripe noch nicht als Buchung gemeldet hat
+    // (Stripe liefert sie spätestens mit der nächsten Auszahlung) – hier schon
+    // mitzählen, damit die Summen zur Abrechnung je Event passen.
+    const booked = new Set(balanceRows.map(b => b.orderId).filter(Boolean));
+    const liveIds = new Set(events.map(e => e.id));
+    const pending = orders.filter(o => o.status === 'bezahlt' && o.paidVia === 'stripe' && Number(o.total || 0) > 0 &&
+      liveIds.has(o.eventId) && !booked.has(o.id));
+    pending.forEach(o => {
+      const g = grp(''), svc = Number(o.serviceFee || 0), pay = Number(o.paymentFee || 0), tot = Number(o.total || 0);
+      g.n++; g.gross += tot; g.fee += svc + pay; g.net += tot - svc - pay; g.pay += pay; g.svc += svc;
+    });
+    // Buchungen, die zu keinem Event der Abrechnung gehören (z. B. Testzahlungen
+    // gelöschter Test-Events) – für den Abgleich mit der Abrechnung je Event.
+    const liveOrders = new Set(orders.filter(o => liveIds.has(o.eventId)).map(o => o.id));
+    const loose = balanceRows.filter(b => !b.archiveId && !(b.orderId && liveOrders.has(b.orderId)));
+    const loosePay = loose.reduce((n, b) => n + (b.paymentFee || 0), 0);
+    const looseSvc = loose.reduce((n, b) => n + (b.serviceFee || 0), 0);
+    const looseGross = loose.reduce((n, b) => n + b.gross, 0);
     const list = Object.values(groups).sort((a, b) => {
       if (!a.id) return -1; if (!b.id) return 1;          // Ausstehendes zuerst
       return new Date(b.at) - new Date(a.at);
@@ -800,8 +818,8 @@
     const td = 'style="padding:7px 10px;text-align:right;white-space:nowrap"';
     return '<div class="card" style="margin-bottom:18px">' +
       '<h2 style="margin-top:0">Auszahlungen von Stripe</h2>' +
-      '<p class="hint">Tatsächliche Geldflüsse aus dem Stripe-Bericht – unabhängig von Bestellungen, ' +
-      'daher auch für gelöschte Events vollständig. Stand: letzter Import.</p>' +
+      '<p class="hint">Tatsächliche Geldflüsse deines Stripe-Kontos – auch für gelöschte Events vollständig. ' +
+      'Bezahlte Bestellungen, die Stripe noch nicht gemeldet hat, sind unter „noch nicht ausgezahlt“ schon enthalten.</p>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0">' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Kunden bezahlt</div><div class="v" style="font-size:1.3rem">' + eur(tot.gross) + '</div><div class="s">' + tot.n + ' Buchungen</div></div>' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Zahlungsgebühr → Stripe</div><div class="v" style="font-size:1.3rem">' + eur(tot.pay) + '</div><div class="s">1,5 % + 0,25 €/Ticket</div></div>' +
@@ -830,6 +848,11 @@
         : '<p class="hint">Die tatsächliche Stripe-Gebühr wird ab jetzt bei jeder neuen Zahlung automatisch erfasst.</p>') +
       (tot.open
         ? '<p class="hint">* ' + eur(tot.open) + ' Gebühren noch nicht nach Stripe/CORE aufgeteilt (nachträglich erfasste Buchungen).</p>'
+        : '') +
+      (loose.length && !statFilter
+        ? '<p class="hint">Abgleich mit der Abrechnung je Event (unten bzw. CSV): Diese Übersicht enthält zusätzlich ' +
+          loose.length + ' Buchung(en) ohne Event in der Abrechnung (z. B. Testzahlungen) über ' + eur(looseGross) + ' – davon ' +
+          eur(loosePay) + ' Zahlungs- und ' + eur(looseSvc) + ' Servicegebühr. Ohne diese stimmen die Summen überein.</p>'
         : '') +
     '</div>';
   }

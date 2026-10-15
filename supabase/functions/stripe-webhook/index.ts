@@ -83,12 +83,68 @@ async function stripeCosts(paymentIntentId: string) {
   }
 }
 
+/* Bestellung zu einer Veranstalter-Buchung finden.
+   Beim Kauf liegt die Balance-Transaction oft noch nicht vor – die Buchung
+   kommt dann erst mit der Auszahlung und muss hier zugeordnet werden.
+   1) resolveViaStripe: py_ (Veranstalter) -> Transfer -> Plattform-Charge -> PaymentIntent
+   2) resolveViaMatch (Rückfall): gleicher Betrag, gleiche Gebühr (= Service + Zahlung),
+      nächstliegende Zahlung innerhalb von 10 s und keine weitere innerhalb von 30 s. */
+async function resolveViaStripe(admin: ReturnType<typeof createClient>, account: string, b: any) {
+  try {
+    const src = typeof b.source === "string" ? b.source : b.source?.id;
+    if (src && src.startsWith("py_")) {
+      const py = await stripeGet("charges/" + encodeURIComponent(src), account);
+      const trId = typeof py.source_transfer === "string" ? py.source_transfer : py.source_transfer?.id;
+      if (trId) {
+        const tr = await stripeGet("transfers/" + encodeURIComponent(trId));
+        const chId = typeof tr.source_transaction === "string" ? tr.source_transaction : tr.source_transaction?.id;
+        if (chId) {
+          const ch = await stripeGet("charges/" + encodeURIComponent(chId) + "?expand[]=balance_transaction");
+          const pi = typeof ch.payment_intent === "string" ? ch.payment_intent : ch.payment_intent?.id;
+          if (pi) {
+            const { data } = await admin.from("orders").select("id,service_fee,payment_fee")
+              .eq("stripe_payment_intent", pi).maybeSingle();
+            if (data) {
+              const sbt = ch.balance_transaction;
+              return { ...data, stripe_fee: sbt && typeof sbt === "object" ? c2(sbt.fee) : null };
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Zuordnung über Stripe:", (e as Error).message);
+  }
+  return null;
+}
+
+// Nur nacheinander aufrufen – sonst könnten zwei Buchungen dieselbe Bestellung wählen.
+async function resolveViaMatch(admin: ReturnType<typeof createClient>, b: any) {
+  const gross = c2(b.amount), fee = c2(b.fee);
+  if (gross === null || fee === null || typeof b.created !== "number") return null;
+  const from = new Date((b.created - 60) * 1000).toISOString();
+  const to = new Date((b.created + 60) * 1000).toISOString();
+  const { data: cands } = await admin.from("orders").select("id,service_fee,payment_fee,paid_at")
+    .eq("status", "bezahlt").eq("total", gross).gte("paid_at", from).lte("paid_at", to);
+  const hits = (cands ?? [])
+    .filter((o: any) => Math.round((Number(o.service_fee || 0) + Number(o.payment_fee || 0)) * 100) === Math.round(fee * 100))
+    .map((o: any) => ({ o, dt: Math.abs(Date.parse(o.paid_at) / 1000 - b.created) }))
+    .sort((x: any, y: any) => x.dt - y.dt);
+  if (!hits.length || hits[0].dt > 10 || (hits[1] && hits[1].dt <= 30)) return null;
+  const best = hits[0].o;
+  const { count } = await admin.from("stripe_balance_txns").select("balance_transaction_id", { count: "exact", head: true })
+    .eq("order_id", best.id);
+  return count ? null : { id: best.id, service_fee: best.service_fee, payment_fee: best.payment_fee, stripe_fee: null };
+}
+
 /* payout.paid eines Veranstalterkontos: alle enthaltenen Buchungen markieren.
    Fehlt eine Buchung (z. B. Zahlung vor Einführung dieser Funktion), wird sie
-   aus der Balance-Transaction angelegt – die Tabelle heilt sich so selbst. */
+   aus der Balance-Transaction angelegt – die Tabelle heilt sich so selbst.
+   Buchungen ohne Bestellung werden anschließend zugeordnet und aufgeteilt. */
 async function syncPayout(admin: ReturnType<typeof createClient>, account: string, payout: any) {
   let starting = "";
   let n = 0;
+  const toLink: any[] = [];
   for (let page = 0; page < 50; page++) {
     const list = await stripeGet("balance_transactions?payout=" + encodeURIComponent(payout.id) +
       "&limit=100" + (starting ? "&starting_after=" + encodeURIComponent(starting) : ""), account);
@@ -113,10 +169,46 @@ async function syncPayout(admin: ReturnType<typeof createClient>, account: strin
         .upsert(rows, { onConflict: "balance_transaction_id" });
       if (error) throw new Error(error.message);
       n += rows.length;
+      // Welche Zahlungen sind noch keiner Bestellung zugeordnet?
+      const charges = (list.data ?? []).filter((b: any) => b.type !== "payout" && b.reporting_category === "charge");
+      if (charges.length) {
+        const { data: known } = await admin.from("stripe_balance_txns")
+          .select("balance_transaction_id,order_id,archive_id")
+          .in("balance_transaction_id", charges.map((b: any) => b.id));
+        const linked = new Set((known ?? []).filter((k: any) => k.order_id || k.archive_id)
+          .map((k: any) => k.balance_transaction_id));
+        charges.forEach((b: any) => { if (!linked.has(b.id)) toLink.push(b); });
+      }
     }
     if (!list.has_more || !list.data?.length) break;
     starting = list.data[list.data.length - 1].id;
   }
+
+  // Zuordnen – je Zeile ein eigenes Update, damit vorhandene Werte anderer
+  // Zeilen nie überschrieben werden.
+  let linkedNow = 0;
+  const save = async (b: any, o: any) => {
+    const { error } = await admin.from("stripe_balance_txns").update({
+      order_id: o.id, service_fee: o.service_fee ?? null, payment_fee: o.payment_fee ?? null,
+      split_source: "bestellung", ...(o.stripe_fee !== null ? { stripe_fee: o.stripe_fee } : {}),
+    }).eq("balance_transaction_id", b.id).is("order_id", null);
+    if (error) console.error("Zuordnung speichern:", error.message);
+    else linkedNow++;
+  };
+  // 1) Stripe-Kette: eindeutig über den PaymentIntent – 6 parallel (Zeitlimit).
+  const rest: any[] = [];
+  for (let i = 0; i < toLink.length; i += 6) {
+    await Promise.all(toLink.slice(i, i + 6).map(async (b) => {
+      const o = await resolveViaStripe(admin, account, b);
+      if (o) await save(b, o); else rest.push(b);
+    }));
+  }
+  // 2) Rückfall-Abgleich nacheinander.
+  for (const b of rest) {
+    const o = await resolveViaMatch(admin, b);
+    if (o) await save(b, o);
+  }
+  if (toLink.length) console.log(`payout ${payout.id}: ${linkedNow}/${toLink.length} Buchungen zugeordnet`);
   return n;
 }
 
