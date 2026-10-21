@@ -906,23 +906,7 @@
   const pEur = n => S.fmtEUR.format(n || 0);
   const pRate = r => (r == null ? '–' : String(r).replace('.', ',') + ' %');
   const R = 'style="text-align:right;white-space:nowrap"';
-  const ZERO = { n: 0, tickets: 0, revenue: 0, vat: 0, service: 0, payment: 0, fee: 0, net: 0 };
-  const addUp = (s, g) => ({ n: s.n + g.n, tickets: s.tickets + g.tickets, revenue: s.revenue + g.revenue, vat: s.vat + g.vat,
-    service: s.service + g.service, payment: s.payment + g.payment, fee: s.fee + g.fee, net: s.net + g.net });
 
-  // Summen je Kostenstelle innerhalb einer Liste von Zahlungen
-  function byCostCenter(items) {
-    const m = new Map();
-    items.forEach(i => {
-      const k = i.costCenter + '|' + (i.eventDate || '');
-      const g = m.get(k) || { costCenter: i.costCenter, club: i.club, eventDate: i.eventDate, vatRate: i.vatRate,
-        n: 0, tickets: 0, revenue: 0, vat: 0, service: 0, payment: 0, fee: 0, net: 0 };
-      g.n++; g.tickets += i.tickets || 0; g.revenue += i.revenue; g.vat += vatOf(i.revenue, i.vatRate || 0);
-      g.service += i.service || 0; g.payment += i.payment || 0; g.fee += i.fee; g.net += i.net;
-      m.set(k, g);
-    });
-    return Array.from(m.values()).sort((a, b) => String(a.eventDate || '').localeCompare(String(b.eventDate || '')));
-  }
   function payoutsOf(items) {
     const m = new Map();
     items.forEach(i => { const k = i.payoutId || ''; if (!m.has(k)) m.set(k, { id: i.payoutId, at: i.payoutAt, items: [] }); m.get(k).items.push(i); });
@@ -941,34 +925,18 @@
     '.lok{font-weight:700;white-space:nowrap}.lok.LEVEL{color:#c1121f}.lok.YPSILON{color:#2433d6}' +
     '.kst td:first-child{min-width:170px}.note{color:#555;font-size:11px;margin-top:14px}' +
     '.pb{page-break-before:always}.bar{margin-bottom:16px}@media print{.bar{display:none}body{margin:12mm}}';
-  const PRINT_NOTE =
-    '<p class="note">Ticketpreise sind Bruttopreise; die enthaltene Umsatzsteuer ist mit dem beim Event hinterlegten Satz gerechnet. ' +
-    'Service- und Zahlungsgebühr werden von der Plattform (CORE Management) einbehalten und hier ohne Umsatzsteuer ausgewiesen – ' +
-    'maßgeblich ist die Rechnung von CORE Management. „Ausgezahlt“ ist die Summe der Stripe-Buchungen der jeweiligen Auszahlung. ' +
-    'Erstellt am ' + '%DATUM%' + '.</p>';
-
   // Druckfertiges Dokument öffnen; der Druckdialog („Als PDF speichern“) startet automatisch.
   function openPrintDoc(title, body, landscape) {
     const html = '<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' + esc(title) + '</title>' +
       '<style>' + PRINT_CSS + (landscape ? '@page{size:A4 landscape}' : '') + '</style></head><body>' +
       '<div class="bar"><button onclick="window.print()">Als PDF speichern / drucken</button></div>' +
-      body + PRINT_NOTE.replace('%DATUM%', dTime(new Date().toISOString())) +
+      body +
       '<script>window.addEventListener("load",function(){setTimeout(function(){window.print()},300)})<\/script>' +
       '</body></html>';
     const w = window.open('', '_blank');
     if (!w) { alert('Bitte Pop-ups für diese Seite erlauben, um das PDF zu erstellen.'); return; }
     w.document.open(); w.document.write(html); w.document.close();
   }
-
-  const kstHead = '<thead><tr><th>Kostenstelle (Event)</th><th>Lokal</th><th>Eventdatum</th><th ' + R + '>Zahlungen</th><th ' + R + '>Tickets</th>' +
-    '<th ' + R + '>Ticketumsatz brutto</th><th ' + R + '>MwSt-Satz</th><th ' + R + '>enth. MwSt</th><th ' + R + '>Netto</th>' +
-    '<th ' + R + '>Servicegeb. CORE</th><th ' + R + '>Zahlungsgeb.</th><th ' + R + '>Ausgezahlt</th></tr></thead>';
-  const kstRow = (g, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + esc(g.costCenter) + '</td>' +
-    '<td><b>' + (g.costCenter === 'Summe' ? '' : esc(clubLabel(g.club))) + '</b></td><td>' + dDate(g.eventDate) + '</td>' +
-    '<td ' + R + '>' + g.n + '</td><td ' + R + '>' + g.tickets + '</td><td ' + R + '>' + pEur(g.revenue) + '</td>' +
-    '<td ' + R + '>' + (g.costCenter === 'Summe' ? '' : pRate(g.vatRate)) + '</td>' +
-    '<td ' + R + '>' + pEur(g.vat) + '</td><td ' + R + '>' + pEur(g.revenue - g.vat) + '</td>' +
-    '<td ' + R + '>' + pEur(g.service) + '</td><td ' + R + '>' + pEur(g.payment) + '</td><td ' + R + '><b>' + pEur(g.net) + '</b></td></tr>';
 
   // Umsatzsteuer nach Steuersatz (Satz der jeweiligen Bestellung)
   function vatByRate(items) {
@@ -1019,8 +987,9 @@
       '<td ' + R + '>' + pEur(t.vat) + '</td><td ' + R + '>' + pEur(t.fee) + '</td><td ' + R + '>' + pEur(t.net) + '</td></tr></table>';
   }
 
-  // Auszahlungsliste wie in Stripe – eine Zeile je Bankgutschrift, mit MwSt je Satz
-  function payoutListBody(ps) {
+  // Auszahlungsliste wie in Stripe – eine Zeile je Bankgutschrift, mit MwSt je Satz.
+  // single = PDF für genau eine Auszahlung (Knopf in der Auszahlungszeile).
+  function payoutListBody(ps, single) {
     const all = [].concat(...ps.map(p => p.items));
     const rates = vatByRate(all).map(r => r.rate);              // alle vorkommenden Sätze (null = ohne)
     const key = r => (r == null ? 'ohne' : String(r));
@@ -1040,7 +1009,7 @@
       const lok = c => '<span class="lok ' + esc(c) + '">' + esc(c) + '</span>';
       const kst = clubs.map(c => '<div style="margin-bottom:4px">' + lok(c.club) + ': <b>' + pEur(c.net) + '</b>' +
         ' <span class="k">(MwSt ' + pEur(c.vat) + ')</span><br><span class="k">' +
-        Array.from(c.events).map(e => esc(e.length > 30 ? e.slice(0, 29) + '…' : e)).join(', ') + '</span></div>').join('');
+        Array.from(c.events).map(e => esc(!single && e.length > 30 ? e.slice(0, 29) + '…' : e)).join(', ') + '</span></div>').join('');
       return '<tr><td style="white-space:nowrap"><b>' + dDate(p.at) + '</b><div class="k" style="font-family:monospace">' + esc(p.id) + '</div></td>' +
         '<td style="font-size:13px">' + clubs.map(c => lok(c.club)).join('<br>') + '</td>' +
         '<td ' + R + '><b>' + pEur(t.net) + '</b></td><td ' + R + '>' + t.n + '</td><td ' + R + '>' + pEur(t.revenue) + '</td>' + cells +
@@ -1054,39 +1023,21 @@
       rates.map(rt => { const r = totR[key(rt)] || { revenue: 0, vat: 0 }; return '<td ' + R + '>' + pEur(r.revenue - r.vat) + '</td><td ' + R + '>' + pEur(r.vat) + '</td>'; }).join('') +
       '<td ' + R + '>' + pEur(tot.fee) + '</td><td></td></tr>';
     const vatTotal = Object.values(totR).reduce((n, r) => n + r.vat, 0);
+    if (single) {
+      const p = ps[0];
+      return '<h1>Stripe-Auszahlung vom ' + dDate(p.at) + ' – Focus Events GmbH</h1>' +
+        '<div class="meta"><div><span class="k">Auszahlung</span><b>' + esc(p.id) + '</b></div>' +
+        '<div><span class="k">Lokal</span><b>' + byClub(p.items).map(c => '<span class="lok ' + esc(c.club) + '">' + esc(c.club) + '</span>').join(' + ') + '</b></div>' +
+        '<div><span class="k">Ausgezahlt</span><b>' + pEur(tot.net) + '</b></div>' +
+        '<div><span class="k">enthaltene MwSt</span><b>' + pEur(vatTotal) + '</b></div></div>' +
+        '<table>' + head + rows + '</table>' + clubBlock(all, 'Aufteilung nach Lokal') + vatBlock(all);
+    }
     return '<h1>Stripe-Auszahlungen mit Umsatzsteuer – Focus Events GmbH</h1>' +
       '<div class="meta"><div><span class="k">Auszahlungen</span><b>' + ps.length + '</b></div>' +
       '<div><span class="k">Zeitraum</span><b>' + dDate(ps[0] && ps[0].at) + ' – ' + dDate(ps[ps.length - 1] && ps[ps.length - 1].at) + '</b></div>' +
       '<div><span class="k">Ausgezahlt gesamt</span><b>' + pEur(tot.net) + '</b></div>' +
       '<div><span class="k">enthaltene MwSt gesamt</span><b>' + pEur(vatTotal) + '</b></div></div>' +
-      '<table>' + head + rows + sumRow + '</table>' + clubBlock(all, 'Summe je Lokal') + vatBlock(all) +
-      '<p class="note">„Betrag“ ist die Gutschrift auf dem Bankkonto. Sie ergibt sich aus Ticketumsatz brutto abzüglich Gebühren. ' +
-      'Die Umsatzsteuer bezieht sich auf den Ticketumsatz und ist mit dem Steuersatz gerechnet, der beim Kauf für das jeweilige Event galt.</p>';
-  }
-
-  // Ein Auszahlungsbeleg (Kopf, Aufteilung nach Kostenstelle, Einzelposten)
-  function belegBody(p) {
-    const groups = byCostCenter(p.items);
-    const t = groups.reduce(addUp, ZERO);
-    const clubs = byClub(p.items).map(c => c.club);
-    return '<h1>Auszahlungsbeleg Stripe – Focus Events GmbH · ' + esc(clubs.join(' + ')) + '</h1>' +
-      '<div class="meta">' +
-        '<div><span class="k">Auszahlung</span><b>' + esc(p.id || 'noch nicht ausgezahlt') + '</b></div>' +
-        '<div><span class="k">Gutschrift am</span><b>' + (dDate(p.at) || '–') + '</b></div>' +
-        '<div><span class="k">Lokal</span><b>' + esc(clubs.join(' + ')) + '</b></div>' +
-        '<div><span class="k">Ausgezahlt</span><b>' + pEur(t.net) + '</b></div>' +
-      '</div>' +
-      clubBlock(p.items) +
-      '<h2>Aufteilung nach Kostenstelle</h2><table class="kst">' + kstHead +
-        groups.map(g => kstRow(g)).join('') + kstRow(Object.assign({ costCenter: 'Summe' }, t), 'sum') + '</table>' +
-      vatBlock(p.items) +
-      '<h2>Einzelposten</h2><table><thead><tr><th>Zahlung</th><th>Bestellung</th><th>Lokal</th><th>Kostenstelle</th><th>Artikel</th><th ' + R + '>Tickets</th>' +
-        '<th ' + R + '>Brutto</th><th ' + R + '>Gebühren</th><th ' + R + '>Ausgezahlt</th></tr></thead>' +
-        p.items.map(i => '<tr><td style="white-space:nowrap">' + dTime(i.paidAt) + '</td><td>' + esc(i.orderId || '–') + '</td>' +
-          '<td>' + esc(clubLabel(i.club)) + '</td><td>' + esc(i.costCenter) + '</td>' +
-          '<td>' + esc(i.items) + '</td><td ' + R + '>' + (i.tickets ?? '') + '</td><td ' + R + '>' + pEur(i.revenue) + '</td>' +
-          '<td ' + R + '>' + pEur(i.fee) + '</td><td ' + R + '>' + pEur(i.net) + '</td></tr>').join('') +
-        '<tr class="sum"><td colspan="6">Summe</td><td ' + R + '>' + pEur(t.revenue) + '</td><td ' + R + '>' + pEur(t.fee) + '</td><td ' + R + '>' + pEur(t.net) + '</td></tr></table>';
+      '<table>' + head + rows + sumRow + '</table>' + clubBlock(all, 'Summe je Lokal') + vatBlock(all);
   }
 
   // Abrechnung je Event (wie Reiter „Abrechnung“) als PDF
@@ -1124,7 +1075,7 @@
       if (b.dataset.belegAll === 'liste') { openPrintDoc('Stripe-Auszahlungen mit MwSt', payoutListBody(ps), true); return; }
       const p = ps.find(x => x.id === b.dataset.belegPrint);
       if (!p) { alert('Zu dieser Auszahlung wurden keine Zahlungen gefunden.'); return; }
-      openPrintDoc('Auszahlungsbeleg ' + p.id, belegBody(p));
+      openPrintDoc('Stripe-Auszahlung ' + dDate(p.at), payoutListBody([p], true), true);
     } catch (err) {
       alert('PDF konnte nicht erstellt werden: ' + err.message);
     } finally { b.disabled = false; b.textContent = label; }
