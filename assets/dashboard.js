@@ -803,13 +803,27 @@
     const loosePay = loose.reduce((n, b) => n + (b.paymentFee || 0), 0);
     const looseSvc = loose.reduce((n, b) => n + (b.serviceFee || 0), 0);
     const looseGross = loose.reduce((n, b) => n + b.gross, 0);
+    // Enthaltene Umsatzsteuer je Auszahlung – mit dem beim Kauf festgehaltenen Satz
+    // jeder Zahlung (Ticketumsatz, nicht der Auszahlungsbetrag ist die Steuerbasis).
+    Object.values(groups).forEach(g => { g.vat = 0; g.revenue = 0; g.noRate = 0; });
+    (payoutItems || []).forEach(i => {
+      const g = groups[i.payoutId || '']; if (!g) return;
+      g.revenue += i.revenue; g.vat += vatOf(i.revenue, i.vatRate || 0);
+      if (i.vatRate == null && i.revenue > 0) g.noRate += i.revenue;
+    });
+    pending.forEach(o => {
+      const g = grp(''), rev = Number(o.subtotal || 0);
+      g.revenue += rev; g.vat += vatOf(rev, o.vatRate || 0);
+      if (o.vatRate == null && rev > 0) g.noRate += rev;
+    });
     const list = Object.values(groups).sort((a, b) => {
       if (!a.id) return -1; if (!b.id) return 1;          // Ausstehendes zuerst
       return new Date(b.at) - new Date(a.at);
     });
     const tot = list.reduce((t, g) => ({ n: t.n + g.n, gross: t.gross + g.gross, fee: t.fee + g.fee, net: t.net + g.net,
-      pay: t.pay + g.pay, svc: t.svc + g.svc, open: t.open + g.open }),
-      { n: 0, gross: 0, fee: 0, net: 0, pay: 0, svc: 0, open: 0 });
+      pay: t.pay + g.pay, svc: t.svc + g.svc, open: t.open + g.open,
+      vat: t.vat + (g.vat || 0), revenue: t.revenue + (g.revenue || 0), noRate: t.noRate + (g.noRate || 0) }),
+      { n: 0, gross: 0, fee: 0, net: 0, pay: 0, svc: 0, open: 0, vat: 0, revenue: 0, noRate: 0 });
     // Echte Stripe-Gebuehr - nur fuer live per Webhook erfasste Zahlungen bekannt.
     const real = balanceRows.filter(b => b.stripeFee !== null);
     const realFee = real.reduce((n, b) => n + b.stripeFee, 0);
@@ -824,29 +838,35 @@
       'Bezahlte Bestellungen, die Stripe noch nicht gemeldet hat, sind unter „noch nicht ausgezahlt“ schon enthalten.</p>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0">' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Kunden bezahlt</div><div class="v" style="font-size:1.3rem">' + eur(tot.gross) + '</div><div class="s">' + tot.n + ' Buchungen</div></div>' +
+        '<div class="stat-tile" style="padding:12px 14px"><div class="k">darin enthaltene MwSt</div><div class="v" style="font-size:1.3rem;color:var(--accent-lt)">' + eur(tot.vat) + '</div><div class="s">aus ' + eur(tot.revenue) + ' Ticketumsatz</div></div>' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Zahlungsgebühr → Stripe</div><div class="v" style="font-size:1.3rem">' + eur(tot.pay) + '</div><div class="s">1,5 % + 0,25 €/Ticket</div></div>' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Servicegebühr → CORE</div><div class="v" style="font-size:1.3rem">' + eur(tot.svc) + '</div><div class="s">0,1 %</div></div>' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Bereits ausgezahlt</div><div class="v" style="font-size:1.3rem;color:#57d38c">' + eur(paid) + '</div></div>' +
         '<div class="stat-tile" style="padding:12px 14px"><div class="k">Noch ausstehend</div><div class="v" style="font-size:1.3rem">' + eur(open) + '</div><div class="s">kommt mit nächster Auszahlung</div></div>' +
       '</div>' +
       '<div class="table-scroll"><table class="data" style="width:100%">' +
-        '<tr><th style="text-align:left">Auszahlung</th><th>Datum</th><th>Buchungen</th><th>Brutto</th><th>an Stripe</th><th>an CORE</th><th>Netto an dich</th><th>Beleg</th></tr>' +
+        '<tr><th style="text-align:left">Gutschrift am</th><th>Betrag</th><th>Status</th><th>Zahlungen</th><th>Ticketumsatz</th>' +
+          '<th>enth. MwSt</th><th>an Stripe</th><th>an CORE</th><th>Beleg</th></tr>' +
         list.map(g => '<tr>' +
-          '<td style="padding:7px 10px;font-family:monospace;font-size:.82rem">' + (g.id ? esc(g.id) : '<b>noch nicht ausgezahlt</b>') + '</td>' +
-          '<td ' + td + '>' + dt(g.at) + '</td><td ' + td + '>' + g.n + '</td>' +
-          '<td ' + td + '>' + eur(g.gross) + '</td><td ' + td + '>' + eur(g.pay) + (g.open ? '*' : '') + '</td>' +
-          '<td ' + td + '>' + eur(g.svc) + '</td>' +
+          '<td style="padding:7px 10px">' + (g.id ? '<b>' + dt(g.at) + '</b><div style="font-family:monospace;font-size:.72rem;opacity:.6">' + esc(g.id) + '</div>' : '<b>–</b>') + '</td>' +
           '<td ' + td + '><b>' + eur(g.net) + '</b></td>' +
+          '<td ' + td + '><span class="badge ' + (g.id ? 'bezahlt' : 'offen') + '">' + (g.id ? 'Ausgezahlt' : 'Ausstehend') + '</span></td>' +
+          '<td ' + td + '>' + g.n + '</td>' +
+          '<td ' + td + '>' + eur(g.revenue || 0) + '</td>' +
+          '<td ' + td + '>' + eur(g.vat || 0) + (g.noRate ? ' <span title="Für einen Teil fehlt der Steuersatz" style="color:#ff6b6b">!</span>' : '') + '</td>' +
+          '<td ' + td + '>' + eur(g.pay) + (g.open ? '*' : '') + '</td>' +
+          '<td ' + td + '>' + eur(g.svc) + '</td>' +
           '<td ' + td + '>' + (g.id
             ? '<button class="btn btn-ghost btn-sm" data-beleg-print="' + esc(g.id) + '">PDF</button>'
             : '') + '</td></tr>').join('') +
-        '<tr style="border-top:2px solid var(--line)"><td style="padding:7px 10px"><b>Summe</b></td><td></td>' +
-          '<td ' + td + '><b>' + tot.n + '</b></td><td ' + td + '><b>' + eur(tot.gross) + '</b></td>' +
-          '<td ' + td + '><b>' + eur(tot.pay) + '</b></td><td ' + td + '><b>' + eur(tot.svc) + '</b></td>' +
-          '<td ' + td + '><b>' + eur(tot.net) + '</b></td><td></td></tr>' +
+        '<tr style="border-top:2px solid var(--line)"><td style="padding:7px 10px"><b>Summe</b></td>' +
+          '<td ' + td + '><b>' + eur(tot.net) + '</b></td><td></td><td ' + td + '><b>' + tot.n + '</b></td>' +
+          '<td ' + td + '><b>' + eur(tot.revenue) + '</b></td><td ' + td + '><b>' + eur(tot.vat) + '</b></td>' +
+          '<td ' + td + '><b>' + eur(tot.pay) + '</b></td><td ' + td + '><b>' + eur(tot.svc) + '</b></td><td></td></tr>' +
       '</table></div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px">' +
-        '<span class="hint" style="margin:0">Für die Buchhaltung (jede Auszahlung je Kostenstelle):</span>' +
+        '<span class="hint" style="margin:0">Für die Buchhaltung:</span>' +
+        '<button class="btn btn-gold btn-sm" data-beleg-all="liste">Auszahlungsliste mit MwSt (PDF)</button>' +
         '<button class="btn btn-ghost btn-sm" data-beleg-all="kst">Alle Auszahlungen je Kostenstelle (PDF)</button>' +
         '<button class="btn btn-ghost btn-sm" data-beleg-all="belege">Alle Belege in einem PDF</button>' +
       '</div>' +
@@ -858,6 +878,10 @@
         : '<p class="hint">Die tatsächliche Stripe-Gebühr wird ab jetzt bei jeder neuen Zahlung automatisch erfasst.</p>') +
       (tot.open
         ? '<p class="hint">* ' + eur(tot.open) + ' Gebühren noch nicht nach Stripe/CORE aufgeteilt (nachträglich erfasste Buchungen).</p>'
+        : '') +
+      (tot.noRate
+        ? '<p class="hint" style="color:#ff6b6b">! Für ' + eur(tot.noRate) + ' Ticketumsatz ist kein Steuersatz hinterlegt ' +
+          '(z. B. Testzahlungen) – dort ist keine MwSt gerechnet.</p>'
         : '') +
       (loose.length && !statFilter
         ? '<p class="hint">Abgleich mit der Abrechnung je Event (unten bzw. PDF): Diese Übersicht enthält zusätzlich ' +
@@ -925,9 +949,9 @@
     'Erstellt am ' + '%DATUM%' + '.</p>';
 
   // Druckfertiges Dokument öffnen; der Druckdialog („Als PDF speichern“) startet automatisch.
-  function openPrintDoc(title, body) {
+  function openPrintDoc(title, body, landscape) {
     const html = '<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' + esc(title) + '</title>' +
-      '<style>' + PRINT_CSS + '</style></head><body>' +
+      '<style>' + PRINT_CSS + (landscape ? '@page{size:A4 landscape}' : '') + '</style></head><body>' +
       '<div class="bar"><button onclick="window.print()">Als PDF speichern / drucken</button></div>' +
       body + PRINT_NOTE.replace('%DATUM%', dTime(new Date().toISOString())) +
       '<script>window.addEventListener("load",function(){setTimeout(function(){window.print()},300)})<\/script>' +
@@ -947,6 +971,67 @@
     '<td ' + R + '>' + pEur(g.vat) + '</td><td ' + R + '>' + pEur(g.revenue - g.vat) + '</td>' +
     '<td ' + R + '>' + pEur(g.service) + '</td><td ' + R + '>' + pEur(g.payment) + '</td><td ' + R + '><b>' + pEur(g.net) + '</b></td></tr>';
 
+  // Umsatzsteuer nach Steuersatz (Satz der jeweiligen Bestellung)
+  function vatByRate(items) {
+    const m = new Map();
+    items.forEach(i => {
+      if (!(i.revenue > 0)) return;
+      const k = i.vatRate == null ? 'ohne' : String(i.vatRate);
+      const g = m.get(k) || { rate: i.vatRate, revenue: 0, vat: 0 };
+      g.revenue += i.revenue; g.vat += vatOf(i.revenue, i.vatRate || 0);
+      m.set(k, g);
+    });
+    return Array.from(m.values()).sort((a, b) => (a.rate == null) - (b.rate == null) || (a.rate || 0) - (b.rate || 0));
+  }
+  function vatBlock(items) {
+    const rows = vatByRate(items);
+    const t = rows.reduce((s, r) => ({ revenue: s.revenue + r.revenue, vat: s.vat + r.vat }), { revenue: 0, vat: 0 });
+    return '<h2>Umsatzsteuer nach Steuersatz</h2><table><thead><tr><th>Steuersatz</th><th ' + R + '>Ticketumsatz brutto</th>' +
+      '<th ' + R + '>Bemessungsgrundlage (netto)</th><th ' + R + '>Umsatzsteuer</th></tr></thead>' +
+      rows.map(r => '<tr><td>' + (r.rate == null ? 'kein Satz hinterlegt' : pRate(r.rate)) + '</td><td ' + R + '>' + pEur(r.revenue) + '</td>' +
+        '<td ' + R + '>' + pEur(r.revenue - r.vat) + '</td><td ' + R + '><b>' + pEur(r.vat) + '</b></td></tr>').join('') +
+      '<tr class="sum"><td>Summe</td><td ' + R + '>' + pEur(t.revenue) + '</td><td ' + R + '>' + pEur(t.revenue - t.vat) + '</td><td ' + R + '>' + pEur(t.vat) + '</td></tr></table>';
+  }
+
+  // Auszahlungsliste wie in Stripe – eine Zeile je Bankgutschrift, mit MwSt je Satz
+  function payoutListBody(ps) {
+    const all = [].concat(...ps.map(p => p.items));
+    const rates = vatByRate(all).map(r => r.rate);              // alle vorkommenden Sätze (null = ohne)
+    const key = r => (r == null ? 'ohne' : String(r));
+    let tot = { net: 0, n: 0, revenue: 0, fee: 0 }; const totR = {};
+    const rows = ps.slice().reverse().map(p => {                 // neueste zuerst, wie in Stripe
+      const t = p.items.reduce((s, i) => ({ net: s.net + i.net, n: s.n + 1, revenue: s.revenue + i.revenue, fee: s.fee + i.fee }), { net: 0, n: 0, revenue: 0, fee: 0 });
+      tot = { net: tot.net + t.net, n: tot.n + t.n, revenue: tot.revenue + t.revenue, fee: tot.fee + t.fee };
+      const byR = {}; vatByRate(p.items).forEach(r => { byR[key(r.rate)] = r; });
+      const cells = rates.map(rt => {
+        const r = byR[key(rt)] || { revenue: 0, vat: 0 };
+        const tr = totR[key(rt)] || (totR[key(rt)] = { revenue: 0, vat: 0 });
+        tr.revenue += r.revenue; tr.vat += r.vat;
+        return '<td ' + R + '>' + (r.revenue ? pEur(r.revenue - r.vat) : '') + '</td><td ' + R + '>' + (r.revenue ? '<b>' + pEur(r.vat) + '</b>' : '') + '</td>';
+      }).join('');
+      const kst = byCostCenter(p.items).map(g => esc(g.costCenter.length > 30 ? g.costCenter.slice(0, 29) + '…' : g.costCenter)).join('<br>');
+      return '<tr><td style="white-space:nowrap"><b>' + dDate(p.at) + '</b><div class="k" style="font-family:monospace">' + esc(p.id) + '</div></td>' +
+        '<td ' + R + '><b>' + pEur(t.net) + '</b></td><td ' + R + '>' + t.n + '</td><td ' + R + '>' + pEur(t.revenue) + '</td>' + cells +
+        '<td ' + R + '>' + pEur(t.fee) + '</td><td style="font-size:10.5px;min-width:190px">' + kst + '</td></tr>';
+    }).join('');
+    const head = '<thead><tr><th>Gutschrift am</th><th ' + R + '>Betrag</th><th ' + R + '>Zahlungen</th><th ' + R + '>Ticketumsatz brutto</th>' +
+      rates.map(rt => rt == null ? '<th ' + R + '>Netto ohne Satz</th><th ' + R + '>MwSt</th>'
+        : '<th ' + R + '>Netto ' + pRate(rt) + '</th><th ' + R + '>MwSt ' + pRate(rt) + '</th>').join('') +
+      '<th ' + R + '>Gebühren</th><th>Kostenstellen</th></tr></thead>';
+    const sumRow = '<tr class="sum"><td>Summe</td><td ' + R + '>' + pEur(tot.net) + '</td><td ' + R + '>' + tot.n + '</td><td ' + R + '>' + pEur(tot.revenue) + '</td>' +
+      rates.map(rt => { const r = totR[key(rt)] || { revenue: 0, vat: 0 }; return '<td ' + R + '>' + pEur(r.revenue - r.vat) + '</td><td ' + R + '>' + pEur(r.vat) + '</td>'; }).join('') +
+      '<td ' + R + '>' + pEur(tot.fee) + '</td><td></td></tr>';
+    const vatTotal = Object.values(totR).reduce((n, r) => n + r.vat, 0);
+    return '<h1>Stripe-Auszahlungen mit Umsatzsteuer – Focus Events GmbH</h1>' +
+      '<div class="meta"><div><span class="k">Auszahlungen</span><b>' + ps.length + '</b></div>' +
+      '<div><span class="k">Zeitraum</span><b>' + dDate(ps[0] && ps[0].at) + ' – ' + dDate(ps[ps.length - 1] && ps[ps.length - 1].at) + '</b></div>' +
+      '<div><span class="k">Ausgezahlt gesamt</span><b>' + pEur(tot.net) + '</b></div>' +
+      '<div><span class="k">enthaltene MwSt gesamt</span><b>' + pEur(vatTotal) + '</b></div></div>' +
+      '<table>' + head + rows + sumRow + '</table>' + vatBlock(all) +
+      '<p class="note">„Betrag“ ist die Gutschrift auf dem Bankkonto. Sie ergibt sich aus Ticketumsatz brutto abzüglich Gebühren. ' +
+      'Die Umsatzsteuer bezieht sich auf den Ticketumsatz und ist mit dem Steuersatz gerechnet, der beim Kauf für das jeweilige Event galt.</p>';
+  }
+
   // Ein Auszahlungsbeleg (Kopf, Aufteilung nach Kostenstelle, Einzelposten)
   function belegBody(p) {
     const groups = byCostCenter(p.items);
@@ -960,6 +1045,7 @@
       '</div>' +
       '<h2>Aufteilung nach Kostenstelle</h2><table class="kst">' + kstHead +
         groups.map(g => kstRow(g)).join('') + kstRow(Object.assign({ costCenter: 'Summe' }, t), 'sum') + '</table>' +
+      vatBlock(p.items) +
       '<h2>Einzelposten</h2><table><thead><tr><th>Zahlung</th><th>Bestellung</th><th>Kostenstelle</th><th>Artikel</th><th ' + R + '>Tickets</th>' +
         '<th ' + R + '>Brutto</th><th ' + R + '>Gebühren</th><th ' + R + '>Ausgezahlt</th></tr></thead>' +
         p.items.map(i => '<tr><td style="white-space:nowrap">' + dTime(i.paidAt) + '</td><td>' + esc(i.orderId || '–') + '</td><td>' + esc(i.costCenter) + '</td>' +
@@ -1017,6 +1103,7 @@
     try {
       const items = await loadPayoutItems();
       const ps = payoutsOf(items).filter(p => p.id);           // nur tatsächlich ausgezahlte
+      if (b.dataset.belegAll === 'liste') { openPrintDoc('Stripe-Auszahlungen mit MwSt', payoutListBody(ps), true); return; }
       if (b.dataset.belegAll === 'kst') { openPrintDoc('Stripe-Auszahlungen je Kostenstelle', kstOverviewBody(ps)); return; }
       if (b.dataset.belegAll === 'belege') {
         openPrintDoc('Alle Auszahlungsbelege', ps.map((p, i) => (i ? '<div class="pb"></div>' : '') + belegBody(p)).join(''));
@@ -1033,7 +1120,6 @@
   function renderVat() {
     const box = $('vatList'); if (!box) return;
     box.onclick = onBelegClick;
-    payoutItems = null;   // bei jedem Neuaufbau frisch laden
     const rows = vatRows();
     if (!rows.length) { box.innerHTML = '<p class="sub">Keine Events vorhanden.</p>'; return; }
     const eur = n => S.fmtEUR.format(n);
@@ -1833,6 +1919,7 @@
     [allOrders, allEvents] = await Promise.all([S.allOrders(), S.getManagedEvents(true)]);
     try { archiveRows = await S.getArchive(); } catch (e) { archiveRows = []; }
     try { balanceRows = await S.getStripeBalance(); } catch (e) { balanceRows = []; }
+    try { payoutItems = await S.getPayoutItemization(); } catch (e) { payoutItems = null; }
     applyClubFilter();
     renderDashboard();
   }
@@ -2110,6 +2197,14 @@
     else if (!ev.id) ev.ownerEmail = S.currentUser(); // Veranstalter legt eigenes Event an
     if (!ev.name) { msg($('evMsg'), 'Bitte einen Eventnamen eingeben.', 'error'); return; }
     if (!ev.club) { msg($('evMsg'), 'Bitte einen Club wählen (LEVEL oder YPSILON) – sonst ist das Event im Shop nicht sichtbar.', 'error'); return; }
+    // Steuersatz ist Pflicht, sobald online Tickets verkauft werden – er wird bei
+    // jedem Kauf festgehalten und für die MwSt der Stripe-Auszahlungen gebraucht.
+    const sellsTickets = cats.some(c => c.active && c.price > 0);
+    const vatTyped = $('evVatRate') ? String($('evVatRate').value).trim() : '';
+    if (sellsTickets && (ev.vatRate == null || vatTyped === '')) {
+      msg($('evMsg'), 'Bitte den MwSt-Satz angeben („Mehrwertsteuer ausweisen“, z. B. 13 oder 20) – er wird für jede Ticketzahlung festgehalten und für die Abrechnung der Stripe-Auszahlungen gebraucht.', 'error');
+      return;
+    }
     const vipOn = !!($('evVipOn') && $('evVipOn').checked);
     if (!cats.length && !vipOn) { msg($('evMsg'), 'Bitte mindestens eine Ticketkategorie anlegen (oder VIP-Tische aktivieren).', 'error'); return; }
     try {
