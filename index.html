@@ -8,10 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="assets/shop.css?v=20261015b">
+<link rel="stylesheet" href="assets/shop.css?v=20261021a">
 <script src="assets/supabase.js"></script>
 <script src="assets/qrcode.js"></script>
-<script src="assets/ticket-pdf.js?v=20261015b"></script>
+<script src="assets/ticket-pdf.js?v=20261021a"></script>
 <style>
   /* ============================================================
      FOCUS EVENTS – Club-Shop · helles Poster-Design
@@ -197,6 +197,12 @@
   .ev-avail{display:block;margin-top:6px;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);}
 
   /* Zentraler VIP-Einstieg unter den Club-Kacheln */
+  /* Event ohne Online-Vorverkauf */
+  .ev-boxoffice{color:var(--accent-lt);font-weight:700;}
+  .fx-boxoffice{display:flex;flex-direction:column;gap:4px;padding:14px 16px;margin:4px 0 6px;
+    border:1px solid var(--accent-tint);border-left:3px solid var(--accent);border-radius:10px;background:var(--accent-tint);}
+  .fx-boxoffice b{font-size:1.05rem;color:#fff;}
+  .fx-boxoffice span{color:var(--mut);font-size:.92rem;}
   .fx-vip-cta{max-width:1200px;margin:16px auto 0;padding:0 clamp(18px,5vw,54px);display:flex;justify-content:center;}
   .fx-vip-cta .btn{width:100%;max-width:520px;padding:15px 22px;font-size:1rem;letter-spacing:.06em;text-transform:uppercase;}
 
@@ -601,7 +607,7 @@
 })();
 </script>
 
-<script src="assets/store.js?v=20261015b"></script>
-<script src="assets/shop.js?v=20261015b"></script>
+<script src="assets/store.js?v=20261021a"></script>
+<script src="assets/shop.js?v=20261021a"></script>
 </body>
 </html>

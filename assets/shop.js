@@ -234,6 +234,7 @@
       const nCats = ev.categories.filter(c => c.active).length;
       const bits = [];
       if (nCats) bits.push(nCats + (nCats === 1 ? ' Ticketkategorie' : ' Ticketkategorien'));
+      else bits.push('<b class="ev-boxoffice">Tickets nur an der Abendkasse</b>');
       if (ev.vipEnabled) bits.push('VIP-Tische');
       const desc = ev.description || '';
       const descShort = desc.length > 140 ? esc(desc.slice(0, 140)) + '…' : esc(desc);
@@ -250,7 +251,7 @@
           '<div class="ev-head"><h3>' + esc(ev.name) + '</h3>' +
           (ev.club || ev.location ? '<span class="ev-loc">' + esc(ev.club || ev.location) + '</span>' : '') +
           (bits.length ? '<span class="ev-avail">' + bits.join(' · ') + '</span>' : '') +
-          '<span class="ev-more">Tickets ansehen →</span>' +
+          '<span class="ev-more">' + (nCats ? 'Tickets ansehen →' : 'Details ansehen →') + '</span>' +
           '</div>' +
         '</div>' +
         (desc ? '<p class="ev-desc">' + descShort + '</p>' : '') +
@@ -285,7 +286,8 @@
     const cats = ev.categories.filter(c => c.active);
     $('detailCats').innerHTML = cats.length
       ? cats.map(c => catRowHTML(c, ev.showAvailability)).join('')
-      : '<p class="sub">Für dieses Event sind aktuell keine Tickets verfügbar.</p>';
+      : '<div class="fx-boxoffice"><b>Tickets nur an der Abendkasse erh\u00e4ltlich</b>' +
+        '<span>F\u00fcr dieses Event gibt es keinen Online-Vorverkauf.</span></div>';
     bindQty($('detailCats'));
     $('detailCheckout').style.display = cats.length ? '' : 'none';
     updateDetailCheckout();
@@ -899,7 +901,9 @@
     $('vipEventName').textContent = (vipClub ? vipClub + ' · ' : '') + niceDateStr(dateVal);
     $('vipDateHint').textContent = vipDayEvent
       ? 'An diesem Tag: „' + vipDayEvent.name + '" – Eintrittsticket erforderlich (im nächsten Schritt).'
-      : ((dayEv && dayEv.vipEnabled) ? 'Event-Tag – event-spezifische Tische.' : 'Freier Termin – Standard-Tische.');
+      : (dayEv && !(dayEv.categories || []).some(c => c.active))
+        ? 'An diesem Tag: „' + dayEv.name + '" – Eintritt nur an der Abendkasse.'
+        : ((dayEv && dayEv.vipEnabled) ? 'Event-Tag – event-spezifische Tische.' : 'Freier Termin – Standard-Tische.');
     $('vipTables').innerHTML = '<p class="sub">Tische werden geladen …</p>';
     try { vipTables = await S.tableStatus(source.id, dateVal); }
     catch (e) { $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">' + esc(e.message) + '</p>'; return; }

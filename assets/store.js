@@ -763,7 +763,12 @@
         }
       }
       for (const x of existing || []) {
-        if (!keep.has(x.id)) await sb.from('event_tables').delete().eq('id', x.id);
+        if (keep.has(x.id)) continue;
+        // Tische mit kommenden Reservierungen blockiert die Datenbank (Trigger) –
+        // Meldung durchreichen statt still zu ignorieren.
+        const { error } = await sb.from('event_tables').delete().eq('id', x.id);
+        if (error) throw new Error('Tisch kann nicht entfernt werden – ' + error.message.replace(/^Nicht moeglich: /, '') +
+          ' Tipp: Tisch stattdessen auf „inaktiv“ setzen.');
       }
     },
 
