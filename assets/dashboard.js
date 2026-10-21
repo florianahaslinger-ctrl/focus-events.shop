@@ -932,16 +932,32 @@
   }
 
   const PRINT_CSS =
-    'body{font:12px/1.45 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111;margin:28px}' +
-    'h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:22px 0 6px;text-transform:uppercase;letter-spacing:.04em}' +
-    '.meta{display:grid;grid-template-columns:repeat(4,auto);gap:4px 22px;margin:12px 0 4px;justify-content:start}' +
-    '.meta b{display:block;font-size:14px}.k{color:#666;font-size:11px}' +
-    'table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ddd;padding:5px 6px;vertical-align:top}' +
+    'body{font:13.5px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#15171c;margin:28px;font-variant-numeric:tabular-nums}' +
+    'h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}' +
+    'h2{font-size:14px;margin:28px 0 8px;padding-bottom:5px;border-bottom:2px solid #15171c;text-transform:uppercase;letter-spacing:.05em}' +
+    '.meta{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 6px}' +
+    '.meta>div{background:#f3f4f6;border-radius:8px;padding:9px 14px;min-width:120px}' +
+    '.meta b{display:block;font-size:17px;margin-top:2px}.k{color:#6b7280;font-size:11.5px}' +
+    'table{width:100%;border-collapse:collapse;margin-top:4px}' +
+    'th,td{border-bottom:1px solid #e5e7eb;padding:8px 9px;vertical-align:top}' +
     'thead{display:table-header-group}tr{page-break-inside:avoid}' +
-    'th{background:#f2f2f2;text-align:left;font-size:11px}tr.sum td{border-top:2px solid #111;font-weight:700}' +
-    'tr.grp td{background:#fafafa;font-weight:700;border-top:1px solid #bbb}' +
-    '.kst td:first-child{min-width:170px}.note{color:#555;font-size:11px;margin-top:14px}' +
-    '.pb{page-break-before:always}.bar{margin-bottom:16px}@media print{.bar{display:none}body{margin:12mm}}';
+    'th{background:#15171c;color:#fff;text-align:left;font-size:11.5px;font-weight:600;letter-spacing:.02em}' +
+    'tbody tr:nth-child(even) td{background:#f8f9fb}' +
+    'tr.sum td{border-top:2px solid #15171c;font-weight:700;background:#eef0f3!important;font-size:14px}' +
+    'tr.grp td{background:#e9edf5!important;font-weight:700;border-top:2px solid #9aa4b5}' +
+    'tr.sub td{color:#374151}tr.sub td:first-child{padding-left:22px}' +
+    '.club{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:#e5e7eb;color:#15171c}' +
+    '.club.LEVEL{background:#fde2e4;color:#a80d18}.club.YPSILON{background:#e0e4ff;color:#1f2bb8}' +
+    '.id{font-family:Consolas,monospace;font-size:10.5px;color:#9ca3af}' +
+    '.kst th,.kst td{font-size:12px;padding:7px 5px}.kst th{white-space:normal}.kst td:first-child{min-width:135px}.club{white-space:nowrap}'+
+    '.note{color:#4b5563;font-size:11.5px;margin-top:16px;line-height:1.55}' +
+    '.pb{page-break-before:always}.bar{margin-bottom:16px}' +
+    '.bar button{font:inherit;padding:8px 16px;border-radius:8px;border:1px solid #15171c;background:#15171c;color:#fff;cursor:pointer}' +
+    '@media print{.bar{display:none}body{margin:10mm}}';
+  // Eventnamen ohne Emojis – im PDF lesbarer
+  const plain = t => String(t == null ? '' : t).replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]/gu, '')
+    .replace(/\s+([/·,])/g, ' $1').replace(/\s{2,}/g, ' ').trim();
+  const clubTag = c => '<span class="club ' + esc(c) + '">' + esc(c) + '</span>';
   const PRINT_NOTE =
     '<p class="note">Ticketpreise sind Bruttopreise; die enthaltene Umsatzsteuer ist mit dem beim Event hinterlegten Satz gerechnet. ' +
     'Service- und Zahlungsgebühr werden von der Plattform (CORE Management) einbehalten und hier ohne Umsatzsteuer ausgewiesen – ' +
@@ -951,7 +967,7 @@
   // Druckfertiges Dokument öffnen; der Druckdialog („Als PDF speichern“) startet automatisch.
   function openPrintDoc(title, body, landscape) {
     const html = '<!doctype html><html lang="de"><head><meta charset="utf-8"><title>' + esc(title) + '</title>' +
-      '<style>' + PRINT_CSS + (landscape ? '@page{size:A4 landscape}' : '') + '</style></head><body>' +
+      '<style>' + PRINT_CSS + '@page{size:A4 landscape}' + '</style></head><body>' +   // breite Tabellen: immer Querformat
       '<div class="bar"><button onclick="window.print()">Als PDF speichern / drucken</button></div>' +
       body + PRINT_NOTE.replace('%DATUM%', dTime(new Date().toISOString())) +
       '<script>window.addEventListener("load",function(){setTimeout(function(){window.print()},300)})<\/script>' +
@@ -961,11 +977,11 @@
     w.document.open(); w.document.write(html); w.document.close();
   }
 
-  const kstHead = '<thead><tr><th>Kostenstelle (Event)</th><th>Lokal</th><th>Eventdatum</th><th ' + R + '>Zahlungen</th><th ' + R + '>Tickets</th>' +
-    '<th ' + R + '>Ticketumsatz brutto</th><th ' + R + '>MwSt-Satz</th><th ' + R + '>enth. MwSt</th><th ' + R + '>Netto</th>' +
-    '<th ' + R + '>Servicegeb. CORE</th><th ' + R + '>Zahlungsgeb.</th><th ' + R + '>Ausgezahlt</th></tr></thead>';
-  const kstRow = (g, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + esc(g.costCenter) + '</td>' +
-    '<td><b>' + (g.costCenter === 'Summe' ? '' : esc(clubLabel(g.club))) + '</b></td><td>' + dDate(g.eventDate) + '</td>' +
+  const kstHead = '<thead><tr><th>Kostenstelle (Event)</th><th>Lokal</th><th>Event-<br>datum</th><th ' + R + '>Zah-<br>lungen</th><th ' + R + '>Tickets</th>' +
+    '<th ' + R + '>Ticketumsatz<br>brutto</th><th ' + R + '>MwSt-<br>Satz</th><th ' + R + '>enth.<br>MwSt</th><th ' + R + '>Netto</th>' +
+    '<th ' + R + '>Servicegeb.<br>CORE</th><th ' + R + '>Zahlungs-<br>gebühr</th><th ' + R + '>Ausgezahlt</th></tr></thead>';
+  const kstRow = (g, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + esc(plain(g.costCenter)) + '</td>' +
+    '<td>' + (g.costCenter === 'Summe' ? '' : clubTag(clubLabel(g.club))) + '</td><td>' + dDate(g.eventDate) + '</td>' +
     '<td ' + R + '>' + g.n + '</td><td ' + R + '>' + g.tickets + '</td><td ' + R + '>' + pEur(g.revenue) + '</td>' +
     '<td ' + R + '>' + (g.costCenter === 'Summe' ? '' : pRate(g.vatRate)) + '</td>' +
     '<td ' + R + '>' + pEur(g.vat) + '</td><td ' + R + '>' + pEur(g.revenue - g.vat) + '</td>' +
@@ -1013,53 +1029,65 @@
       { n: 0, revenue: 0, vat: 0, fee: 0, net: 0 });
     return '<h2>' + (title || 'Aufteilung nach Lokal') + '</h2><table><thead><tr><th>Lokal</th><th ' + R + '>Zahlungen</th>' +
       '<th ' + R + '>Ticketumsatz brutto</th><th ' + R + '>Netto</th><th ' + R + '>enth. MwSt</th><th ' + R + '>Gebühren</th><th ' + R + '>Ausgezahlt</th></tr></thead>' +
-      rows.map(r => '<tr><td><b>' + esc(r.club) + '</b></td><td ' + R + '>' + r.n + '</td><td ' + R + '>' + pEur(r.revenue) + '</td>' +
+      rows.map(r => '<tr><td>' + clubTag(r.club) + '</td><td ' + R + '>' + r.n + '</td><td ' + R + '>' + pEur(r.revenue) + '</td>' +
         '<td ' + R + '>' + pEur(r.revenue - r.vat) + '</td><td ' + R + '>' + pEur(r.vat) + '</td><td ' + R + '>' + pEur(r.fee) + '</td>' +
         '<td ' + R + '><b>' + pEur(r.net) + '</b></td></tr>').join('') +
       '<tr class="sum"><td>Summe</td><td ' + R + '>' + t.n + '</td><td ' + R + '>' + pEur(t.revenue) + '</td><td ' + R + '>' + pEur(t.revenue - t.vat) + '</td>' +
       '<td ' + R + '>' + pEur(t.vat) + '</td><td ' + R + '>' + pEur(t.fee) + '</td><td ' + R + '>' + pEur(t.net) + '</td></tr></table>';
   }
 
-  // Auszahlungsliste wie in Stripe – eine Zeile je Bankgutschrift, mit MwSt je Satz
+  // Auszahlungsliste wie in Stripe – eine Zeile je Bankgutschrift (neueste zuerst).
+  // Enthält eine Auszahlung beide Lokale, folgt je Lokal eine eigene Zeile mit Anteil.
   function payoutListBody(ps) {
     const all = [].concat(...ps.map(p => p.items));
-    const rates = vatByRate(all).map(r => r.rate);              // alle vorkommenden Sätze (null = ohne)
-    const key = r => (r == null ? 'ohne' : String(r));
-    let tot = { net: 0, n: 0, revenue: 0, fee: 0 }; const totR = {};
-    const rows = ps.slice().reverse().map(p => {                 // neueste zuerst, wie in Stripe
-      const t = p.items.reduce((s, i) => ({ net: s.net + i.net, n: s.n + 1, revenue: s.revenue + i.revenue, fee: s.fee + i.fee }), { net: 0, n: 0, revenue: 0, fee: 0 });
-      tot = { net: tot.net + t.net, n: tot.n + t.n, revenue: tot.revenue + t.revenue, fee: tot.fee + t.fee };
-      const byR = {}; vatByRate(p.items).forEach(r => { byR[key(r.rate)] = r; });
-      const cells = rates.map(rt => {
-        const r = byR[key(rt)] || { revenue: 0, vat: 0 };
-        const tr = totR[key(rt)] || (totR[key(rt)] = { revenue: 0, vat: 0 });
-        tr.revenue += r.revenue; tr.vat += r.vat;
-        return '<td ' + R + '>' + (r.revenue ? pEur(r.revenue - r.vat) : '') + '</td><td ' + R + '>' + (r.revenue ? '<b>' + pEur(r.vat) + '</b>' : '') + '</td>';
-      }).join('');
-      // je Lokal: Anteil an der Gutschrift und an der MwSt, darunter die Events
-      const kst = byClub(p.items).map(c => '<div style="margin-bottom:3px"><b>' + esc(c.club) + '</b> ' + pEur(c.net) +
-        ' <span class="k">(MwSt ' + pEur(c.vat) + ')</span><br><span class="k">' +
-        Array.from(c.events).map(e => esc(e.length > 30 ? e.slice(0, 29) + '…' : e)).join(', ') + '</span></div>').join('');
-      return '<tr><td style="white-space:nowrap"><b>' + dDate(p.at) + '</b><div class="k" style="font-family:monospace">' + esc(p.id) + '</div></td>' +
-        '<td ' + R + '><b>' + pEur(t.net) + '</b></td><td ' + R + '>' + t.n + '</td><td ' + R + '>' + pEur(t.revenue) + '</td>' + cells +
-        '<td ' + R + '>' + pEur(t.fee) + '</td><td style="font-size:10.5px;min-width:210px">' + kst + '</td></tr>';
+    const rates = vatByRate(all).map(r => r.rate).filter(r => r != null);   // Spalten je Steuersatz
+    const sumUp = items => {
+      const t = { net: 0, n: 0, revenue: 0, fee: 0, noRate: 0, byRate: {} };
+      items.forEach(i => {
+        t.net += i.net; t.n++; t.revenue += i.revenue; t.fee += i.fee;
+        if (i.vatRate == null) { t.noRate += i.revenue; return; }
+        const r = t.byRate[i.vatRate] || (t.byRate[i.vatRate] = { revenue: 0, vat: 0 });
+        r.revenue += i.revenue; r.vat += vatOf(i.revenue, i.vatRate);
+      });
+      return t;
+    };
+    const rateCells = t => rates.map(rt => {
+      const r = t.byRate[rt];
+      return '<td ' + R + '>' + (r ? pEur(r.revenue - r.vat) : '') + '</td><td ' + R + '>' + (r ? '<b>' + pEur(r.vat) + '</b>' : '') + '</td>';
     }).join('');
-    const head = '<thead><tr><th>Gutschrift am</th><th ' + R + '>Betrag</th><th ' + R + '>Zahlungen</th><th ' + R + '>Ticketumsatz brutto</th>' +
-      rates.map(rt => rt == null ? '<th ' + R + '>Netto ohne Satz</th><th ' + R + '>MwSt</th>'
-        : '<th ' + R + '>Netto ' + pRate(rt) + '</th><th ' + R + '>MwSt ' + pRate(rt) + '</th>').join('') +
-      '<th ' + R + '>Gebühren</th><th>Lokal · Anteil · Events</th></tr></thead>';
-    const sumRow = '<tr class="sum"><td>Summe</td><td ' + R + '>' + pEur(tot.net) + '</td><td ' + R + '>' + tot.n + '</td><td ' + R + '>' + pEur(tot.revenue) + '</td>' +
-      rates.map(rt => { const r = totR[key(rt)] || { revenue: 0, vat: 0 }; return '<td ' + R + '>' + pEur(r.revenue - r.vat) + '</td><td ' + R + '>' + pEur(r.vat) + '</td>'; }).join('') +
-      '<td ' + R + '>' + pEur(tot.fee) + '</td><td></td></tr>';
-    const vatTotal = Object.values(totR).reduce((n, r) => n + r.vat, 0);
-    return '<h1>Stripe-Auszahlungen mit Umsatzsteuer – Focus Events GmbH</h1>' +
-      '<div class="meta"><div><span class="k">Auszahlungen</span><b>' + ps.length + '</b></div>' +
-      '<div><span class="k">Zeitraum</span><b>' + dDate(ps[0] && ps[0].at) + ' – ' + dDate(ps[ps.length - 1] && ps[ps.length - 1].at) + '</b></div>' +
+    const events = items => Array.from(new Set(items.map(i => plain(i.costCenter)))).join(', ');
+    const line = (cls, first, club, t, ev) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td style="white-space:nowrap">' + first + '</td>' +
+      '<td>' + club + '</td><td ' + R + '><b>' + pEur(t.net) + '</b></td><td ' + R + '>' + t.n + '</td>' +
+      '<td ' + R + '>' + pEur(t.revenue) + (t.noRate ? '*' : '') + '</td>' + rateCells(t) +
+      '<td ' + R + '>' + pEur(t.fee) + '</td><td style="font-size:12px">' + ev + '</td></tr>';
+
+    let hasNoRate = false;
+    const body = ps.slice().reverse().map(p => {
+      const t = sumUp(p.items); if (t.noRate) hasNoRate = true;
+      const clubs = byClub(p.items);
+      const head = '<b>' + dDate(p.at) + '</b><div class="id">' + esc(p.id) + '</div>';
+      if (clubs.length === 1) return line('', head, clubTag(clubs[0].club), t, esc(events(p.items)));
+      return line('grp', head, '<span class="k" style="white-space:nowrap">beide Lokale</span>', t, '') +
+        clubs.map(c => {
+          const its = p.items.filter(i => clubLabel(i.club) === c.club);
+          return line('sub', '<span class="k">davon</span>', clubTag(c.club), sumUp(its), esc(events(its)));
+        }).join('');
+    }).join('');
+    const tot = sumUp(all);
+    const head = '<thead><tr><th>Gutschrift am</th><th>Lokal</th><th ' + R + '>Betrag</th><th ' + R + '>Zahlungen</th><th ' + R + '>Ticketumsatz</th>' +
+      rates.map(rt => '<th ' + R + '>Netto ' + pRate(rt) + '</th><th ' + R + '>MwSt ' + pRate(rt) + '</th>').join('') +
+      '<th ' + R + '>Gebühren</th><th>Events (Kostenstellen)</th></tr></thead>';
+    const vatTotal = Object.values(tot.byRate).reduce((n, r) => n + r.vat, 0);
+    return '<h1>Stripe-Auszahlungen mit Umsatzsteuer</h1><div class="k" style="font-size:13px">Focus Events GmbH</div>' +
+      '<div class="meta"><div><span class="k">Zeitraum</span><b>' + dDate(ps[0] && ps[0].at) + ' – ' + dDate(ps[ps.length - 1] && ps[ps.length - 1].at) + '</b></div>' +
+      '<div><span class="k">Auszahlungen</span><b>' + ps.length + '</b></div>' +
       '<div><span class="k">Ausgezahlt gesamt</span><b>' + pEur(tot.net) + '</b></div>' +
       '<div><span class="k">enthaltene MwSt gesamt</span><b>' + pEur(vatTotal) + '</b></div></div>' +
-      '<table>' + head + rows + sumRow + '</table>' + clubBlock(all, 'Summe je Lokal') + vatBlock(all) +
-      '<p class="note">„Betrag“ ist die Gutschrift auf dem Bankkonto. Sie ergibt sich aus Ticketumsatz brutto abzüglich Gebühren. ' +
-      'Die Umsatzsteuer bezieht sich auf den Ticketumsatz und ist mit dem Steuersatz gerechnet, der beim Kauf für das jeweilige Event galt.</p>';
+      '<table>' + head + '<tbody>' + body + '</tbody>' + line('sum', 'Summe', '', tot, '') + '</table>' +
+      clubBlock(all, 'Summe je Lokal') + vatBlock(all) +
+      '<p class="note">„Betrag“ ist die Gutschrift auf dem Bankkonto (Ticketumsatz abzüglich Gebühren). Die Umsatzsteuer bezieht sich auf den Ticketumsatz ' +
+      'und ist mit dem Steuersatz gerechnet, der beim Kauf für das jeweilige Event galt. Bei Auszahlungen mit beiden Lokalen zeigen die „davon“-Zeilen den Anteil je Lokal.' +
+      (hasNoRate ? ' * enthält Umsatz ohne hinterlegten Steuersatz (Testzahlung) – dafür ist keine MwSt gerechnet.' : '') + '</p>';
   }
 
   // Ein Auszahlungsbeleg (Kopf, Aufteilung nach Kostenstelle, Einzelposten)
@@ -1076,12 +1104,12 @@
       '</div>' +
       clubBlock(p.items) +
       '<h2>Aufteilung nach Kostenstelle</h2><table class="kst">' + kstHead +
-        groups.map(g => kstRow(g)).join('') + kstRow(Object.assign({ costCenter: 'Summe' }, t), 'sum') + '</table>' +
+        '<tbody>' + groups.map(g => kstRow(g)).join('') + '</tbody>' + kstRow(Object.assign({ costCenter: 'Summe' }, t), 'sum') + '</table>' +
       vatBlock(p.items) +
       '<h2>Einzelposten</h2><table><thead><tr><th>Zahlung</th><th>Bestellung</th><th>Lokal</th><th>Kostenstelle</th><th>Artikel</th><th ' + R + '>Tickets</th>' +
         '<th ' + R + '>Brutto</th><th ' + R + '>Gebühren</th><th ' + R + '>Ausgezahlt</th></tr></thead>' +
         p.items.map(i => '<tr><td style="white-space:nowrap">' + dTime(i.paidAt) + '</td><td>' + esc(i.orderId || '–') + '</td>' +
-          '<td>' + esc(clubLabel(i.club)) + '</td><td>' + esc(i.costCenter) + '</td>' +
+          '<td>' + clubTag(clubLabel(i.club)) + '</td><td>' + esc(plain(i.costCenter)) + '</td>' +
           '<td>' + esc(i.items) + '</td><td ' + R + '>' + (i.tickets ?? '') + '</td><td ' + R + '>' + pEur(i.revenue) + '</td>' +
           '<td ' + R + '>' + pEur(i.fee) + '</td><td ' + R + '>' + pEur(i.net) + '</td></tr>').join('') +
         '<tr class="sum"><td colspan="6">Summe</td><td ' + R + '>' + pEur(t.revenue) + '</td><td ' + R + '>' + pEur(t.fee) + '</td><td ' + R + '>' + pEur(t.net) + '</td></tr></table>';
