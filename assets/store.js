@@ -520,6 +520,28 @@
       if (error) throw new Error(error.message);
       return data ? data.id : null;
     },
+    // Abrechnung eines archivierten Events einfrieren (bleibt nach dem Löschen erhalten).
+    async freezeArchiveFinance(archiveId, eventId) {
+      const { data, error } = await sb.rpc('archive_freeze_finance', { p_archive: archiveId, p_event: eventId || null });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+
+    // Auszahlungsbeleg: jede Stripe-Zahlung mit Auszahlung und Kostenstelle (Event).
+    async getPayoutItemization() {
+      const { data, error } = await sb.rpc('payout_itemization', { p_storefront: STOREFRONT });
+      if (error) throw new Error(error.message);
+      const n = v => (v == null ? null : Number(v));
+      return (data || []).map(r => ({
+        payoutId: r.payout_id || null, payoutAt: r.payout_at || null, paidAt: r.paid_at,
+        txn: r.balance_transaction_id, orderId: r.order_id || null,
+        costCenter: r.kostenstelle || 'ohne Event', club: r.club || '', eventDate: r.event_date || null,
+        items: r.artikel || '', tickets: n(r.tickets), revenue: n(r.ticket_revenue) || 0,
+        vatRate: n(r.vat_rate), gross: n(r.gross) || 0, service: n(r.service_fee), payment: n(r.payment_fee),
+        fee: n(r.fee) || 0, net: n(r.net) || 0
+      }));
+    },
+
     async deleteArchiveEntry(id) {
       const { error } = await sb.from('event_archive').delete().eq('id', id);
       if (error) throw new Error(error.message);
