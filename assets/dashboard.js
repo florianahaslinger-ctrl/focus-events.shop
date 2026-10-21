@@ -961,11 +961,11 @@
     w.document.open(); w.document.write(html); w.document.close();
   }
 
-  const kstHead = '<thead><tr><th>Kostenstelle (Event)</th><th>Eventdatum</th><th ' + R + '>Zahlungen</th><th ' + R + '>Tickets</th>' +
+  const kstHead = '<thead><tr><th>Kostenstelle (Event)</th><th>Lokal</th><th>Eventdatum</th><th ' + R + '>Zahlungen</th><th ' + R + '>Tickets</th>' +
     '<th ' + R + '>Ticketumsatz brutto</th><th ' + R + '>MwSt-Satz</th><th ' + R + '>enth. MwSt</th><th ' + R + '>Netto</th>' +
     '<th ' + R + '>Servicegeb. CORE</th><th ' + R + '>Zahlungsgeb.</th><th ' + R + '>Ausgezahlt</th></tr></thead>';
-  const kstRow = (g, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + esc(g.costCenter) +
-    (g.club ? ' <span class="k">· ' + esc(g.club) + '</span>' : '') + '</td><td>' + dDate(g.eventDate) + '</td>' +
+  const kstRow = (g, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + esc(g.costCenter) + '</td>' +
+    '<td><b>' + (g.costCenter === 'Summe' ? '' : esc(clubLabel(g.club))) + '</b></td><td>' + dDate(g.eventDate) + '</td>' +
     '<td ' + R + '>' + g.n + '</td><td ' + R + '>' + g.tickets + '</td><td ' + R + '>' + pEur(g.revenue) + '</td>' +
     '<td ' + R + '>' + (g.costCenter === 'Summe' ? '' : pRate(g.vatRate)) + '</td>' +
     '<td ' + R + '>' + pEur(g.vat) + '</td><td ' + R + '>' + pEur(g.revenue - g.vat) + '</td>' +
@@ -993,6 +993,33 @@
       '<tr class="sum"><td>Summe</td><td ' + R + '>' + pEur(t.revenue) + '</td><td ' + R + '>' + pEur(t.revenue - t.vat) + '</td><td ' + R + '>' + pEur(t.vat) + '</td></tr></table>';
   }
 
+  // Lokal (LEVEL / YPSILON): eine Auszahlung kann Zahlungen beider Lokale enthalten
+  const clubLabel = c => (c ? String(c).toUpperCase() : 'ohne Lokal');
+  function byClub(items) {
+    const m = new Map();
+    items.forEach(i => {
+      const k = clubLabel(i.club);
+      const g = m.get(k) || { club: k, n: 0, revenue: 0, vat: 0, fee: 0, net: 0, events: new Set() };
+      g.n++; g.revenue += i.revenue; g.vat += vatOf(i.revenue, i.vatRate || 0); g.fee += i.fee; g.net += i.net;
+      g.events.add(i.costCenter);
+      m.set(k, g);
+    });
+    const order = { LEVEL: 0, YPSILON: 1 };
+    return Array.from(m.values()).sort((a, b) => (order[a.club] ?? 9) - (order[b.club] ?? 9) || a.club.localeCompare(b.club));
+  }
+  function clubBlock(items, title) {
+    const rows = byClub(items);
+    const t = rows.reduce((s, r) => ({ n: s.n + r.n, revenue: s.revenue + r.revenue, vat: s.vat + r.vat, fee: s.fee + r.fee, net: s.net + r.net }),
+      { n: 0, revenue: 0, vat: 0, fee: 0, net: 0 });
+    return '<h2>' + (title || 'Aufteilung nach Lokal') + '</h2><table><thead><tr><th>Lokal</th><th ' + R + '>Zahlungen</th>' +
+      '<th ' + R + '>Ticketumsatz brutto</th><th ' + R + '>Netto</th><th ' + R + '>enth. MwSt</th><th ' + R + '>Gebühren</th><th ' + R + '>Ausgezahlt</th></tr></thead>' +
+      rows.map(r => '<tr><td><b>' + esc(r.club) + '</b></td><td ' + R + '>' + r.n + '</td><td ' + R + '>' + pEur(r.revenue) + '</td>' +
+        '<td ' + R + '>' + pEur(r.revenue - r.vat) + '</td><td ' + R + '>' + pEur(r.vat) + '</td><td ' + R + '>' + pEur(r.fee) + '</td>' +
+        '<td ' + R + '><b>' + pEur(r.net) + '</b></td></tr>').join('') +
+      '<tr class="sum"><td>Summe</td><td ' + R + '>' + t.n + '</td><td ' + R + '>' + pEur(t.revenue) + '</td><td ' + R + '>' + pEur(t.revenue - t.vat) + '</td>' +
+      '<td ' + R + '>' + pEur(t.vat) + '</td><td ' + R + '>' + pEur(t.fee) + '</td><td ' + R + '>' + pEur(t.net) + '</td></tr></table>';
+  }
+
   // Auszahlungsliste wie in Stripe – eine Zeile je Bankgutschrift, mit MwSt je Satz
   function payoutListBody(ps) {
     const all = [].concat(...ps.map(p => p.items));
@@ -1009,15 +1036,18 @@
         tr.revenue += r.revenue; tr.vat += r.vat;
         return '<td ' + R + '>' + (r.revenue ? pEur(r.revenue - r.vat) : '') + '</td><td ' + R + '>' + (r.revenue ? '<b>' + pEur(r.vat) + '</b>' : '') + '</td>';
       }).join('');
-      const kst = byCostCenter(p.items).map(g => esc(g.costCenter.length > 30 ? g.costCenter.slice(0, 29) + '…' : g.costCenter)).join('<br>');
+      // je Lokal: Anteil an der Gutschrift und an der MwSt, darunter die Events
+      const kst = byClub(p.items).map(c => '<div style="margin-bottom:3px"><b>' + esc(c.club) + '</b> ' + pEur(c.net) +
+        ' <span class="k">(MwSt ' + pEur(c.vat) + ')</span><br><span class="k">' +
+        Array.from(c.events).map(e => esc(e.length > 30 ? e.slice(0, 29) + '…' : e)).join(', ') + '</span></div>').join('');
       return '<tr><td style="white-space:nowrap"><b>' + dDate(p.at) + '</b><div class="k" style="font-family:monospace">' + esc(p.id) + '</div></td>' +
         '<td ' + R + '><b>' + pEur(t.net) + '</b></td><td ' + R + '>' + t.n + '</td><td ' + R + '>' + pEur(t.revenue) + '</td>' + cells +
-        '<td ' + R + '>' + pEur(t.fee) + '</td><td style="font-size:10.5px;min-width:190px">' + kst + '</td></tr>';
+        '<td ' + R + '>' + pEur(t.fee) + '</td><td style="font-size:10.5px;min-width:210px">' + kst + '</td></tr>';
     }).join('');
     const head = '<thead><tr><th>Gutschrift am</th><th ' + R + '>Betrag</th><th ' + R + '>Zahlungen</th><th ' + R + '>Ticketumsatz brutto</th>' +
       rates.map(rt => rt == null ? '<th ' + R + '>Netto ohne Satz</th><th ' + R + '>MwSt</th>'
         : '<th ' + R + '>Netto ' + pRate(rt) + '</th><th ' + R + '>MwSt ' + pRate(rt) + '</th>').join('') +
-      '<th ' + R + '>Gebühren</th><th>Kostenstellen</th></tr></thead>';
+      '<th ' + R + '>Gebühren</th><th>Lokal · Anteil · Events</th></tr></thead>';
     const sumRow = '<tr class="sum"><td>Summe</td><td ' + R + '>' + pEur(tot.net) + '</td><td ' + R + '>' + tot.n + '</td><td ' + R + '>' + pEur(tot.revenue) + '</td>' +
       rates.map(rt => { const r = totR[key(rt)] || { revenue: 0, vat: 0 }; return '<td ' + R + '>' + pEur(r.revenue - r.vat) + '</td><td ' + R + '>' + pEur(r.vat) + '</td>'; }).join('') +
       '<td ' + R + '>' + pEur(tot.fee) + '</td><td></td></tr>';
@@ -1027,7 +1057,7 @@
       '<div><span class="k">Zeitraum</span><b>' + dDate(ps[0] && ps[0].at) + ' – ' + dDate(ps[ps.length - 1] && ps[ps.length - 1].at) + '</b></div>' +
       '<div><span class="k">Ausgezahlt gesamt</span><b>' + pEur(tot.net) + '</b></div>' +
       '<div><span class="k">enthaltene MwSt gesamt</span><b>' + pEur(vatTotal) + '</b></div></div>' +
-      '<table>' + head + rows + sumRow + '</table>' + vatBlock(all) +
+      '<table>' + head + rows + sumRow + '</table>' + clubBlock(all, 'Summe je Lokal') + vatBlock(all) +
       '<p class="note">„Betrag“ ist die Gutschrift auf dem Bankkonto. Sie ergibt sich aus Ticketumsatz brutto abzüglich Gebühren. ' +
       'Die Umsatzsteuer bezieht sich auf den Ticketumsatz und ist mit dem Steuersatz gerechnet, der beim Kauf für das jeweilige Event galt.</p>';
   }
@@ -1036,22 +1066,25 @@
   function belegBody(p) {
     const groups = byCostCenter(p.items);
     const t = groups.reduce(addUp, ZERO);
-    return '<h1>Auszahlungsbeleg Stripe – Focus Events GmbH</h1>' +
+    const clubs = byClub(p.items).map(c => c.club);
+    return '<h1>Auszahlungsbeleg Stripe – Focus Events GmbH · ' + esc(clubs.join(' + ')) + '</h1>' +
       '<div class="meta">' +
         '<div><span class="k">Auszahlung</span><b>' + esc(p.id || 'noch nicht ausgezahlt') + '</b></div>' +
         '<div><span class="k">Gutschrift am</span><b>' + (dDate(p.at) || '–') + '</b></div>' +
-        '<div><span class="k">Zahlungen</span><b>' + t.n + '</b></div>' +
+        '<div><span class="k">Lokal</span><b>' + esc(clubs.join(' + ')) + '</b></div>' +
         '<div><span class="k">Ausgezahlt</span><b>' + pEur(t.net) + '</b></div>' +
       '</div>' +
+      clubBlock(p.items) +
       '<h2>Aufteilung nach Kostenstelle</h2><table class="kst">' + kstHead +
         groups.map(g => kstRow(g)).join('') + kstRow(Object.assign({ costCenter: 'Summe' }, t), 'sum') + '</table>' +
       vatBlock(p.items) +
-      '<h2>Einzelposten</h2><table><thead><tr><th>Zahlung</th><th>Bestellung</th><th>Kostenstelle</th><th>Artikel</th><th ' + R + '>Tickets</th>' +
+      '<h2>Einzelposten</h2><table><thead><tr><th>Zahlung</th><th>Bestellung</th><th>Lokal</th><th>Kostenstelle</th><th>Artikel</th><th ' + R + '>Tickets</th>' +
         '<th ' + R + '>Brutto</th><th ' + R + '>Gebühren</th><th ' + R + '>Ausgezahlt</th></tr></thead>' +
-        p.items.map(i => '<tr><td style="white-space:nowrap">' + dTime(i.paidAt) + '</td><td>' + esc(i.orderId || '–') + '</td><td>' + esc(i.costCenter) + '</td>' +
+        p.items.map(i => '<tr><td style="white-space:nowrap">' + dTime(i.paidAt) + '</td><td>' + esc(i.orderId || '–') + '</td>' +
+          '<td>' + esc(clubLabel(i.club)) + '</td><td>' + esc(i.costCenter) + '</td>' +
           '<td>' + esc(i.items) + '</td><td ' + R + '>' + (i.tickets ?? '') + '</td><td ' + R + '>' + pEur(i.revenue) + '</td>' +
           '<td ' + R + '>' + pEur(i.fee) + '</td><td ' + R + '>' + pEur(i.net) + '</td></tr>').join('') +
-        '<tr class="sum"><td colspan="5">Summe</td><td ' + R + '>' + pEur(t.revenue) + '</td><td ' + R + '>' + pEur(t.fee) + '</td><td ' + R + '>' + pEur(t.net) + '</td></tr></table>';
+        '<tr class="sum"><td colspan="6">Summe</td><td ' + R + '>' + pEur(t.revenue) + '</td><td ' + R + '>' + pEur(t.fee) + '</td><td ' + R + '>' + pEur(t.net) + '</td></tr></table>';
   }
 
   // Übersicht: alle Auszahlungen, je Auszahlung die Kostenstellen
@@ -1060,8 +1093,9 @@
     const rows = ps.map(p => {
       const groups = byCostCenter(p.items), t = groups.reduce(addUp, ZERO);
       total = addUp(total, t);
-      return '<tr class="grp"><td colspan="11">Auszahlung ' + esc(p.id || 'noch nicht ausgezahlt') +
-        (p.at ? ' · Gutschrift am ' + dDate(p.at) : '') + ' · ' + pEur(t.net) + '</td></tr>' +
+      return '<tr class="grp"><td colspan="12">Auszahlung ' + esc(p.id || 'noch nicht ausgezahlt') +
+        (p.at ? ' · Gutschrift am ' + dDate(p.at) : '') + ' · ' + pEur(t.net) + ' · ' +
+        byClub(p.items).map(c => esc(c.club) + ' ' + pEur(c.net)).join(' + ') + '</td></tr>' +
         groups.map(g => kstRow(g)).join('');
     }).join('');
     return '<h1>Stripe-Auszahlungen je Kostenstelle – Focus Events GmbH</h1>' +
