@@ -14,6 +14,7 @@
 
   let allOrders = []; // ungefilterter Cache aller Bestellungen
   let allEvents = []; // ungefilterter Cache aller Events (inkl. inaktive)
+  let vipDefaults = []; // VIP-Voreinstellungen je Club (keine echten Events)
   let orders = [];   // aktuell sichtbar (nach Club-Filter)
   let events = [];   // aktuell sichtbar (nach Club-Filter)
   let myRole = null; // 'super_admin' | 'organizer'
@@ -239,7 +240,17 @@
 
   /* ================= Events & Tickets ================= */
   function renderAdminEvents() {
-    $('adminEvents').innerHTML = events.length ? events.map(ev =>
+    const defs = vipDefaults.filter(d => !clubFilter || (d.club || '') === clubFilter)
+      .sort((a, b) => String(a.club).localeCompare(String(b.club)));
+    const defCard = defs.length
+      ? '<div class="card" style="margin-bottom:16px"><h2 style="margin-top:0">VIP-Voreinstellungen</h2>' +
+        '<p class="hint">Gelten an <b>allen Tagen ohne Event</b> und bei jedem Event mit Haken „Standard-VIP-Einstellung verwenden“. ' +
+        'Hat ein Event eigene Tische, gelten an seinem Tag dessen Regeln.</p>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">' +
+        defs.map(d => '<button class="btn btn-ghost btn-sm" data-edit="' + d.id + '">VIP-Voreinstellung ' + esc(d.club || '') + ' bearbeiten</button>').join('') +
+        '</div></div>'
+      : '';
+    $('adminEvents').innerHTML = defCard + (events.length ? events.map(ev =>
       '<div class="card"><div class="event-head"><h2>' + esc(ev.name) + '</h2>' +
       '<span class="badge ' + (ev.active ? 'bezahlt' : 'storniert') + '">' + (ev.active ? 'aktiv' : 'inaktiv') + '</span>' +
       '<span class="event-meta">' + fmtDT(ev.date) + (ev.location ? ' · ' + esc(ev.location) : '') + '</span></div>' +
@@ -268,7 +279,7 @@
         (archiveRows.some(a => a.eventId === ev.id) ? ' disabled title="Bereits archiviert"' : '') + '>Archivieren</button>' +
       '<button class="btn btn-danger btn-sm" data-del="' + ev.id + '">Löschen</button>' +
       '</div></div>').join('')
-      : '<div class="card"><p class="sub">Noch keine Events angelegt.</p></div>';
+      : '<div class="card"><p class="sub">Noch keine Events angelegt.</p></div>');
 
     $('adminEvents').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openEventEditor(b.dataset.edit)));
     $('adminEvents').querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', async () => {
@@ -372,8 +383,10 @@
     if ($('btnRemoveEvImage')) $('btnRemoveEvImage').style.display = url ? '' : 'none';
   }
   function openEventEditor(id) {
-    const ev = id ? events.find(x => x.id === id) : null;
-    $('evModalTitle').textContent = ev ? 'Event bearbeiten' : 'Neues Event';
+    const ev = id ? (events.find(x => x.id === id) || vipDefaults.find(x => x.id === id)) : null;
+    editingVipDefault = !!(ev && ev.vipClubDefault);
+    $('evModalTitle').textContent = editingVipDefault ? 'VIP-Voreinstellung ' + (ev.club || '')
+      : (ev ? 'Event bearbeiten' : 'Neues Event');
     $('evId').value = ev ? ev.id : '';
     $('evName').value = ev ? ev.name : '';
     $('evDate').value = ev ? toLocalInput(ev.date) : '';
@@ -461,13 +474,18 @@
     const box = $('seatPlanBox');
     if (box) box.style.display = 'none';
     // VIP-Tische in den Editor laden
-    if ($('evVipOn')) {
-      $('evVipOn').checked = ev ? !!ev.vipEnabled : false;
+    if ($('evVipStd')) {
+      $('evVipStd').checked = ev ? ev.vipUseStandard !== false : true;   // neue Events: Standard
+      $('evVipStdRow').style.display = editingVipDefault ? 'none' : '';
+      $('evVipDefaultNote').style.display = editingVipDefault ? '' : 'none';
+      $('evVipDefaultNote').innerHTML = editingVipDefault
+        ? 'Das ist die <b>VIP-Voreinstellung für ' + esc(ev.club || '') + '</b>. Sie gilt an allen Tagen ohne Event und bei jedem Event ' +
+          'mit Haken „Standard-VIP-Einstellung verwenden“. Relevant ist nur dieser VIP-Bereich – sie erscheint nicht als Event im Shop.'
+        : '';
       $('evVipInfo').value = ev ? (ev.vipInfo || '') : '';
       editorFloorplans = ev && Array.isArray(ev.vipFloorplans) ? ev.vipFloorplans.slice() : [];
       if ($('evVipFpFile')) $('evVipFpFile').value = '';
       renderFloorplans();
-      if ($('evVipStandard')) $('evVipStandard').checked = ev ? !!ev.vipStandard : false;
       vipDrinksDraft = []; vipDrinksDirty = false;
       $('vipTableEditor').innerHTML = '';
       if (ev) {
@@ -485,7 +503,9 @@
       updateVipUI();
     }
     $('eventModal').classList.add('open');
+    if (editingVipDefault && $('evVipStdRow')) setTimeout(() => $('evVipDefaultNote').scrollIntoView({ block: 'start' }), 60);
   }
+  let editingVipDefault = false;
 
   function bindCatRemove() {
     $('catEditor').querySelectorAll('.c-remove').forEach(b => {
@@ -1241,9 +1261,11 @@
     }));
   }
 
+  // Eigener VIP-Bereich (Tische, Plan, Getränke) nur, wenn nicht die Voreinstellung gilt –
+  // bzw. immer, wenn gerade die Voreinstellung selbst bearbeitet wird.
+  function vipOwnMode() { return editingVipDefault || !($('evVipStd') && $('evVipStd').checked); }
   function updateVipUI() {
-    const on = $('evVipOn') && $('evVipOn').checked;
-    if ($('evVipBox')) $('evVipBox').style.display = on ? '' : 'none';
+    if ($('evVipBox')) $('evVipBox').style.display = vipOwnMode() ? '' : 'none';
   }
 
   // Bild aus Datei lesen und auf handliche Größe verkleinern (max. 240px hoch),
@@ -1827,7 +1849,9 @@
   /* ================= Club-Filter ================= */
   // Setzt die sichtbaren Caches (events/orders) anhand der Club-Auswahl.
   function applyClubFilter() {
-    events = clubFilter ? allEvents.filter(e => (e.club || '') === clubFilter) : allEvents.slice();
+    const real = allEvents.filter(e => !e.vipClubDefault);
+    vipDefaults = allEvents.filter(e => e.vipClubDefault);
+    events = clubFilter ? real.filter(e => (e.club || '') === clubFilter) : real;
     const eids = new Set(events.map(e => e.id));
     orders = clubFilter ? allOrders.filter(o => eids.has(o.eventId)) : allOrders.slice();
   }
@@ -2047,7 +2071,7 @@
     $('evImageUrl').value = ''; if ($('evImageFile')) $('evImageFile').value = ''; renderEvImagePreview('');
   });
   // ---- VIP-Tische ----
-  if ($('evVipOn')) $('evVipOn').addEventListener('change', updateVipUI);
+  if ($('evVipStd')) $('evVipStd').addEventListener('change', updateVipUI);
   if ($('btnAddVipTable')) $('btnAddVipTable').addEventListener('click', () => {
     $('vipTableEditor').insertAdjacentHTML('beforeend', vipTableRowHTML(null)); bindVipTableRemove();
   });
@@ -2114,17 +2138,17 @@
       location: $('evLocation').value.trim(),
       club: ($('evClub') && $('evClub').value) || null,
       description: $('evDesc').value.trim(),
-      active: $('evActive').checked,
+      active: editingVipDefault ? false : $('evActive').checked,   // Voreinstellung nie im Shop
       sharedQuota: $('evSharedOn').checked ? (parseInt($('evSharedQuota').value, 10) || 0) : null,
       feesOnOrganizer: $('evFeesOnOrganizer').checked,
       showAvailability: $('evShowAvail') ? $('evShowAvail').checked : undefined,
       vatRate: ($('evVatOn') && $('evVatOn').checked) ? (parseFloat($('evVatRate').value) || 0) : null,
       sponsorLogos: editorSponsors.slice(),
       imageUrl: $('evImageUrl') ? ($('evImageUrl').value || null) : undefined,
-      vipEnabled: $('evVipOn') ? $('evVipOn').checked : undefined,
-      vipInfo: $('evVipInfo') ? ($('evVipInfo').value.trim() || null) : undefined,
-      vipFloorplans: $('evVipOn') ? editorFloorplans.slice() : undefined,
-      vipStandard: $('evVipOn') ? !!($('evVipStandard') && $('evVipStandard').checked) : undefined,
+      // VIP: Standard (Voreinstellung des Clubs) oder eigene Regeln für diesen Tag
+      vipUseStandard: editingVipDefault ? false : !vipOwnMode(),
+      vipInfo: vipOwnMode() && $('evVipInfo') ? ($('evVipInfo').value.trim() || null) : undefined,
+      vipFloorplans: vipOwnMode() ? editorFloorplans.slice() : undefined,
       // Eigenes Ticket-Design: nur speichern, wenn eine Vorderseite vorhanden ist, sonst Standard.
       customTicket: (editorCustomTicket && editorCustomTicket.front)
         ? { front: editorCustomTicket.front, back: editorCustomTicket.back || null } : null,
@@ -2143,19 +2167,22 @@
       msg($('evMsg'), 'Bitte den MwSt-Satz angeben („Mehrwertsteuer ausweisen“, z. B. 13 oder 20) – er wird für jede Ticketzahlung festgehalten und für die Abrechnung der Stripe-Auszahlungen gebraucht.', 'error');
       return;
     }
-    const vipOn = !!($('evVipOn') && $('evVipOn').checked);
-    if (!cats.length && !vipOn) { msg($('evMsg'), 'Bitte mindestens eine Ticketkategorie anlegen (oder VIP-Tische aktivieren).', 'error'); return; }
+    // Eigene VIP-Tische (nur ohne Haken „Standard“ bzw. bei der Voreinstellung selbst)
+    const ownVip = vipOwnMode();
+    const tables = ownVip ? Array.from($('vipTableEditor').querySelectorAll('.vip-table-row')).map(r => ({
+      id: r.dataset.id || null,
+      name: r.querySelector('.vt-name').value.trim(),
+      minConsumption: parseFloat(r.querySelector('.vt-min').value) || 0
+    })).filter(t => t.name) : [];
+    // VIP-Knopf im Shop: Standard -> immer; eigene Regeln -> nur mit Tischen
+    ev.vipEnabled = ownVip ? tables.length > 0 : true;
+    if (editingVipDefault && !tables.length) { msg($('evMsg'), 'Die VIP-Voreinstellung braucht mindestens einen Tisch.', 'error'); return; }
     try {
       $('btnSaveEvent').disabled = true;
       const savedId = await S.saveEvent(ev);
-      // VIP: Tische & Getränke speichern (nur wenn aktiviert – so bleiben bei
-      // deaktiviertem VIP bestehende Tische/Reservierungen unangetastet)
-      if (vipOn && savedId) {
-        const tables = Array.from($('vipTableEditor').querySelectorAll('.vip-table-row')).map(r => ({
-          id: r.dataset.id || null,
-          name: r.querySelector('.vt-name').value.trim(),
-          minConsumption: parseFloat(r.querySelector('.vt-min').value) || 0
-        })).filter(t => t.name);
+      // Eigene Tische & Getränke speichern. Mit Haken „Standard“ bleiben evtl. vorhandene
+      // eigene Tische unangetastet (werden dann nur nicht verwendet).
+      if (ownVip && savedId) {
         await S.saveTables(savedId, tables);
         if (vipDrinksDirty) await S.replaceDrinks(savedId, vipDrinksDraft);
       }

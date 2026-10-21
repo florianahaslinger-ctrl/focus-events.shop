@@ -12,7 +12,6 @@
   let vipDayEvent = null;   // Event am gewählten Tag (falls vorhanden) -> Eintrittsticket nötig
   let vipHasEntry = false;  // Gast hat für diesen Tag bereits ein bezahltes Eintrittsticket
   let vipClub = null;       // aktueller Club im VIP-Flow
-  let vipStandardEv = null; // Standard-VIP-Event des Clubs (für Tage ohne eigenes Event)
   let vipSources = [];      // VIP-Quellen inkl. deaktivierter Events (Server-Reihenfolge)
   let eventsCache = [];
   let activeClub = 'LEVEL'; // aktiver Reiter: 'LEVEL' | 'YPSILON'
@@ -830,22 +829,14 @@
     openModal('vipModal');
   }
 
-  // Standard-VIP-Event eines Clubs (Tische für Tage ohne eigenes Event):
-  // markiertes vip_standard, sonst die erste Quelle laut Server-Reihenfolge.
-  function vipStandardForClub(club, list) {
-    list = list || vipEventsForClub(club);
-    return list.find(e => e.vipStandard) || list[0] || null;
-  }
-
-  // Lokal (Club) gewählt -> Standard-Event bestimmen, freie Terminwahl.
+  // Lokal (Club) gewählt -> freie Terminwahl. Welche Tische an einem Tag gelten,
+  // entscheidet der Server (Event-Regeln vor der VIP-Voreinstellung des Clubs).
   function chooseVipClub(club) {
-    const list = vipEventsForClub(club);
-    if (!list.length) {
+    if (!vipEventsForClub(club).length) {
       $('vipLocalMsg').textContent = 'Für ' + club + ' ist derzeit kein VIP-Bereich eingerichtet.';
       return;
     }
     vipClub = club;
-    vipStandardEv = vipStandardForClub(club, list);
     beginVipFlow(todayStr());
   }
 
@@ -854,7 +845,6 @@
     closeModal('eventDetailModal');
     openModal('vipModal');
     vipClub = clubOf(ev);
-    vipStandardEv = vipStandardForClub(vipClub) || ev;
     beginVipFlow(localDateStr(ev.date) || todayStr());
   }
 
@@ -883,28 +873,40 @@
       im.addEventListener('click', () => openVipLightbox(im.dataset.fp)));
   }
 
-  // Tische für das gewählte Datum laden. Findet an dem Tag ein VIP-Event statt,
-  // zeige dessen event-spezifische Tische; sonst die Standard-Tische des Clubs.
+  // Tische für das gewählte Datum laden. Regeln:
+  //  - kein Event an dem Tag      -> VIP-Voreinstellung des Clubs
+  //  - Event mit Haken „Standard“ -> VIP-Voreinstellung des Clubs
+  //  - Event mit eigenen Tischen  -> Tische des Events (ohne Tische: keine Reservierung)
   async function refreshVipTables() {
     if (!vipClub) return;
     const dateVal = $('vipDate').value;
     const dayEv = eventsCache.find(e => clubOf(e) === vipClub && localDateStr(e.date) === dateVal);
-    const source = (dayEv && dayEv.vipEnabled) ? dayEv : vipStandardEv;
     // Eintrittsticket-Pflicht: Event mit aktiven Ticketkategorien an dem Tag
     vipDayEvent = (dayEv && (dayEv.categories || []).some(c => c.active)) ? dayEv : null;
-    if (!source) { $('vipTables').innerHTML = '<p class="sub">Kein VIP-Bereich verfügbar.</p>'; return; }
+    $('vipEventName').textContent = (vipClub ? vipClub + ' · ' : '') + niceDateStr(dateVal);
+    $('vipTables').innerHTML = '<p class="sub">Tische werden geladen …</p>';
+    let srcId;
+    try { srcId = await S.vipSourceFor(vipClub, dateVal); }
+    catch (e) { $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">' + esc(e.message) + '</p>'; return; }
+    if ($('vipDate').value !== dateVal) return;                  // inzwischen anderes Datum gewählt
+    if (!srcId) {
+      vipEv = null; vipSel = null; vipTables = [];
+      renderVipSource({});
+      $('vipDateHint').textContent = dayEv ? 'An diesem Tag: „' + dayEv.name + '“' : '';
+      $('vipTables').innerHTML = '<p class="sub">An diesem Tag ist keine Tischreservierung möglich. Bitte einen anderen Tag wählen.</p>';
+      return;
+    }
+    const source = vipSources.find(s => s.id === srcId) || { id: srcId };
     // Quelle gewechselt? -> Grundriss/Info neu, Getränke der Quelle neu laden
     if (!vipEv || vipEv.id !== source.id) {
       vipEv = source; vipSel = null; vipDrinksList = null;
       renderVipSource(source);
     }
-    $('vipEventName').textContent = (vipClub ? vipClub + ' · ' : '') + niceDateStr(dateVal);
     $('vipDateHint').textContent = vipDayEvent
       ? 'An diesem Tag: „' + vipDayEvent.name + '" – Eintrittsticket erforderlich (im nächsten Schritt).'
       : (dayEv && !(dayEv.categories || []).some(c => c.active))
         ? 'An diesem Tag: „' + dayEv.name + '" – Eintritt nur an der Abendkasse.'
-        : ((dayEv && dayEv.vipEnabled) ? 'Event-Tag – event-spezifische Tische.' : 'Freier Termin – Standard-Tische.');
-    $('vipTables').innerHTML = '<p class="sub">Tische werden geladen …</p>';
+        : dayEv ? 'An diesem Tag: „' + dayEv.name + '“.' : '';
     try { vipTables = await S.tableStatus(source.id, dateVal); }
     catch (e) { $('vipTables').innerHTML = '<p class="sub" style="color:var(--warn)">' + esc(e.message) + '</p>'; return; }
     renderVipTables();

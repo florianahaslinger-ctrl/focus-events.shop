@@ -141,7 +141,7 @@
 
     /* --- Events & Verfügbarkeit --- */
     async getEvents(includeInactive) {
-      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_floorplans,vip_info,vip_standard,vat_rate,show_availability,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
+      const evCols = 'id,name,date,location,club,description,active,layout,owner_email,shared_quota,fees_on_organizer,sponsor_logos,vip_enabled,vip_floorplan_url,vip_floorplans,vip_info,vip_standard,vip_use_standard,vip_club_default,vat_rate,show_availability,event_owners(email),categories(id,name,price,quota,max_per_order,description,active,sort,seating,pricing_mode,active_phase,category_phases(id,name,price,ends_at,ends_qty,sort))';
       let res = await sb.from('events').select(evCols + ',image_url').eq('storefront', STOREFRONT).order('date', { ascending: true });
       if (res.error && /image_url/i.test(res.error.message || '')) {
         res = await sb.from('events').select(evCols).eq('storefront', STOREFRONT).order('date', { ascending: true });
@@ -174,6 +174,9 @@
               : (e.vip_floorplan_url ? [e.vip_floorplan_url] : []),
             vipInfo: e.vip_info || null,
             vipStandard: !!e.vip_standard,
+            // VIP-Regeln: Voreinstellung des Clubs verwenden (Standard) oder eigene Tische
+            vipUseStandard: e.vip_use_standard !== false,
+            vipClubDefault: !!e.vip_club_default,
             vatRate: (e.vat_rate == null ? null : Number(e.vat_rate)),
             showAvailability: (e.show_availability !== false),
             ownerEmail: e.owner_email || null,
@@ -743,6 +746,14 @@
       }));
     },
 
+    // Welche Tischliste gilt für Club + Tag? (Server entscheidet: Event-Regeln vor
+    // Voreinstellung). null = an diesem Tag keine Tischreservierung.
+    async vipSourceFor(club, dateStr) {
+      const { data, error } = await sb.rpc('vip_source_for', { p_storefront: STOREFRONT, p_club: club, p_date: dateStr });
+      if (error) throw new Error(error.message);
+      return data || null;
+    },
+
     // Öffentlicher Tischstatus (frei/belegt am gewählten Datum) – für die Kundenauswahl.
     async tableStatus(eventId, dateStr) {
       const { data, error } = await sb.rpc('table_status', { p_event: eventId, p_date: dateStr || null });
@@ -901,6 +912,7 @@
       }
       if (ev.vipInfo !== undefined) row.vip_info = ev.vipInfo || null;
       if (ev.vipStandard !== undefined) row.vip_standard = !!ev.vipStandard;
+      if (ev.vipUseStandard !== undefined) row.vip_use_standard = !!ev.vipUseStandard;
       // Eigenes Ticket-Design (Bild-Data-URLs {front, back}) – null = Standardvorlage.
       if (ev.customTicket !== undefined) row.custom_ticket = ev.customTicket || null;
       // MwSt-Satz (%) nur setzen, wenn übergeben. null/'' = keine MwSt ausweisen.
