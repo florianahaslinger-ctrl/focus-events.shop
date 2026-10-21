@@ -1040,31 +1040,6 @@
       '<table>' + head + rows + sumRow + '</table>' + clubBlock(all, 'Summe je Lokal') + vatBlock(all);
   }
 
-  // Abrechnung je Event (wie Reiter „Abrechnung“) als PDF
-  function printVatOverview() {
-    const rows = vatRows();
-    if (!rows.length) { alert('Keine Events vorhanden.'); return; }
-    const sum = k => rows.reduce((n, r) => n + r[k], 0);
-    const head = '<thead><tr><th>Event</th><th>Datum</th><th ' + R + '>Tickets</th><th ' + R + '>Bestellungen</th>' +
-      '<th ' + R + '>Ticketumsatz brutto</th><th ' + R + '>MwSt-Satz</th><th ' + R + '>MwSt</th><th ' + R + '>Netto</th>' +
-      '<th ' + R + '>Servicegeb. CORE</th><th ' + R + '>Zahlungsgeb.</th><th ' + R + '>Auszahlung GmbH</th></tr></thead>';
-    const line = r => '<tr><td>' + esc(r.name) + (r.club ? ' <span class="k">· ' + esc(r.club) + '</span>' : '') +
-      (r.archived ? ' <span class="k">(archiviert)</span>' : '') + '</td><td>' + dDate(r.date) + '</td>' +
-      '<td ' + R + '>' + r.tickets + '</td><td ' + R + '>' + r.orderCount + '</td><td ' + R + '>' + pEur(r.gross) + '</td>' +
-      '<td ' + R + '>' + pRate(r.rate || null) + '</td><td ' + R + '>' + pEur(r.vat) + '</td><td ' + R + '>' + pEur(r.net) + '</td>' +
-      '<td ' + R + '>' + pEur(r.service) + '</td><td ' + R + '>' + pEur(r.payment) + '</td><td ' + R + '><b>' + pEur(r.payout) + '</b></td></tr>';
-    openPrintDoc('Abrechnung je Event',
-      '<h1>Abrechnung je Event – Focus Events GmbH</h1>' +
-      '<div class="meta"><div><span class="k">Events</span><b>' + rows.length + '</b></div>' +
-      '<div><span class="k">Ticketumsatz brutto</span><b>' + pEur(sum('gross')) + '</b></div>' +
-      '<div><span class="k">davon MwSt</span><b>' + pEur(sum('vat')) + '</b></div>' +
-      '<div><span class="k">Auszahlung gesamt</span><b>' + pEur(sum('payout')) + '</b></div></div>' +
-      '<table class="kst">' + head + rows.map(line).join('') +
-      '<tr class="sum"><td>Summe</td><td></td><td ' + R + '>' + sum('tickets') + '</td><td ' + R + '>' + sum('orderCount') + '</td>' +
-      '<td ' + R + '>' + pEur(sum('gross')) + '</td><td></td><td ' + R + '>' + pEur(sum('vat')) + '</td><td ' + R + '>' + pEur(sum('net')) + '</td>' +
-      '<td ' + R + '>' + pEur(sum('service')) + '</td><td ' + R + '>' + pEur(sum('payment')) + '</td><td ' + R + '>' + pEur(sum('payout')) + '</td></tr></table>');
-  }
-
   async function onBelegClick(e) {
     const b = e.target.closest('[data-beleg-print],[data-beleg-all]');
     if (!b) return;
@@ -1908,7 +1883,6 @@
   });
   $('orderSearch').addEventListener('input', renderOrders);
   $('orderFilter').addEventListener('change', renderOrders);
-  if ($('btnVatCsv')) $('btnVatCsv').addEventListener('click', printVatOverview);
   if ($('btnArchiveReload')) $('btnArchiveReload').addEventListener('click', async () => {
     try { archiveRows = await S.getArchive(); } catch (e) {}
     renderArchive();
