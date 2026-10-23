@@ -986,8 +986,8 @@
     const m = new Map();
     items.forEach(i => {
       const k = clubLabel(i.club);
-      const g = m.get(k) || { club: k, n: 0, revenue: 0, vat: 0, fee: 0, net: 0, events: new Set() };
-      g.n++; g.revenue += i.revenue; g.vat += vatOf(i.revenue, i.vatRate || 0); g.fee += i.fee; g.net += i.net;
+      const g = m.get(k) || { club: k, n: 0, gross: 0, revenue: 0, vat: 0, fee: 0, net: 0, events: new Set() };
+      g.n++; g.gross += i.gross; g.revenue += i.revenue; g.vat += vatOf(i.revenue, i.vatRate || 0); g.fee += i.fee; g.net += i.net;
       g.events.add(i.costCenter);
       m.set(k, g);
     });
@@ -1027,13 +1027,16 @@
       // je Lokal: Anteil an der Gutschrift und an der MwSt, darunter die Events
       const clubs = byClub(p.items);
       const lok = c => '<span class="lok ' + esc(c) + '">' + esc(c) + '</span>';
-      const kst = clubs.map(c => '<div style="margin-bottom:4px">' + lok(c.club) + ': <b>' + pEur(c.net) + '</b>' +
-        ' <span class="k">(MwSt ' + pEur(c.vat) + ')</span><br><span class="k">' +
+      // je Lokal: Ticketumsatz brutto (inkl. Gebühren), Gebühren, Auszahlung, MwSt –
+      // Ticketumsatz minus Auszahlung = Gebühren des Lokals (Wunsch Steuerberatung)
+      const kst = clubs.map(c => '<div style="margin-bottom:5px">' + lok(c.club) + '<br>' +
+        'Ticketumsatz brutto <b>' + pEur(c.gross) + '</b><br>Auszahlung <b>' + pEur(c.net) + '</b><br>' +
+        '<span class="k">Gebühren ' + pEur(c.fee) + ' · MwSt ' + pEur(c.vat) + '</span><br><span class="k">' +
         Array.from(c.events).map(e => esc(!single && e.length > 30 ? e.slice(0, 29) + '…' : e)).join(', ') + '</span></div>').join('');
       return '<tr><td style="white-space:nowrap"><b>' + dDate(p.at) + '</b><div class="k" style="font-family:monospace">' + esc(p.id) + '</div></td>' +
         '<td style="font-size:13px">' + clubs.map(c => lok(c.club)).join('<br>') + '</td>' +
         '<td ' + R + '><b>' + pEur(t.net) + '</b></td><td ' + R + '>' + t.n + '</td><td ' + R + '>' + pEur(t.revenue) + '</td>' + cells +
-        '<td ' + R + '>' + pEur(t.fee) + '</td><td style="font-size:11px;min-width:210px">' + kst + '</td></tr>';
+        '<td ' + R + '>' + pEur(t.fee) + '</td><td style="font-size:11px;min-width:250px">' + kst + '</td></tr>';
     }).join('');
     const head = '<thead><tr><th>Gutschrift am</th><th>Lokal</th><th ' + R + '>Betrag</th><th ' + R + '>Zahlungen</th><th ' + R + '>Ticketumsatz brutto</th>' +
       rates.map(rt => rt == null ? '<th ' + R + '>Netto ohne Satz</th><th ' + R + '>MwSt</th>'
