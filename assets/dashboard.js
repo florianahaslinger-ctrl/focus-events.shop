@@ -1027,11 +1027,11 @@
       // je Lokal: Anteil an der Gutschrift und an der MwSt
       const clubs = byClub(p.items);
       const lok = c => '<span class="lok ' + esc(c) + '">' + esc(c) + '</span>';
-      // je Lokal: Ticketumsatz brutto (inkl. Gebühren), Gebühren, Auszahlung, MwSt –
-      // Ticketumsatz minus Auszahlung = Gebühren des Lokals (Wunsch Steuerberatung)
+      // je Lokal genau wie von der Steuerberatung gewünscht: Ticketumsatz brutto (inkl. Gebühren)
+      // und Auszahlungsbetrag (abzüglich Gebühren) – die Differenz ist die Gebühr des Lokals
       const kst = clubs.map(c => '<div style="margin-bottom:8px">' + lok(c.club) + '<br>' +
-        'Ticketumsatz brutto <b>' + pEur(c.gross) + '</b><br>Auszahlung <b>' + pEur(c.net) + '</b><br>' +
-        'MwSt <b>' + pEur(c.vat) + '</b><br><span class="k">Gebühren ' + pEur(c.fee) + '</span></div>').join('');
+        'Ticketumsatz brutto (inkl. Gebühren) <b>' + pEur(c.gross) + '</b><br>' +
+        'Auszahlungsbetrag (abzüglich Gebühren) <b>' + pEur(c.net) + '</b></div>').join('');
       return '<tr><td style="white-space:nowrap"><b>' + dDate(p.at) + '</b><div class="k" style="font-family:monospace">' + esc(p.id) + '</div></td>' +
         '<td style="font-size:13px">' + clubs.map(c => lok(c.club)).join('<br>') + '</td>' +
         '<td ' + R + '><b>' + pEur(t.net) + '</b></td><td ' + R + '>' + t.n + '</td><td ' + R + '>' + pEur(t.revenue) + '</td>' + cells +
