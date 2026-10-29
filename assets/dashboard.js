@@ -391,7 +391,8 @@
     $('evName').value = ev ? ev.name : '';
     $('evDate').value = ev ? toLocalInput(ev.date) : '';
     $('evLocation').value = ev ? (ev.location || '') : '';
-    if ($('evClub')) $('evClub').value = ev ? (ev.club || '') : '';
+    // Neues Event: Club aus der aktuellen Club-Ansicht vorbelegen (sonst landet es leicht im falschen Club)
+    if ($('evClub')) $('evClub').value = ev ? (ev.club || '') : (clubFilter || '');
     $('evDesc').value = ev ? (ev.description || '') : '';
     if ($('evImageUrl')) {
       const _u = ev ? (ev.imageUrl || '') : '';
