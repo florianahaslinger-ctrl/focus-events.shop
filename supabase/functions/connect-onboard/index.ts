@@ -1,4 +1,4 @@
-// CORE Management – Stripe Connect (Express) Onboarding je Veranstalter
+// Birdie Tickets (CORE-Plattform) – Stripe Connect (Express) Onboarding je Veranstalter
 // action "status": verbundenes Konto prüfen/aktualisieren (charges_enabled)
 // action "link":   Konto anlegen (falls nötig) und Onboarding-Link zurückgeben
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     const m = (e as Error).message || "";
     if (/platform.?profile|managing losses|responsibilities/i.test(m)) {
-      return json({ error: "Die Zahlungsabwicklung ist noch nicht freigeschaltet. Bitte wende dich an CORE Management (office@core-management.at)." }, 503);
+      return json({ error: "Die Zahlungsabwicklung ist noch nicht freigeschaltet. Bitte wende dich an Birdie Tickets (office@core-management.at)." }, 503);
     }
     console.error(e);
     return json({ error: "Fehler bei der Stripe-Verbindung: " + m }, 500);

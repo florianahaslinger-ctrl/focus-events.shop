@@ -1,4 +1,4 @@
-// CORE Management Ticketshop – Tickets als Admin ausstellen
+// Birdie Tickets (CORE-Plattform) – Tickets als Admin ausstellen
 // Nur für Admins: erzeugt eine Bestellung + Tickets (ohne Stripe) und
 // verschickt sie per Brevo an eine beliebige E-Mail-Adresse.
 //  - mode "gast": Gratis-Gastticket (kein Umsatz)
@@ -9,7 +9,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BREVO_KEY = Deno.env.get("BREVO_API_KEY")!;
 const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL") ?? "office@core-management.at";
-const SENDER_NAME = Deno.env.get("SENDER_NAME") ?? "CORE Management";
+const SENDER_NAME = Deno.env.get("SENDER_NAME") ?? "Birdie Tickets";
 const SHOP_URL = Deno.env.get("SHOP_URL") ?? "https://core-management.at";
 
 const cors = {
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     if (!cat) return json({ error: "Ticketkategorie nicht gefunden." }, 400);
     const ev = cat.events as { name: string; date: string; location: string; storefront: string | null; club: string | null };
 
-    // Storefront-abhängige Domain & Branding (CORE · Focus Events · Litec Ball).
+    // Storefront-abhängige Domain & Branding (Birdie Tickets · Focus Events · Litec Ball).
     const isFocus = ev.storefront === "focus";
     const isLitec = ev.storefront === "litec";
     const shopUrl = isFocus
@@ -74,15 +74,19 @@ Deno.serve(async (req) => {
       : isLitec
         ? (Deno.env.get("LITEC_SHOP_URL") ?? "https://litecball.at")
         : SHOP_URL;
-    const brandName = isFocus ? "FOCUS EVENTS" : isLitec ? "LITEC BALL" : "CORE MANAGEMENT";
+    const brandName = isFocus ? "FOCUS EVENTS" : isLitec ? "LITEC BALL" : "BIRDIE TICKETS";
     const brandTag = isFocus ? "Club Events"
       : isLitec ? "The Wolf of Paul Hahn Street · 06.02.2027"
-      : "Events &amp; Entertainment Austria";
-    const senderName = isFocus ? "Focus Events" : isLitec ? "Litec Ball" : SENDER_NAME;
+      : "Tickets für Bälle &amp; Events";
+    const senderName = isFocus ? "Focus Events" : isLitec ? "Litec Ball" : "Birdie Tickets";
     const accent = isFocus
       ? (ev.club === "LEVEL" ? "#e11d2a" : ev.club === "YPSILON" ? "#2b38f5" : "#5a66ff")
-      : isLitec ? "#12a05f" : "#C9A84C";
-    const accent2 = isFocus ? accent : isLitec ? "#19c074" : "#E8C97A";
+      : isLitec ? "#12a05f" : "#8B5CF6";
+    const accent2 = isFocus ? accent : isLitec ? "#19c074" : "#A78BFA";
+    // Birdie Tickets: Grün (Fläche) / Beige (Schrift); Focus & Litec behalten ihr dunkles Layout.
+    const isBirdie = !isFocus && !isLitec;
+    const bg = isBirdie ? "#1F3D2B" : "#080808", panel = isBirdie ? "#264A35" : "#101010";
+    const textCol = isBirdie ? "#E8DCC4" : "#F5F0EB", muted = isBirdie ? "#B5AC97" : "#999", rowBg = isBirdie ? "#1A3425" : "#0d0d0c";
 
     // Kontingent prüfen
     const { data: soldRow } = await admin.from("category_sold").select("sold").eq("category_id", cat.id).maybeSingle();
@@ -128,21 +132,21 @@ Deno.serve(async (req) => {
     // E-Mail an den/die Empfänger:in
     const note = (body.note || "").trim();
     const rows = codes.map((c) =>
-      `<div style="margin:10px 0;padding:12px 14px;background:#0d0d0c;border:1px solid ${accent}55;border-radius:6px">
+      `<div style="margin:10px 0;padding:12px 14px;background:${rowBg};border:1px solid ${accent}55;border-radius:6px">
         <div style="font-family:Arial;font-size:20px;letter-spacing:3px;color:${accent2};font-weight:bold">${esc(c)}</div>
         <a href="${shopUrl}/ticket.html?c=${encodeURIComponent(c)}" style="color:${accent};font-size:13px">Ticket anzeigen &amp; QR-Code</a>
       </div>`).join("");
     const html =
-`<!DOCTYPE html><html><body style="margin:0;background:#080808;font-family:Arial,Helvetica,sans-serif;color:#F5F0EB;padding:28px">
-  <div style="max-width:520px;margin:0 auto;background:#101010;border:1px solid ${accent}44;border-radius:8px;padding:32px">
+`<!DOCTYPE html><html><body style="margin:0;background:${bg};font-family:Arial,Helvetica,sans-serif;color:${textCol};padding:28px">
+  <div style="max-width:520px;margin:0 auto;background:${panel};border:1px solid ${accent}44;border-radius:8px;padding:32px">
     <div style="font-size:22px;letter-spacing:3px;color:${accent};font-weight:bold">${brandName}</div>
-    <div style="color:#999;font-size:13px;margin-bottom:20px">${brandTag}</div>
+    <div style="color:${muted};font-size:13px;margin-bottom:20px">${brandTag}</div>
     <p style="font-size:16px">Du hast ${qty} Ticket${qty > 1 ? "s" : ""} erhalten:</p>
     <p style="font-size:15px;color:${accent2};margin:2px 0 2px">${esc(cat.name)} – ${esc(ev.name)}</p>
-    <p style="font-size:13px;color:#999;margin:0 0 4px">${esc(fmtDate(ev.date))}${ev.location ? " · " + esc(ev.location) : ""}</p>
-    ${note ? `<p style="font-size:14px;color:#ccc;background:${accent}14;border-left:3px solid ${accent};padding:10px 12px;border-radius:4px">${esc(note)}</p>` : ""}
+    <p style="font-size:13px;color:${muted};margin:0 0 4px">${esc(fmtDate(ev.date))}${ev.location ? " · " + esc(ev.location) : ""}</p>
+    ${note ? `<p style="font-size:14px;color:${textCol};background:${accent}14;border-left:3px solid ${accent};padding:10px 12px;border-radius:4px">${esc(note)}</p>` : ""}
     ${rows}
-    <p style="font-size:13px;color:#999;line-height:1.6;margin-top:18px">
+    <p style="font-size:13px;color:${muted};line-height:1.6;margin-top:18px">
       Zeig den QR-Code beim Einlass (Link oben) oder nenne den Ticketcode.
       Alle Tickets ansehen und als <b>PDF</b> herunterladen: melde dich unter
       <a href="${shopUrl}/tickets.html" style="color:${accent}">${shopUrl.replace("https://", "")}/tickets.html</a>
