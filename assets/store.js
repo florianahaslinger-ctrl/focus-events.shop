@@ -62,6 +62,10 @@
       paidVia: o.paid_via, paidAt: o.paid_at, createdAt: o.created_at, eventId: o.event_id || null,
       // MwSt-Satz zum Zeitpunkt des Kaufs (festgehalten, ändert sich nicht mit dem Event)
       vatRate: (o.vat_rate === null || o.vat_rate === undefined) ? null : Number(o.vat_rate),
+      // Rabattcode (falls beim Kauf eingelöst)
+      discountCode: o.discount_code || null,
+      discountPercent: (o.discount_percent === null || o.discount_percent === undefined) ? null : Number(o.discount_percent),
+      discountAmount: Number(o.discount_amount || 0),
       items: (o.order_items || []).map(i => ({
         categoryId: i.category_id, categoryName: i.category_name,
         eventName: i.event_name, price: Number(i.price), qty: i.qty
@@ -75,7 +79,7 @@
     };
   }
 
-  const ORDER_SELECT = 'id,email,customer_name,status,total,subtotal,service_fee,payment_fee,stripe_fee,stripe_net,stripe_payout,vat_rate,paid_via,paid_at,created_at,event_id,' +
+  const ORDER_SELECT = 'id,email,customer_name,status,total,subtotal,service_fee,payment_fee,stripe_fee,stripe_net,stripe_payout,vat_rate,discount_code,discount_percent,discount_amount,paid_via,paid_at,created_at,event_id,' +
     'order_items(category_id,category_name,event_name,price,qty),' +
     'tickets(code,category_id,category_name,event_name,event_date,event_location,price,checked_in,checked_in_at,seats(row_no,table_no,seat_no))';
 
@@ -313,12 +317,13 @@
     },
 
     /* --- Checkout (Stripe) --- */
-    async startCheckout(items, returnPath) {
+    async startCheckout(items, returnPath, discountCode) {
       // items: [{category_id, qty, seat_ids?}] – Edge Function prüft alles serverseitig.
       // returnPath (optional): Shop-Seite für die Rückkehr nach der Zahlung
       // (z. B. '/shop/' für den weißen Shop); ohne Angabe: /tickets.html.
       const body = { items, origin: location.origin };
       if (returnPath) body.return_path = returnPath;
+      if (discountCode) body.discount_code = discountCode;
       const { data, error } = await sb.functions.invoke('create-checkout', { body });
       if (error) {
         let msg = 'Zahlung konnte nicht gestartet werden.';
@@ -329,6 +334,51 @@
         throw new Error(msg);
       }
       return data; // { url, order_id }
+    },
+
+    /* --- Rabattcodes (je Event, Prozent auf die Ticketpreise) --- */
+    // Shop: eingegebenen Code prüfen → { ok, code, percent } oder { ok:false, error }.
+    // Nur Vorschau – verbindlich rechnet create-checkout.
+    async checkDiscountCode(eventId, code) {
+      const { data, error } = await sb.rpc('check_discount_code', { p_event: eventId, p_code: code });
+      if (error) return { ok: false, error: 'Rabattcode konnte nicht geprüft werden.' };
+      return data || { ok: false, error: 'Dieser Rabattcode ist ungültig.' };
+    },
+    // Dashboard: Codes eines Events inkl. Einlösungen
+    async getDiscountCodes(eventId) {
+      const { data, error } = await sb.from('discount_codes')
+        .select('id,code,percent,max_uses,active,created_at').eq('event_id', eventId).order('created_at');
+      if (error) throw new Error(error.message);
+      let stats = [];
+      try { const r = await sb.rpc('discount_code_stats', { p_event: eventId }); stats = r.data || []; } catch (_) {}
+      const byId = {}; stats.forEach(x => { byId[x.id] = x; });
+      return (data || []).map(d => ({
+        id: d.id, code: d.code, percent: Number(d.percent), maxUses: d.max_uses, active: !!d.active,
+        used: byId[d.id] ? Number(byId[d.id].used) : 0, amount: byId[d.id] ? Number(byId[d.id].amount) : 0
+      }));
+    },
+    async addDiscountCode(eventId, code, percent, maxUses) {
+      const c = String(code || '').trim().toUpperCase();
+      if (!/^[A-Z0-9_-]{3,40}$/.test(c)) throw new Error('Code: 3–40 Zeichen, nur Buchstaben, Ziffern, - und _.');
+      const pct = Number(String(percent).replace(',', '.'));
+      if (!(pct > 0 && pct <= 100)) throw new Error('Rabatt muss zwischen 1 und 100 % liegen.');
+      const mu = maxUses === '' || maxUses === null || maxUses === undefined ? null : parseInt(maxUses, 10);
+      if (mu !== null && !(mu > 0)) throw new Error('Max. Einlösungen muss leer oder größer als 0 sein.');
+      const { error } = await sb.from('discount_codes').insert({
+        event_id: eventId, code: c, percent: Math.round(pct * 100) / 100, max_uses: mu, created_by: this.currentUser ? this.currentUser() : null
+      });
+      if (error) {
+        if (/duplicate|unique/i.test(error.message)) throw new Error('Diesen Code gibt es für dieses Event bereits.');
+        throw new Error(error.message);
+      }
+    },
+    async setDiscountCodeActive(id, active) {
+      const { error } = await sb.from('discount_codes').update({ active: !!active }).eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+    async deleteDiscountCode(id) {
+      const { error } = await sb.from('discount_codes').delete().eq('id', id);
+      if (error) throw new Error(error.message);
     },
 
     // Eigene offene Bestellung sofort freigeben (bei Checkout-Abbruch) – gibt Kontingent frei.

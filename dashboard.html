@@ -545,6 +545,20 @@
       </div>
     </div>
 
+    <!-- Rabattcodes (nur bestehende Events) -->
+    <div id="evDiscountBox" style="margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:none">
+      <label style="margin:0">Rabattcodes</label>
+      <p class="hint" style="margin:6px 0 10px">Lege Codes an, mit denen Kunden beim Kauf einen Prozent-Rabatt auf die Ticketpreise dieses Events bekommen. Der Code wird in der Kassa eingegeben; Gebühren werden auf den reduzierten Preis berechnet. Änderungen gelten sofort (kein „Speichern“ nötig).</p>
+      <div id="evDiscountList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:2 1 170px"><label style="margin:0 0 4px;font-size:12px">Code</label><input type="text" id="evDiscCode" placeholder="z. B. FOCUS20" autocomplete="off" style="text-transform:uppercase"></div>
+        <div style="flex:1 1 90px"><label style="margin:0 0 4px;font-size:12px">Rabatt in %</label><input type="number" id="evDiscPct" min="1" max="100" step="1" placeholder="20"></div>
+        <div style="flex:1 1 130px"><label style="margin:0 0 4px;font-size:12px">Max. Einlösungen</label><input type="number" id="evDiscMax" min="1" step="1" placeholder="unbegrenzt"></div>
+        <button type="button" class="btn btn-gold btn-sm" id="btnAddDiscount">+ Code anlegen</button>
+      </div>
+      <div id="evDiscountMsg" class="msg" style="margin-top:8px"></div>
+    </div>
+
     <label style="margin-top:22px">Ticketkategorien</label>
     <div id="catEditor"></div>
     <button class="btn btn-ghost btn-sm" id="btnAddCat" style="margin-top:10px">+ Kategorie hinzufügen</button>
@@ -577,7 +591,7 @@
 <script src="assets/jsqr.js"></script>
 <script src="assets/qrcode.js"></script>
 <script src="assets/ticket-pdf.js?v=20261029a"></script>
-<script src="assets/store.js?v=20261029a"></script>
-<script src="assets/dashboard.js?v=20261029a"></script>
+<script src="assets/store.js?v=20261107a"></script>
+<script src="assets/dashboard.js?v=20261107a"></script>
 </body>
 </html>

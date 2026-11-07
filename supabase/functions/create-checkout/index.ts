@@ -62,10 +62,11 @@ Deno.serve(async (req) => {
     const meta = (userData.user.user_metadata ?? {}) as Record<string, unknown>;
     const customerName = String(meta.full_name ?? meta.name ?? "").trim() || null;
 
-    const { items, return_path, origin } = await req.json() as {
+    const { items, return_path, origin, discount_code } = await req.json() as {
       items: { category_id: string; qty: number; seat_ids?: string[] }[];
       return_path?: string;
       origin?: string;
+      discount_code?: string;
     };
     if (!Array.isArray(items) || !items.length) {
       return json({ error: "Der Warenkorb ist leer." }, 400);
@@ -119,7 +120,6 @@ Deno.serve(async (req) => {
     const lineItems: string[] = [];
     const allSeatIds: string[] = [];
     const eventIds = new Set<string>();
-    let li = 0;
     for (const it of items) {
       const cat = (cats ?? []).find((c) => c.id === it.category_id);
       const ev = cat?.events as { name: string; date: string; location: string; active: boolean; shared_quota: number | null } | null;
@@ -156,14 +156,6 @@ Deno.serve(async (req) => {
         _seating: !!cat.seating, _seatIds: cat.seating ? (it.seat_ids ?? []) : [],
         _eventDate: ev.date ?? null, _eventLocation: ev.location ?? null,
       });
-      const cents = Math.round(unit * 100);
-      lineItems.push(
-        `line_items[${li}][price_data][currency]=eur` +
-        `&line_items[${li}][price_data][product_data][name]=${encodeURIComponent(cat.name + " – " + ev.name)}` +
-        `&line_items[${li}][price_data][unit_amount]=${cents}` +
-        `&line_items[${li}][quantity]=${qty}`,
-      );
-      li++;
     }
 
     // Mandanten-Regel: eine Bestellung gehört zu genau einem Ball (für getrennte Auszahlungen)
@@ -189,6 +181,51 @@ Deno.serve(async (req) => {
       if (totalTickets > restShared) {
         return json({ error: `Für diesen Ball sind nur noch ${Math.max(0, restShared)} Tickets verfügbar.` }, 400);
       }
+    }
+
+    // Rabattcode (optional, je Event): Prozent-Rabatt auf die Ticketpreise.
+    // Wird auf den Stückpreis angewendet (auf Cent gerundet), damit Bestellung,
+    // Tickets, MwSt und Auszahlungen automatisch mit dem reduzierten Preis rechnen.
+    // Gebühren werden danach auf die reduzierte Zwischensumme berechnet.
+    let discount: { id: string; code: string; percent: number } | null = null;
+    let discountAmount = 0;
+    const wantedCode = String(discount_code ?? "").trim().toUpperCase();
+    if (wantedCode) {
+      const { data: codes } = await admin.from("discount_codes")
+        .select("id,code,percent,max_uses,active").eq("event_id", eventId);
+      const dc = (codes ?? []).find((c) => String(c.code).trim().toUpperCase() === wantedCode && c.active);
+      if (!dc) return json({ error: "Dieser Rabattcode ist ungültig." }, 400);
+      if (dc.max_uses != null) {
+        const { data: used } = await admin.rpc("discount_code_used", { p_code: dc.id });
+        if (Number(used ?? 0) >= Number(dc.max_uses)) {
+          return json({ error: "Dieser Rabattcode wurde bereits vollständig eingelöst." }, 400);
+        }
+      }
+      discount = { id: dc.id, code: String(dc.code).trim().toUpperCase(), percent: Number(dc.percent) };
+      const factor = 1 - Math.min(100, Math.max(0, discount.percent)) / 100;
+      const before = subtotal;
+      subtotal = 0;
+      for (const x of orderItems) {
+        const p = Math.round(Number(x.price) * factor * 100) / 100;
+        x.price = p;
+        subtotal += p * (x.qty as number);
+      }
+      subtotal = Math.round(subtotal * 100) / 100;
+      discountAmount = Math.round((before - subtotal) * 100) / 100;
+    }
+
+    // Stripe-Positionen (Tickets) – mit dem ggf. rabattierten Stückpreis
+    let li = 0;
+    for (const x of orderItems) {
+      const label = String(x.category_name) + " – " + String(x.event_name) +
+        (discount ? ` (−${discount.percent.toLocaleString("de-AT")} % Rabatt ${discount.code})` : "");
+      lineItems.push(
+        `line_items[${li}][price_data][currency]=eur` +
+        `&line_items[${li}][price_data][product_data][name]=${encodeURIComponent(label)}` +
+        `&line_items[${li}][price_data][unit_amount]=${Math.round(Number(x.price) * 100)}` +
+        `&line_items[${li}][quantity]=${x.qty}`,
+      );
+      li++;
     }
 
     // Servicegebühr je Storefront · Zahlungsgebühr (Stripe) immer 1,5 % + 0,25 €/Ticket
@@ -222,6 +259,10 @@ Deno.serve(async (req) => {
     const { error: oErr } = await admin.from("orders").insert({
       id: orderId, email, customer_name: customerName, subtotal, service_fee: serviceFee, payment_fee: paymentFee, total,
       status: "offen", event_id: eventId,
+      ...(discount ? {
+        discount_code_id: discount.id, discount_code: discount.code,
+        discount_percent: discount.percent, discount_amount: discountAmount,
+      } : {}),
     });
     if (oErr) throw oErr;
     const { error: iErr } = await admin.from("order_items").insert(

@@ -463,6 +463,14 @@
     } else {
       ciBox.style.display = 'none';
     }
+    // Rabattcodes – nur bestehende Events (nicht bei der VIP-Voreinstellung)
+    const dBox = $('evDiscountBox');
+    if (dBox) {
+      msg($('evDiscountMsg'), '');
+      $('evDiscCode').value = ''; $('evDiscPct').value = ''; $('evDiscMax').value = '';
+      if (ev && !editingVipDefault) { dBox.style.display = ''; renderDiscountCodes(ev.id); }
+      else { dBox.style.display = 'none'; }
+    }
     // Weitere Veranstalter (Mit-Verwalter) – nur bestehende Events
     renderCoOwners(ev);
     editorCats = (ev && ev.categories.length ? ev.categories : []);
@@ -1510,7 +1518,10 @@
         '<td>' + (o.customerName ? esc(o.customerName) : '<span class="hint">—</span>') + '</td>' +
         '<td>' + esc(o.email) + '</td>' +
         '<td>' + o.items.map(i => i.qty + '× ' + esc(i.categoryName)).join('<br>') + '</td>' +
-        '<td>' + S.fmtEUR.format(o.total) + '</td>' +
+        '<td>' + S.fmtEUR.format(o.total) +
+        (o.discountCode ? '<br><span class="hint" style="margin:0;white-space:nowrap" title="Rabattcode">🏷 ' + esc(o.discountCode) +
+          (o.discountPercent ? ' −' + (Number.isInteger(o.discountPercent) ? o.discountPercent : o.discountPercent.toLocaleString('de-AT')) + ' %' : '') +
+          (o.discountAmount ? ' (−' + S.fmtEUR.format(o.discountAmount) + ')' : '') + '</span>' : '') + '</td>' +
         '<td><span class="badge ' + esc(o.status) + '">' + esc(o.status) +
         (o.paidVia === 'stripe' ? ' · Stripe' : '') + '</span></td>' +
         '<td style="white-space:nowrap">' +
@@ -2048,6 +2059,64 @@
       $('evCheckinLinkBox').style.display = has ? '' : 'none';
     } catch (e) { msg($('evCheckinMsg'), e.message, 'error'); }
   }
+  /* ---------- Rabattcodes je Event ---------- */
+  async function renderDiscountCodes(eventId) {
+    const box = $('evDiscountList');
+    if (!box) return;
+    box.innerHTML = '<div class="hint">Rabattcodes werden geladen …</div>';
+    try {
+      const list = await S.getDiscountCodes(eventId);
+      if ($('evId').value !== eventId) return;   // Editor inzwischen gewechselt
+      if (!list.length) { box.innerHTML = '<div class="hint">Noch keine Rabattcodes für dieses Event.</div>'; return; }
+      box.innerHTML = list.map(d => {
+        const pct = Number.isInteger(d.percent) ? d.percent : d.percent.toLocaleString('de-AT');
+        const uses = d.used + (d.maxUses ? ' / ' + d.maxUses : '') + ' eingelöst';
+        const full = d.maxUses && d.used >= d.maxUses;
+        return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 12px;border:1px solid var(--line);border-radius:10px;' +
+            (d.active ? '' : 'opacity:.55') + '">' +
+          '<b style="font-family:monospace;font-size:15px;letter-spacing:.04em">' + esc(d.code) + '</b>' +
+          '<span class="badge" style="background:var(--gold);color:#fff">−' + pct + ' %</span>' +
+          '<span class="hint" style="margin:0">' + uses + (d.amount > 0 ? ' · ' + S.fmtEUR.format(d.amount) + ' Rabatt gewährt' : '') +
+            (full ? ' · <b>ausgeschöpft</b>' : '') + (d.active ? '' : ' · <b>deaktiviert</b>') + '</span>' +
+          '<span style="margin-left:auto;display:flex;gap:6px">' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-disc-toggle="' + d.id + '" data-on="' + (d.active ? '1' : '0') + '">' + (d.active ? 'Deaktivieren' : 'Aktivieren') + '</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-disc-del="' + d.id + '" data-code="' + esc(d.code) + '" data-used="' + d.used + '">Löschen</button>' +
+          '</span></div>';
+      }).join('');
+    } catch (e) { box.innerHTML = '<div class="hint">Rabattcodes konnten nicht geladen werden: ' + esc(e.message) + '</div>'; }
+  }
+  if ($('btnAddDiscount')) {
+    $('btnAddDiscount').addEventListener('click', async () => {
+      const id = $('evId').value;
+      if (!id) return;
+      try {
+        await S.addDiscountCode(id, $('evDiscCode').value, $('evDiscPct').value, $('evDiscMax').value);
+        msg($('evDiscountMsg'), 'Rabattcode „' + $('evDiscCode').value.trim().toUpperCase() + '“ angelegt.', 'ok');
+        $('evDiscCode').value = ''; $('evDiscPct').value = ''; $('evDiscMax').value = '';
+        renderDiscountCodes(id);
+      } catch (e) { msg($('evDiscountMsg'), e.message, 'error'); }
+    });
+    $('evDiscountList').addEventListener('click', async (e) => {
+      const id = $('evId').value;
+      const t = e.target.closest('[data-disc-toggle]');
+      const d = e.target.closest('[data-disc-del]');
+      try {
+        if (t) {
+          await S.setDiscountCodeActive(t.dataset.discToggle, t.dataset.on !== '1');
+          msg($('evDiscountMsg'), t.dataset.on === '1' ? 'Rabattcode deaktiviert.' : 'Rabattcode aktiviert.', 'ok');
+          renderDiscountCodes(id);
+        } else if (d) {
+          const used = Number(d.dataset.used || 0);
+          const warn = used > 0 ? '\n\nDer Code wurde bereits ' + used + '× eingelöst – die Bestellungen behalten ihren Rabatt, die Statistik geht aber verloren. Tipp: lieber deaktivieren.' : '';
+          if (!confirm('Rabattcode „' + d.dataset.code + '“ wirklich löschen?' + warn)) return;
+          await S.deleteDiscountCode(d.dataset.discDel);
+          msg($('evDiscountMsg'), 'Rabattcode gelöscht.', 'ok');
+          renderDiscountCodes(id);
+        }
+      } catch (err) { msg($('evDiscountMsg'), err.message, 'error'); }
+    });
+  }
+
   $('btnSaveCheckinPw').addEventListener('click', () => saveCheckinPw(false));
   $('btnClearCheckinPw').addEventListener('click', () => {
     if (confirm('Einlass-Zugang für dieses Event wirklich deaktivieren? Der bestehende Link funktioniert dann nicht mehr.')) saveCheckinPw(true);

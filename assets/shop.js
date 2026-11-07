@@ -6,6 +6,7 @@
   const $ = id => document.getElementById(id);
 
   let cart = {};          // { categoryId: qty }
+  let discount = null;    // eingelöster Rabattcode { code, percent, eventId } – nur Vorschau, verbindlich rechnet der Server
   let selectedSeats = {}; // { categoryId: [seatId, …] }
   // VIP-Tische
   let vipEv = null, vipTables = [], vipDrinksList = null, vipSel = null, vipCart = {};
@@ -568,11 +569,82 @@
     renderCheckoutSummary();
   }
 
+  // Rabatt auf die Warenkorb-Zeilen anwenden (gleiche Rundung wie der Server: je Stück auf Cent)
+  function cartEventId(lines) {
+    const ids = Array.from(new Set(lines.map(l => l.ev.id)));
+    return ids.length === 1 ? ids[0] : null;
+  }
+  function applyDiscount(lines) {
+    if (!discount || discount.eventId !== cartEventId(lines)) return { lines, amount: 0 };
+    const f = 1 - Math.min(100, Math.max(0, discount.percent)) / 100;
+    let amount = 0;
+    const out = lines.map(l => {
+      const unit = Math.round((l.sum / l.qty) * f * 100) / 100;
+      const sum = Math.round(unit * l.qty * 100) / 100;
+      amount += l.sum - sum;
+      return Object.assign({}, l, { sum });
+    });
+    return { lines: out, amount: Math.round(amount * 100) / 100 };
+  }
+
+  // Eingabefeld für den Rabattcode (wird einmalig in das Kassa-Fenster eingesetzt)
+  function ensureDiscountUI() {
+    if ($('discountBox')) return;
+    const anchor = $('checkoutTotal');
+    if (!anchor) return;
+    anchor.insertAdjacentHTML('beforebegin',
+      '<div id="discountBox" style="margin-top:16px;padding:14px 16px;border:1px dashed var(--line, rgba(127,127,127,.35));border-radius:12px">' +
+        '<label for="discountInput" style="display:block;margin:0 0 8px;font-size:13px;font-weight:600">Rabattcode</label>' +
+        '<div id="discountForm" style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<input type="text" id="discountInput" placeholder="Code eingeben" autocomplete="off" autocapitalize="characters" spellcheck="false" style="flex:1 1 180px;text-transform:uppercase">' +
+          '<button type="button" class="btn btn-ghost btn-sm" id="btnDiscount">Einlösen</button>' +
+        '</div>' +
+        '<div id="discountApplied" style="display:none;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
+          '<span id="discountLabel" style="font-weight:700"></span>' +
+          '<button type="button" class="linklike" id="btnDiscountRemove">entfernen</button>' +
+        '</div>' +
+        '<div class="msg" id="discountMsg" style="margin-top:8px"></div>' +
+      '</div>');
+    const apply = async () => {
+      const code = $('discountInput').value.trim();
+      const { lines } = cartDetails();
+      const evId = cartEventId(lines);
+      if (!code) { msg($('discountMsg'), 'Bitte einen Rabattcode eingeben.', 'error'); return; }
+      if (!evId) { msg($('discountMsg'), 'Rabattcodes gelten je Event – bitte nur Tickets eines Events im Warenkorb.', 'error'); return; }
+      $('btnDiscount').disabled = true;
+      msg($('discountMsg'), 'Code wird geprüft …', 'info');
+      const r = await S.checkDiscountCode(evId, code);
+      $('btnDiscount').disabled = false;
+      if (!r || !r.ok) { discount = null; msg($('discountMsg'), (r && r.error) || 'Dieser Rabattcode ist ungültig.', 'error'); return; }
+      discount = { code: r.code, percent: Number(r.percent), eventId: evId };
+      renderCheckoutSummary();
+    };
+    $('btnDiscount').addEventListener('click', apply);
+    $('discountInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+    $('btnDiscountRemove').addEventListener('click', () => { discount = null; $('discountInput').value = ''; renderCheckoutSummary(); });
+  }
+  function renderDiscountUI(amount) {
+    ensureDiscountUI();
+    if (!$('discountBox')) return;
+    const on = !!discount && amount >= 0 && discount.eventId === cartEventId(cartDetails().lines);
+    $('discountForm').style.display = on ? 'none' : 'flex';
+    $('discountApplied').style.display = on ? 'flex' : 'none';
+    if (on) {
+      const pct = Number.isInteger(discount.percent) ? discount.percent : discount.percent.toLocaleString('de-AT');
+      $('discountLabel').textContent = '✓ ' + discount.code + ' – ' + pct + ' % Rabatt';
+      msg($('discountMsg'), '');
+    }
+  }
+
   function renderCheckoutSummary() {
     const user = S.currentUser();
-    const { total, count, lines } = cartDetails();
+    const { total, count } = cartDetails();
+    const rawLines = cartDetails().lines;
+    if (discount && discount.eventId !== cartEventId(rawLines)) discount = null;
+    const disc = applyDiscount(rawLines);
+    const lines = disc.lines;
     $('checkoutEmail').textContent = 'Bestellung für: ' + user;
-    $('checkoutItems').innerHTML = lines.map(l => {
+    $('checkoutItems').innerHTML = rawLines.map(l => {
       let seatInfo = '';
       if (l.cat.seating && selectedSeats[l.cat.id]) {
         const map = seatById[l.ev.id] || {};
@@ -584,6 +656,15 @@
         '<div class="desc">' + esc(l.ev.name) + ' · ' + fmtDate(l.ev.date) + '</div>' + seatInfo + '</div>' +
         '<div class="cat-price">' + S.fmtEUR.format(l.sum) + '</div></div>';
     }).join('');
+    // Rabatt als eigene Zeile (Gebühren & MwSt rechnen danach mit den reduzierten Preisen)
+    if (disc.amount > 0) {
+      const pct = Number.isInteger(discount.percent) ? discount.percent : discount.percent.toLocaleString('de-AT');
+      $('checkoutItems').innerHTML += '<div class="cat-row"><div class="cat-info">' +
+        '<div class="name" style="color:var(--gold-light)">Rabatt ' + esc(discount.code) + '</div>' +
+        '<div class="desc">−' + pct + ' % auf die Tickets</div></div>' +
+        '<div class="cat-price" style="color:var(--gold-light)">−' + S.fmtEUR.format(disc.amount) + '</div></div>';
+    }
+    renderDiscountUI(disc.amount);
     const fb = S.feeBreakdownLines(lines);
     if (fb.total > fb.subtotal) {
       const feeRow = (name, hint, val) => '<div class="cat-row" style="opacity:.85"><div class="cat-info">' +
@@ -637,8 +718,9 @@
     try {
       $('btnPlaceOrder').disabled = true;
       msg($('checkoutMsg'), 'Bezahlvorgang wird gestartet …', 'info');
-      const res = await S.startCheckout(items, '/index.html');
-      cart = {}; selectedSeats = {};
+      const code = (discount && discount.eventId === cartEventId(lines)) ? discount.code : null;
+      const res = await S.startCheckout(items, '/index.html', code);
+      cart = {}; selectedSeats = {}; discount = null;
       // Order-ID merken, um bei Abbruch das Kontingent sofort wieder freizugeben.
       try { localStorage.setItem('fx_pending_order', res.order_id); } catch (_) {}
       window.location.href = res.url;
