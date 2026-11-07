@@ -59,14 +59,15 @@ function brandFor(redirect: string) {
   const r = redirect.toLowerCase();
   if (r.includes("focus-events") || r.includes("focus.core-management.at")) {
     return { name: "Focus Events", title: "FOCUS EVENTS", tag: "Club Events", shop: "Focus Events Ticketshop",
-      bg: "#080808", panel: "#101010", text: "#F5F0EB", muted: "#999999", accent: "#5a66ff", codeBg: "#0d0d0d" };
+      bg: "#080808", panel: "#101010", text: "#F5F0EB", muted: "#999999", accent: "#5a66ff", codeBg: "#0d0d0d", logo: "" };
   }
   if (r.includes("litecball") || r.includes("litec")) {
     return { name: "Litec Ball", title: "LITEC BALL", tag: "The Wolf of Paul Hahn Street", shop: "Litec Ball Ticketshop",
-      bg: "#080808", panel: "#101010", text: "#F5F0EB", muted: "#999999", accent: "#12a05f", codeBg: "#0d0d0d" };
+      bg: "#080808", panel: "#101010", text: "#F5F0EB", muted: "#999999", accent: "#12a05f", codeBg: "#0d0d0d", logo: "" };
   }
   return { name: "Birdie Tickets", title: "BIRDIE TICKETS", tag: "Tickets für Bälle &amp; Events", shop: "Birdie Tickets Ticketshop",
-    bg: "#1F3D2B", panel: "#264A35", text: "#E8DCC4", muted: "#B5AC97", accent: "#8B5CF6", codeBg: "#1A3425" };
+    bg: "#1F3D2B", panel: "#264A35", text: "#E8DCC4", muted: "#B5AC97", accent: "#8B5CF6", codeBg: "#1A3425",
+    logo: "https://core-management.at/assets/birdie-logo-light.png?v=1" };
 }
 
 function buildEmail(email: string, d: Record<string, string>) {
@@ -87,7 +88,9 @@ function buildEmail(email: string, d: Record<string, string>) {
   const html =
 `<!DOCTYPE html><html><body style="margin:0;background:${b.bg};font-family:Arial,Helvetica,sans-serif;color:${b.text};padding:28px">
   <div style="max-width:480px;margin:0 auto;background:${b.panel};border:1px solid ${b.accent}40;border-radius:6px;padding:32px">
-    <div style="font-size:22px;letter-spacing:3px;color:${b.accent};font-weight:bold;margin-bottom:6px">${b.title}</div>
+    ${b.logo
+      ? `<img src="${b.logo}" alt="${b.name}" width="170" height="53" style="display:block;border:0;width:170px;height:53px;margin-bottom:8px">`
+      : `<div style="font-size:22px;letter-spacing:3px;color:${b.accent};font-weight:bold;margin-bottom:6px">${b.title}</div>`}
     <div style="color:${b.muted};font-size:13px;margin-bottom:22px">${b.tag}</div>
     <p style="font-size:15px;line-height:1.6">${esc(intro)}</p>
     <div style="font-size:38px;letter-spacing:12px;font-weight:bold;color:${b.accent};text-align:center;

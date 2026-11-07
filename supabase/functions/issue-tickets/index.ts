@@ -139,7 +139,9 @@ Deno.serve(async (req) => {
     const html =
 `<!DOCTYPE html><html><body style="margin:0;background:${bg};font-family:Arial,Helvetica,sans-serif;color:${textCol};padding:28px">
   <div style="max-width:520px;margin:0 auto;background:${panel};border:1px solid ${accent}44;border-radius:8px;padding:32px">
-    <div style="font-size:22px;letter-spacing:3px;color:${accent};font-weight:bold">${brandName}</div>
+    ${isBirdie
+      ? `<img src="https://core-management.at/assets/birdie-logo-light.png?v=1" alt="Birdie Tickets" width="170" height="53" style="display:block;border:0;width:170px;height:53px;margin-bottom:8px">`
+      : `<div style="font-size:22px;letter-spacing:3px;color:${accent};font-weight:bold">${brandName}</div>`}
     <div style="color:${muted};font-size:13px;margin-bottom:20px">${brandTag}</div>
     <p style="font-size:16px">Du hast ${qty} Ticket${qty > 1 ? "s" : ""} erhalten:</p>
     <p style="font-size:15px;color:${accent2};margin:2px 0 2px">${esc(cat.name)} – ${esc(ev.name)}</p>
