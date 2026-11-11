@@ -498,7 +498,10 @@
     async myOrders() {
       const email = this.currentUser();
       if (!email) return [];
+      // Nicht nur auf RLS verlassen: Admins dürfen per RLS ALLE Bestellungen lesen.
+      // „Meine Tickets“ zeigt daher explizit nur die Bestellungen der eigenen E-Mail.
       const { data, error } = await sb.from('orders').select(ORDER_SELECT)
+        .eq('email', email)
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return (data || []).map(mapOrder);
